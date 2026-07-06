@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Workout</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_active_plans">Active</string>
+    <string name="nav_inactive_plans">Inactive</string>
+    <string name="nav_statistics">Statistics</string>
+    <string name="placeholder_phase0">Phase 0 — project skeleton. Features arrive in Phase 1+.</string>
+</resources>
