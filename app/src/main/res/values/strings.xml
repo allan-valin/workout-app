@@ -103,4 +103,14 @@
     <string name="sets_logged">Sets logged</string>
     <string name="close">Close</string>
     <string name="no_description">No description available.</string>
+    <string name="averages">Averages</string>
+    <string name="sessions_count">Sessions</string>
+    <string name="avg_session_duration">Avg. duration</string>
+    <string name="avg_volume">Avg. volume</string>
+    <string name="volume_over_time">Volume over time</string>
+    <string name="bodyweight">Bodyweight</string>
+    <string name="add_weight">Add</string>
+    <string name="current_weight">Current</string>
+    <string name="height_cm">Height (cm)</string>
+    <string name="no_data_yet">No data yet.</string>
 </resources>

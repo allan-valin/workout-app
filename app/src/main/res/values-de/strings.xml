@@ -103,4 +103,14 @@
     <string name="sets_logged">Erfasste Sätze</string>
     <string name="close">Schließen</string>
     <string name="no_description">Keine Beschreibung verfügbar.</string>
+    <string name="averages">Durchschnitte</string>
+    <string name="sessions_count">Sessions</string>
+    <string name="avg_session_duration">Ø Dauer</string>
+    <string name="avg_volume">Ø Volumen</string>
+    <string name="volume_over_time">Volumen über Zeit</string>
+    <string name="bodyweight">Körpergewicht</string>
+    <string name="add_weight">Hinzufügen</string>
+    <string name="current_weight">Aktuell</string>
+    <string name="height_cm">Größe (cm)</string>
+    <string name="no_data_yet">Noch keine Daten.</string>
 </resources>

@@ -103,4 +103,14 @@
     <string name="sets_logged">Séries registradas</string>
     <string name="close">Fechar</string>
     <string name="no_description">Sem descrição disponível.</string>
+    <string name="averages">Médias</string>
+    <string name="sessions_count">Sessões</string>
+    <string name="avg_session_duration">Duração média</string>
+    <string name="avg_volume">Volume médio</string>
+    <string name="volume_over_time">Volume ao longo do tempo</string>
+    <string name="bodyweight">Peso corporal</string>
+    <string name="add_weight">Adicionar</string>
+    <string name="current_weight">Atual</string>
+    <string name="height_cm">Altura (cm)</string>
+    <string name="no_data_yet">Ainda sem dados.</string>
 </resources>

@@ -189,6 +189,19 @@ interface SessionDao {
     @Query("SELECT * FROM session WHERE status IN ('FINISHED','AUTO_ENDED') ORDER BY startedAt")
     suspend fun finishedSessions(): List<Session>
 
+    @Query("SELECT * FROM session WHERE status IN ('FINISHED','AUTO_ENDED') ORDER BY startedAt")
+    fun finishedSessionsFlow(): Flow<List<Session>>
+
+    @Query(
+        """
+        SELECT sl.* FROM set_log sl
+        JOIN session s ON s.id = sl.sessionId
+        WHERE s.status IN ('FINISHED','AUTO_ENDED')
+        ORDER BY sl.completedAt
+        """
+    )
+    suspend fun allFinishedLogs(): List<SetLog>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertBodyMetric(metric: BodyMetric)
 

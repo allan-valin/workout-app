@@ -341,7 +341,7 @@ private fun MainScaffold(
                         PlanCard(plan, onOpen = { onOpenPlan(plan.id) }, onToggle = { vm.setPlanActive(plan, true) })
                     }
                 }
-                Tab.Stats -> item { Text(stringResource(R.string.placeholder_phase0), Modifier.padding(top = 16.dp)) }
+                Tab.Stats -> item { dev.allan.workoutapp.ui.stats.StatsTab() }
             }
         }
     }

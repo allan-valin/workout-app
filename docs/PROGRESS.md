@@ -55,11 +55,11 @@ Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/short
 - [x] EMULATOR VERIFIED 2026-07-07: full flow (view→start→pager→NumberPad +20kg→log set→rest 1:28 in panel), background countdown notification LIVE in shade ("Descanso · 01:05" ticking with app minimized), resume brought session back (2:20, 1/3), end+confirm→summary: 200 kg total = 20×10 ✓, Dorsais 200 ✓, active 0:30 (3s/rep) ✓, idle = total−active−rest exactly ✓
 - Polish notes for Phase 6: NumberPad "+1.25" renders as "+1.2" (button width), am-kill resume untested (code path same as reopen)
 
-## Phase 4 — statistics tab (next)
+## Phase 4 — statistics tab (done 2026-07-07, emulator-verified)
 
-- [ ] Stats tab: averages (volume/session, duration, active/rest/idle ratios), bodyweight quick-add + graph, volume-over-time graph (Canvas or Vico)
-- [ ] Height once in Settings (DataStore)
-- [ ] Unit tests: StatsCalc (PER_DUMBBELL ×2, PER_SIDE bar+2×side), SplitWizard counts
+- [x] StatsTab: averages card (sessions, duration, volume, active/rest/idle), volume-over-time + bodyweight line charts (dependency-free Canvas LineChart), bodyweight quick-add (BodyMetric, one per epochDay), height in DataStore (data/Settings.kt)
+- [x] Unit tests green: StatsCalc (TOTAL/PER_DUMBBELL ×2/PER_SIDE bar+2×side, SECS no volume, per-muscle attribution incl. Allan's 30kg spec example), SplitWizard (counts 1-7, clamping, unique ISO days, 7-day has 2 cardio)
+- [x] Emulator: stats tab renders real data from the Phase 3 test session (1 session, 200 kg, 2:43)
 
 ## Phase 5 — import/export | Phase 6 — polish (media download, alt-name labels, HyperOS onboarding)
 
