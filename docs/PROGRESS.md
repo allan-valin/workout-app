@@ -21,12 +21,24 @@ session may be interrupted at any time).
 - [x] git repo + private GitHub remote (allan-valin/workout-app), initial commit pushed
 - [ ] APK installed and launches on Redmi 15 Pro 5G (Allan: `winstall` via USB, or copy APK to phone)
 
-## Phase 1 — data layer (next)
+## Phase 1 — data layer (done 2026-07-07)
 
-- [ ] Room + DataStore dependencies
-- [ ] Entities per IMPLEMENTATION_PLAN.md §2 + DAOs + FTS index for exercise search
-- [ ] `tools/wger-snapshot/` script → bundled exercise DB (en/pt-BR/de)
-- [ ] Language switch (flag button) via AppCompatDelegate.setApplicationLocales
-- [ ] Exercise browse/search screen (deferred search + muscle filter)
+- [x] Room 2.7.1 (KSP) + DataStore + kotlinx.serialization + navigation-compose + appcompat
+- [x] Full schema (all entities incl. Session/SetLog for later phases), schemas exported to app/schemas
+- [x] `tools/wger-snapshot/fetch_wger.py` → assets/wger_snapshot.json (818 exercises; en 818 / de 627 / pt 66), imported once on first launch
+- [x] Language flag button (en→pt-BR→de) via AppCompatDelegate, persisted (autoStoreLocales); theme switched to AppCompat descendant — KEEP IT, Material theme crashes AppCompatActivity
+- [x] Exercise library: deferred search (button, not per-keystroke), muscle-group + search-language filters, alt-names toggle, detail bottom sheet
+- [x] Emulator-verified (AVD `testphone`, headless): home en/pt, search "bench", detail sheet. Screenshots in session scratchpad.
 
-Phases 2–7: see IMPLEMENTATION_PLAN.md §7.
+Decisions: wger pt = Brazilian content but only 66 exercises translated — search in pt falls back visibly with (en)/(de) lang markers. Muscle names pt/de hardcoded in MuscleNames.kt.
+
+## Phase 2 — plan editor + wizard (next)
+
+- [ ] Plans CRUD: create/rename/activate/deactivate/delete, cycleWeeks + startedAt
+- [ ] "Suggest a split" wizard: days/week (1-7) + cycle weeks → named workouts with weekdays (7d: 4-5 split + 2-3 cardio/physio days; deload banner at cycle end)
+- [ ] Workout editor: add exercises from library (+ button), set templates (type/weight/reps-secs/rest), bulk rest apply, weight mode per exercise
+- [ ] Custom exercise creation
+- [ ] Home shows today's workouts; Active/Inactive tabs list plans
+- [ ] Bottom bar hidden while editing
+
+Phases 3–7: see IMPLEMENTATION_PLAN.md §7.

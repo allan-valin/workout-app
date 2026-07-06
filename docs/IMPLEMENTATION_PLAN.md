@@ -80,6 +80,14 @@ BodyMetric          date, weightKg; height stored once in DataStore (editable)
 - Result row: name (+ alt names line if enabled), muscle tag, `+` button to add; tapping the text opens exercise detail (description, form cues, image/GIF, YouTube link).
 - After adding: per-exercise config — sets list (type, weight, reps/secs), rest timer per set with "apply to all sets" bulk action, weight mode (total / per dumbbell / per side, bar default 20 kg editable).
 - Workouts within a plan: name each, assign weekdays (multi-select), reorder.
+- **Plan wizard (decided 2026-07-06):** new plans start empty, but a "Suggest a split" wizard asks
+  (a) training days per week (1–7) and (b) cycle length in weeks. It proposes a split structure —
+  e.g. 7 days: 4–5 muscle-split days + 2–3 cardio/physio/core days; fewer days: full-body or
+  upper/lower variants — as named empty workouts with assigned weekdays that the user fills with
+  exercises. `Plan.cycleWeeks` + `Plan.startedAt` let the app count weeks and banner a suggested
+  deload week at cycle end (reminder only, no automatic changes).
+- **Rest-timer alert (decided):** vibration + sound on countdown end, works screen-off via the
+  foreground service; toggleable in Settings.
 - Back button always closes the topmost overlay/sheet first; only navigates back when nothing is overlaid (global rule, implemented via `BackHandler` priority — applies to every screen).
 
 ### 4.3 Workout view (not started)

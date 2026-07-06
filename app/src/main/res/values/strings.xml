@@ -5,5 +5,21 @@
     <string name="nav_active_plans">Active</string>
     <string name="nav_inactive_plans">Inactive</string>
     <string name="nav_statistics">Statistics</string>
-    <string name="placeholder_phase0">Phase 0 — project skeleton. Features arrive in Phase 1+.</string>
+    <string name="placeholder_phase0">Coming in a later phase.</string>
+    <string name="exercise_library">Exercise library</string>
+    <string name="search_exercises">Search exercises</string>
+    <string name="search_button">Search</string>
+    <string name="filters">Filters</string>
+    <string name="muscle_group">Muscle group</string>
+    <string name="search_language">Search language</string>
+    <string name="lang_app_default">App language</string>
+    <string name="show_alt_names">Show alternate names</string>
+    <string name="all">All</string>
+    <string name="no_results">No exercises found.</string>
+    <string name="back">Back</string>
+    <string name="primary_muscles">Primary muscles</string>
+    <string name="secondary_muscles">Secondary muscles</string>
+    <string name="also_known_as">Also known as</string>
+    <string name="wger_attribution">Exercise data: wger.de (CC-BY-SA 4.0)</string>
+    <string name="no_workouts_today">No workouts assigned for today.</string>
 </resources>
