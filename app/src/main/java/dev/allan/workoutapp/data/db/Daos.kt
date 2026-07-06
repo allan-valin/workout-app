@@ -46,6 +46,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise WHERE isCustom = 1")
     suspend fun customExercises(): List<Exercise>
 
+    @Query("UPDATE exercise SET imagePath = :path WHERE id = :id")
+    suspend fun setImagePath(id: String, path: String)
+
     /** Exact case-insensitive name match in any language. */
     @Query("SELECT exerciseId FROM exercise_translation WHERE LOWER(name) = LOWER(:name) LIMIT 1")
     suspend fun exerciseIdByName(name: String): String?

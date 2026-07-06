@@ -41,7 +41,7 @@ data class SessionExercise(
     val name: String,
     val weightMode: WeightMode,
     val barWeightKg: Double,
-    val imageUrl: String?,
+    val imagePath: String?,
     val sets: List<SessionSet>,
 )
 
@@ -120,7 +120,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 name = PlanRepo.displayName(db, we.exerciseId, lang),
                 weightMode = we.weightMode,
                 barWeightKg = we.barWeightKg,
-                imageUrl = db.exerciseDao().exercise(we.exerciseId)?.imageUrl,
+                imagePath = db.exerciseDao().exercise(we.exerciseId)?.imagePath,
                 sets = sets,
             )
         }
@@ -129,6 +129,18 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             workoutName = workout.name,
             exercises = exercises,
         )
+        // Backfill any missing images (e.g. exercise added before the media pipeline existed).
+        exercises.filter { it.imagePath == null }.forEach { ex ->
+            viewModelScope.launch {
+                val path = dev.allan.workoutapp.data.MediaStore.ensureImage(getApplication(), db, ex.exerciseId)
+                    ?: return@launch
+                _state.value = _state.value.copy(
+                    exercises = _state.value.exercises.map {
+                        if (it.workoutExerciseId == ex.workoutExerciseId) it.copy(imagePath = path) else it
+                    }
+                )
+            }
+        }
     }
 
     /** 1 Hz UI clock: recompute all countdowns from wall-clock instants. */

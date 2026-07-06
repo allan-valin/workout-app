@@ -332,13 +332,13 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
         )
         NumberField(
             value = set.targetWeightKg,
-            label = stringResource(R.string.kg),
+            label = "kg",
             onCommit = { onUpdate(set.copy(targetWeightKg = it)) },
             modifier = Modifier.weight(1f),
         )
         IntField(
             value = set.targetValue,
-            label = if (set.valueUnit == ValueUnit.REPS) stringResource(R.string.reps) else stringResource(R.string.secs),
+            label = "×",
             onCommit = { onUpdate(set.copy(targetValue = it)) },
             modifier = Modifier.weight(1f),
         )
@@ -352,7 +352,7 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
         )
         IntField(
             value = set.restSecs,
-            label = stringResource(R.string.rest_short),
+            label = "s",
             onCommit = { onUpdate(set.copy(restSecs = it)) },
             modifier = Modifier.weight(1f),
         )

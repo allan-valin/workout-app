@@ -11,6 +11,15 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 
 object Settings {
     private val HEIGHT_CM = doublePreferencesKey("height_cm")
+    private val BATTERY_ONBOARDING_SHOWN =
+        androidx.datastore.preferences.core.booleanPreferencesKey("battery_onboarding_shown")
+
+    fun batteryOnboardingShown(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[BATTERY_ONBOARDING_SHOWN] ?: false }
+
+    suspend fun setBatteryOnboardingShown(context: Context) {
+        context.dataStore.edit { it[BATTERY_ONBOARDING_SHOWN] = true }
+    }
 
     fun heightCm(context: Context): Flow<Double?> =
         context.dataStore.data.map { it[HEIGHT_CM] }

@@ -118,6 +118,8 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             dev.allan.workoutapp.data.PlanRepo.addExerciseToWorkout(db, workoutId, exerciseId)
             onDone()
+            // Fetch the exercise image once, for offline use during sessions.
+            dev.allan.workoutapp.data.MediaStore.ensureImage(getApplication(), db, exerciseId)
         }
     }
 

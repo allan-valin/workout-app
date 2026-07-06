@@ -129,4 +129,8 @@
     <string name="restore_done">Backup wiederhergestellt.</string>
     <string name="import_failed">Import fehlgeschlagen: %1$s</string>
     <string name="import_report">Importiert: %1$d Trainings, %2$d Übungen, %3$d eigene erstellt, %4$d übersprungen.</string>
+    <string name="battery_onboarding_title">Timer am Leben halten</string>
+    <string name="battery_onboarding_text">HyperOS beendet Hintergrund-Apps aggressiv. Damit Pausentimer und Trainings-Benachrichtigung bei ausgeschaltetem Bildschirm weiterlaufen, erlaube einmalig beide Einstellungen unten.</string>
+    <string name="battery_exemption_button">Akku-Optimierung deaktivieren</string>
+    <string name="autostart_button">Autostart erlauben</string>
 </resources>

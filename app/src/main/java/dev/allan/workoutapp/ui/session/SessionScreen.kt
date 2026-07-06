@@ -42,6 +42,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,6 +60,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -95,6 +98,23 @@ fun SessionScreen(
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    // One-time HyperOS onboarding: without these exemptions Xiaomi kills the timers.
+    val context = LocalContext.current
+    var showBatteryOnboarding by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!dev.allan.workoutapp.data.Settings.batteryOnboardingShown(context).first()) {
+            showBatteryOnboarding = true
+        }
+    }
+    if (showBatteryOnboarding) {
+        BatteryOnboardingDialog(onDismiss = {
+            showBatteryOnboarding = false
+            (context.applicationContext as dev.allan.workoutapp.WorkoutApp).appScope.launch {
+                dev.allan.workoutapp.data.Settings.setBatteryOnboardingShown(context)
+            }
+        })
     }
 
     if (state.showList) {
@@ -256,7 +276,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
     var editTarget by remember { mutableStateOf<Pair<SessionSet, String>?>(null) } // set + field
 
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        // Image slot (~1/6 height). Media pipeline lands in Phase 6 — placeholder for now.
+        // Image slot (~1/6 height): offline copy downloaded when the exercise was added.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -264,7 +284,19 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(48.dp))
+            val bitmap = remember(ex.imagePath) {
+                ex.imagePath?.let { android.graphics.BitmapFactory.decodeFile(it)?.asImageBitmap() }
+            }
+            if (bitmap != null) {
+                androidx.compose.foundation.Image(
+                    bitmap = bitmap,
+                    contentDescription = ex.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                )
+            } else {
+                Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(48.dp))
+            }
         }
 
         // Story-style progress bar: one segment per exercise.
@@ -426,6 +458,60 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
     }
 }
 
+/**
+ * One-time dialog pointing at HyperOS battery-exemption + autostart settings —
+ * without both, MIUI/HyperOS kills the foreground service and the rest timers die.
+ */
+@Composable
+private fun BatteryOnboardingDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.battery_onboarding_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.battery_onboarding_text))
+                OutlinedButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    android.net.Uri.parse("package:${context.packageName}"),
+                                )
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.battery_exemption_button)) }
+                OutlinedButton(
+                    onClick = {
+                        // Xiaomi/HyperOS autostart manager; falls back to app details.
+                        val autostart = android.content.Intent().setClassName(
+                            "com.miui.securitycenter",
+                            "com.miui.permcenter.autostart.AutoStartManagementActivity",
+                        )
+                        runCatching { context.startActivity(autostart) }.onFailure {
+                            runCatching {
+                                context.startActivity(
+                                    android.content.Intent(
+                                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        android.net.Uri.parse("package:${context.packageName}"),
+                                    )
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.autostart_button)) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) }
+        },
+    )
+}
+
 /** Tap-to-edit overlay: ± quick increments plus direct numeric input. */
 @Composable
 private fun NumberPadDialog(
@@ -450,22 +536,34 @@ private fun NumberPadDialog(
                     singleLine = true,
                     textStyle = MaterialTheme.typography.headlineSmall,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     increments.forEach { inc ->
                         OutlinedButton(
                             onClick = { value += inc },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(2.dp),
                             modifier = Modifier.weight(1f),
-                        ) { Text("+${if (inc % 1.0 == 0.0) inc.toInt() else inc}", maxLines = 1) }
+                        ) {
+                            Text(
+                                "+${if (inc % 1.0 == 0.0) inc.toInt() else inc}",
+                                maxLines = 1,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     increments.forEach { inc ->
                         OutlinedButton(
                             onClick = { value = (value - inc).coerceAtLeast(0.0) },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(2.dp),
                             modifier = Modifier.weight(1f),
-                        ) { Text("-${if (inc % 1.0 == 0.0) inc.toInt() else inc}", maxLines = 1) }
+                        ) {
+                            Text(
+                                "-${if (inc % 1.0 == 0.0) inc.toInt() else inc}",
+                                maxLines = 1,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
                     }
                 }
             }
