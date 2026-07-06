@@ -43,6 +43,17 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise WHERE id = :id")
     suspend fun exercise(id: String): Exercise?
 
+    @Query("SELECT * FROM exercise WHERE isCustom = 1")
+    suspend fun customExercises(): List<Exercise>
+
+    /** Exact case-insensitive name match in any language. */
+    @Query("SELECT exerciseId FROM exercise_translation WHERE LOWER(name) = LOWER(:name) LIMIT 1")
+    suspend fun exerciseIdByName(name: String): String?
+
+    /** Candidate rows whose alias blob contains the name (verified exactly in Kotlin). */
+    @Query("SELECT * FROM exercise_translation WHERE LOWER(aliases) LIKE '%' || LOWER(:name) || '%' LIMIT 20")
+    suspend fun translationsWithAliasLike(name: String): List<ExerciseTranslation>
+
     @Query("SELECT * FROM exercise_translation WHERE exerciseId = :exerciseId")
     suspend fun translations(exerciseId: String): List<ExerciseTranslation>
 
@@ -81,6 +92,19 @@ interface PlanDao {
     @Insert
     suspend fun insertPlan(plan: Plan): Long
 
+    // Bulk inserts with explicit ids — used only by backup restore (fresh install).
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restorePlans(items: List<Plan>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreWorkouts(items: List<Workout>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreWorkoutExercises(items: List<WorkoutExercise>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreSetTemplates(items: List<SetTemplate>)
+
     @Update
     suspend fun updatePlan(plan: Plan)
 
@@ -89,6 +113,18 @@ interface PlanDao {
 
     @Query("SELECT * FROM plan WHERE id = :id")
     suspend fun plan(id: Long): Plan?
+
+    @Query("SELECT * FROM plan ORDER BY createdAt")
+    suspend fun allPlans(): List<Plan>
+
+    @Query("SELECT * FROM workout WHERE planId = :planId ORDER BY orderIndex")
+    suspend fun workoutsList(planId: Long): List<Workout>
+
+    @Query("SELECT * FROM workout_exercise WHERE workoutId = :workoutId ORDER BY orderIndex")
+    suspend fun workoutExercisesList(workoutId: Long): List<WorkoutExercise>
+
+    @Query("SELECT * FROM set_template WHERE workoutExerciseId = :weId ORDER BY setIndex")
+    suspend fun setTemplatesList(weId: Long): List<SetTemplate>
 
     @Query("DELETE FROM plan WHERE id = :id")
     suspend fun deletePlan(id: Long)
@@ -158,6 +194,15 @@ interface SessionDao {
     @Insert
     suspend fun insertSession(session: Session): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreSessions(items: List<Session>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreSetLogs(items: List<SetLog>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreBodyMetrics(items: List<BodyMetric>)
+
     @Update
     suspend fun updateSession(session: Session)
 
@@ -207,6 +252,15 @@ interface SessionDao {
 
     @Query("SELECT * FROM body_metric ORDER BY epochDay")
     fun bodyMetrics(): Flow<List<BodyMetric>>
+
+    @Query("SELECT * FROM session ORDER BY startedAt")
+    suspend fun allSessions(): List<Session>
+
+    @Query("SELECT * FROM set_log ORDER BY completedAt")
+    suspend fun allSetLogs(): List<SetLog>
+
+    @Query("SELECT * FROM body_metric ORDER BY epochDay")
+    suspend fun allBodyMetrics(): List<BodyMetric>
 
     @Insert
     suspend fun insertNote(note: ExerciseNote): Long

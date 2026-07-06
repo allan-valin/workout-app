@@ -113,4 +113,20 @@
     <string name="current_weight">Atual</string>
     <string name="height_cm">Altura (cm)</string>
     <string name="no_data_yet">Ainda sem dados.</string>
+    <string name="settings">Configurações</string>
+    <string name="plans_transfer">Planos de treino</string>
+    <string name="import_plan">Importar plano (JSON)</string>
+    <string name="export_plan">Exportar plano (JSON)</string>
+    <string name="history_export">Exportar histórico</string>
+    <string name="export_sets_csv">Exportar séries (CSV)</string>
+    <string name="export_sessions_csv">Exportar sessões (CSV)</string>
+    <string name="export_body_csv">Exportar peso corporal (CSV)</string>
+    <string name="backup">Backup</string>
+    <string name="export_backup">Backup completo (JSON)</string>
+    <string name="restore_backup">Restaurar backup</string>
+    <string name="restore_hint">A restauração é para uma instalação nova (celular novo).</string>
+    <string name="export_done">Exportado.</string>
+    <string name="restore_done">Backup restaurado.</string>
+    <string name="import_failed">Falha na importação: %1$s</string>
+    <string name="import_report">Importado: %1$d treinos, %2$d exercícios, %3$d personalizados criados, %4$d ignorados.</string>
 </resources>

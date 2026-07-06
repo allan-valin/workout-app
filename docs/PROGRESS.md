@@ -61,6 +61,17 @@ Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/short
 - [x] Unit tests green: StatsCalc (TOTAL/PER_DUMBBELL ×2/PER_SIDE bar+2×side, SECS no volume, per-muscle attribution incl. Allan's 30kg spec example), SplitWizard (counts 1-7, clamping, unique ISO days, 7-day has 2 cardio)
 - [x] Emulator: stats tab renders real data from the Phase 3 test session (1 session, 200 kg, 2:43)
 
-## Phase 5 — import/export | Phase 6 — polish (media download, alt-name labels, HyperOS onboarding)
+## Phase 5 — import/export (done 2026-07-07, emulator-verified)
 
-Phases per IMPLEMENTATION_PLAN.md §7.
+- [x] PlanTransfer: schema-v1 JSON import (resolver: wger_id → exact name any lang → exact alias → custom_fallback → skip+report) + export (round-trips). Contract = docs/WORKOUT_PLAN_GENERATOR.md
+- [x] CsvExport: sets / sessions / body CSVs per generator-doc columns
+- [x] Backup: full JSON export/restore (fresh-install restore, ids verbatim), incl. custom exercises + height; Room entities now @Serializable
+- [x] SettingsScreen (gear on main top bar): SAF launchers for all of the above, plan-picker dialog, import report dialog, wger attribution
+- [x] Emulator: imported test JSON via SAF → report "1 treinos, 2 exercícios, 1 personalizados criados, 1 ignorados: Nonexistent Exercise XYZ" — all resolver paths hit
+
+## Phase 6 — polish (next)
+
+- [ ] Exercise image/GIF download-on-add (resize ≤1080px, filesDir/exercise_media, ref-count sweep) + show in session/detail
+- [ ] HyperOS onboarding dialog: battery-exemption + autostart deep-links on first session
+- [ ] Label fixes: set-row "Re ps"/"De sc." wrap in workout editor; NumberPad "+1.25" clipped
+- [ ] Optional: wger DB refresh button in Settings; prev/next session buttons setting; am-kill resume test

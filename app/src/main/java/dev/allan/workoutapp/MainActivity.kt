@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -140,6 +141,7 @@ fun AppRoot() {
         composable("main") {
             MainScaffold(
                 onOpenLibrary = { navController.navigate("library") },
+                onOpenSettings = { navController.navigate("settings") },
                 onOpenPlan = { navController.navigate("plan/$it") },
                 onOpenWorkout = { navController.navigate("view/$it") },
                 onResumeSession = { navController.navigate("session/$it") },
@@ -195,6 +197,12 @@ fun AppRoot() {
                 onBack = { navController.popBackStack() },
             )
         }
+        composable("settings") {
+            dev.allan.workoutapp.ui.settings.SettingsScreen(
+                appLang = currentAppLang(),
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(
             "plan/{planId}",
             arguments = listOf(navArgument("planId") { type = NavType.LongType }),
@@ -234,6 +242,7 @@ fun AppRoot() {
 @Composable
 private fun MainScaffold(
     onOpenLibrary: () -> Unit,
+    onOpenSettings: () -> Unit,
     onOpenPlan: (Long) -> Unit,
     onOpenWorkout: (Long) -> Unit,
     onResumeSession: (Long) -> Unit,
@@ -254,6 +263,9 @@ private fun MainScaffold(
                 actions = {
                     IconButton(onClick = { cycleLanguage() }) {
                         Text(flagFor(currentAppLang()), style = MaterialTheme.typography.titleLarge)
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
                     }
                 },
             )

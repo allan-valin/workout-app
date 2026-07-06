@@ -3,6 +3,7 @@ package dev.allan.workoutapp.data.db
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /** Weight entry modes for an exercise inside a workout. */
 enum class WeightMode { TOTAL, PER_DUMBBELL, PER_SIDE }
@@ -17,6 +18,7 @@ enum class SessionStatus { RUNNING, FINISHED, DISCARDED, AUTO_ENDED }
  * Exercise identity row. id is "wger:<id>" for snapshot exercises or "custom:<uuid>"
  * for user-created ones. Names/descriptions live in [ExerciseTranslation].
  */
+@Serializable
 @Entity(tableName = "exercise")
 data class Exercise(
     @PrimaryKey val id: String,
@@ -31,6 +33,7 @@ data class Exercise(
     val licenseAuthor: String? = null,
 )
 
+@Serializable
 @Entity(
     tableName = "exercise_translation",
     indices = [Index("exerciseId"), Index("lang", "name")],
@@ -44,6 +47,7 @@ data class ExerciseTranslation(
     val aliases: List<String>,
 )
 
+@Serializable
 @Entity(tableName = "muscle")
 data class Muscle(
     @PrimaryKey val id: Int,
@@ -51,12 +55,14 @@ data class Muscle(
     val nameEn: String,
 )
 
+@Serializable
 @Entity(tableName = "equipment")
 data class Equipment(
     @PrimaryKey val id: Int,
     val name: String,
 )
 
+@Serializable
 @Entity(tableName = "plan")
 data class Plan(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -67,6 +73,7 @@ data class Plan(
     val createdAt: Long,
 )
 
+@Serializable
 @Entity(tableName = "workout", indices = [Index("planId")])
 data class Workout(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -77,6 +84,7 @@ data class Workout(
     val daysOfWeek: List<Int>,
 )
 
+@Serializable
 @Entity(tableName = "workout_exercise", indices = [Index("workoutId"), Index("exerciseId")])
 data class WorkoutExercise(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -88,6 +96,7 @@ data class WorkoutExercise(
     val barWeightKg: Double = 20.0,
 )
 
+@Serializable
 @Entity(tableName = "set_template", indices = [Index("workoutExerciseId")])
 data class SetTemplate(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -100,6 +109,7 @@ data class SetTemplate(
     val restSecs: Int = 90,
 )
 
+@Serializable
 @Entity(tableName = "session", indices = [Index("workoutId"), Index("status")])
 data class Session(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -111,6 +121,7 @@ data class Session(
     val restSecs: Int = 0,
 )
 
+@Serializable
 @Entity(tableName = "set_log", indices = [Index("sessionId"), Index("workoutExerciseId")])
 data class SetLog(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -129,6 +140,7 @@ data class SetLog(
     val completedAt: Long,
 )
 
+@Serializable
 @Entity(tableName = "exercise_note", indices = [Index("exerciseId")])
 data class ExerciseNote(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -138,6 +150,7 @@ data class ExerciseNote(
     val updatedAt: Long,
 )
 
+@Serializable
 @Entity(tableName = "body_metric")
 data class BodyMetric(
     /** Epoch day (days since 1970-01-01) — one weight entry per day. */
