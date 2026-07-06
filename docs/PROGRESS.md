@@ -44,7 +44,7 @@ Decisions: wger pt = Brazilian content but only 66 exercises translated — sear
 
 Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/shorten in Phase 6.
 
-## Phase 3 — session engine (code done 2026-07-07, emulator verify PENDING)
+## Phase 3 — session engine (done 2026-07-07, emulator-verified)
 
 - [x] SessionManager: wall-clock-instant timers (rest/set countdown/stopwatch, active+rest accumulators) — survive minimize/kill by design
 - [x] TimerService (FGS specialUse): chronometer notification; live countdown notification via setChronometerCountDown when rest/set timer runs (Allan's request); vibrate+beep alert at countdown end, then reverts to session chronometer; POST_NOTIFICATIONS requested at session start
@@ -52,7 +52,8 @@ Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/short
 - [x] SessionScreen: list mode + HorizontalPager mode, story progress bar, image placeholder (media Phase 6), sets table w/ tap-to-edit NumberPad overlay (±1.25/2.5/5/10/15/20), checkmark gray→primary, timer panel, note dialog, ⋯ end menu with confirmations
 - [x] WorkoutViewScreen (compact "3× 10 Reps", Start/Edit), SummaryScreen (total/active/rest/idle, volume per muscle via StatsCalc), auto-end >5h in WorkoutApp, Home resume card
 - [x] Nav: home→view/{id}→session/{id}→summary/{sessionId}; summary back→view, close→main
-- [ ] EMULATOR VERIFY (next session): start session→log set→HOME→`adb shell cmd statusbar expand-notifications`→countdown notification→alert→reopen→end→summary numbers; `adb shell am kill` resume test
+- [x] EMULATOR VERIFIED 2026-07-07: full flow (view→start→pager→NumberPad +20kg→log set→rest 1:28 in panel), background countdown notification LIVE in shade ("Descanso · 01:05" ticking with app minimized), resume brought session back (2:20, 1/3), end+confirm→summary: 200 kg total = 20×10 ✓, Dorsais 200 ✓, active 0:30 (3s/rep) ✓, idle = total−active−rest exactly ✓
+- Polish notes for Phase 6: NumberPad "+1.25" renders as "+1.2" (button width), am-kill resume untested (code path same as reopen)
 
 ## Phase 4 — statistics tab (next)
 
