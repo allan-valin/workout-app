@@ -167,6 +167,9 @@ interface SessionDao {
     @Query("SELECT * FROM session WHERE status = 'RUNNING' LIMIT 1")
     suspend fun runningSession(): Session?
 
+    @Query("SELECT * FROM session WHERE status = 'RUNNING' LIMIT 1")
+    fun runningSessionFlow(): Flow<Session?>
+
     @Insert
     suspend fun insertSetLog(log: SetLog): Long
 

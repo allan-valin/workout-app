@@ -70,6 +70,9 @@ import dev.allan.workoutapp.ui.plans.PlanEditorScreen
 import dev.allan.workoutapp.ui.plans.PlansViewModel
 import dev.allan.workoutapp.ui.plans.SplitWizard
 import dev.allan.workoutapp.ui.plans.WorkoutEditorScreen
+import dev.allan.workoutapp.ui.session.SessionScreen
+import dev.allan.workoutapp.ui.session.SummaryScreen
+import dev.allan.workoutapp.ui.workout.WorkoutViewScreen
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
@@ -138,7 +141,52 @@ fun AppRoot() {
             MainScaffold(
                 onOpenLibrary = { navController.navigate("library") },
                 onOpenPlan = { navController.navigate("plan/$it") },
-                onOpenWorkout = { navController.navigate("workout/$it") },
+                onOpenWorkout = { navController.navigate("view/$it") },
+                onResumeSession = { navController.navigate("session/$it") },
+            )
+        }
+        composable(
+            "view/{workoutId}",
+            arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
+        ) { entry ->
+            val workoutId = entry.arguments!!.getLong("workoutId")
+            WorkoutViewScreen(
+                workoutId = workoutId,
+                appLang = currentAppLang(),
+                onBack = { navController.popBackStack() },
+                onEdit = { navController.navigate("workout/$workoutId") },
+                onStart = { navController.navigate("session/$workoutId") },
+            )
+        }
+        composable(
+            "session/{workoutId}",
+            arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
+        ) { entry ->
+            val workoutId = entry.arguments!!.getLong("workoutId")
+            SessionScreen(
+                workoutId = workoutId,
+                appLang = currentAppLang(),
+                onExit = { navController.popBackStack() },
+                onFinished = { sessionId ->
+                    navController.navigate("summary/$sessionId") {
+                        popUpTo("main")
+                    }
+                },
+            )
+        }
+        composable(
+            "summary/{sessionId}",
+            arguments = listOf(navArgument("sessionId") { type = NavType.LongType }),
+        ) { entry ->
+            SummaryScreen(
+                sessionId = entry.arguments!!.getLong("sessionId"),
+                appLang = currentAppLang(),
+                onClose = { navController.popBackStack("main", inclusive = false) },
+                onBackToWorkout = { workoutId ->
+                    navController.navigate("view/$workoutId") {
+                        popUpTo("main")
+                    }
+                },
             )
         }
         composable("library") {
@@ -188,6 +236,7 @@ private fun MainScaffold(
     onOpenLibrary: () -> Unit,
     onOpenPlan: (Long) -> Unit,
     onOpenWorkout: (Long) -> Unit,
+    onResumeSession: (Long) -> Unit,
     vm: PlansViewModel = viewModel(),
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
@@ -196,6 +245,7 @@ private fun MainScaffold(
     val activePlans by vm.activePlans.collectAsState()
     val inactivePlans by vm.inactivePlans.collectAsState()
     val todayWorkouts by vm.todayWorkouts.collectAsState()
+    val runningSession by vm.runningSession.collectAsState()
 
     Scaffold(
         topBar = {
@@ -245,6 +295,20 @@ private fun MainScaffold(
         ) {
             when (Tab.entries[selected]) {
                 Tab.Home -> {
+                    runningSession?.let { session ->
+                        item {
+                            Card(
+                                onClick = { onResumeSession(session.workoutId) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    stringResource(R.string.resume_workout),
+                                    Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
+                        }
+                    }
                     item { Text(stringResource(R.string.today), style = MaterialTheme.typography.titleLarge) }
                     if (todayWorkouts.isEmpty()) {
                         item { Text(stringResource(R.string.no_workouts_today)) }

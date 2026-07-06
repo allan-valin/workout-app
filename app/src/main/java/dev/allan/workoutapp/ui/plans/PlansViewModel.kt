@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.allan.workoutapp.WorkoutApp
 import dev.allan.workoutapp.data.db.Plan
+import dev.allan.workoutapp.data.db.Session
 import dev.allan.workoutapp.data.db.Workout
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,10 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
 
     val inactivePlans: StateFlow<List<Plan>> = db.planDao().plans(false)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Non-null while a session is RUNNING — drives the Home "resume" card. */
+    val runningSession: StateFlow<Session?> = db.sessionDao().runningSessionFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val todayWorkouts: StateFlow<List<Workout>> =
         db.planDao().workoutsForDay(LocalDate.now().dayOfWeek.value)

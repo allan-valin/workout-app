@@ -44,4 +44,22 @@ Decisions: wger pt = Brazilian content but only 66 exercises translated — sear
 
 Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/shorten in Phase 6.
 
-Phases 3–7: see IMPLEMENTATION_PLAN.md §7.
+## Phase 3 — session engine (code done 2026-07-07, emulator verify PENDING)
+
+- [x] SessionManager: wall-clock-instant timers (rest/set countdown/stopwatch, active+rest accumulators) — survive minimize/kill by design
+- [x] TimerService (FGS specialUse): chronometer notification; live countdown notification via setChronometerCountDown when rest/set timer runs (Allan's request); vibrate+beep alert at countdown end, then reverts to session chronometer; POST_NOTIFICATIONS requested at session start
+- [x] SessionViewModel: start/resume RUNNING session, prefill from previous logs, logSet (SetLog write, superset skips rest), active time = secs value | stopwatch | 3s/rep estimate, end save/discard
+- [x] SessionScreen: list mode + HorizontalPager mode, story progress bar, image placeholder (media Phase 6), sets table w/ tap-to-edit NumberPad overlay (±1.25/2.5/5/10/15/20), checkmark gray→primary, timer panel, note dialog, ⋯ end menu with confirmations
+- [x] WorkoutViewScreen (compact "3× 10 Reps", Start/Edit), SummaryScreen (total/active/rest/idle, volume per muscle via StatsCalc), auto-end >5h in WorkoutApp, Home resume card
+- [x] Nav: home→view/{id}→session/{id}→summary/{sessionId}; summary back→view, close→main
+- [ ] EMULATOR VERIFY (next session): start session→log set→HOME→`adb shell cmd statusbar expand-notifications`→countdown notification→alert→reopen→end→summary numbers; `adb shell am kill` resume test
+
+## Phase 4 — statistics tab (next)
+
+- [ ] Stats tab: averages (volume/session, duration, active/rest/idle ratios), bodyweight quick-add + graph, volume-over-time graph (Canvas or Vico)
+- [ ] Height once in Settings (DataStore)
+- [ ] Unit tests: StatsCalc (PER_DUMBBELL ×2, PER_SIDE bar+2×side), SplitWizard counts
+
+## Phase 5 — import/export | Phase 6 — polish (media download, alt-name labels, HyperOS onboarding)
+
+Phases per IMPLEMENTATION_PLAN.md §7.
