@@ -112,4 +112,27 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
     fun closeDetail() {
         _detail.value = null
     }
+
+    /** Picker mode: append the exercise (with default sets) to the target workout. */
+    fun addToWorkout(workoutId: Long, exerciseId: String, onDone: () -> Unit) {
+        viewModelScope.launch {
+            dev.allan.workoutapp.data.PlanRepo.addExerciseToWorkout(db, workoutId, exerciseId)
+            onDone()
+        }
+    }
+
+    fun createCustomExercise(
+        name: String,
+        description: String,
+        primaryMuscleId: Int?,
+        isCardio: Boolean,
+        onDone: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val id = dev.allan.workoutapp.data.PlanRepo.createCustomExercise(
+                db, name, description, primaryMuscleId, isCardio, appLang(),
+            )
+            onDone(id)
+        }
+    }
 }

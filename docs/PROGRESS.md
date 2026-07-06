@@ -32,13 +32,16 @@ session may be interrupted at any time).
 
 Decisions: wger pt = Brazilian content but only 66 exercises translated — search in pt falls back visibly with (en)/(de) lang markers. Muscle names pt/de hardcoded in MuscleNames.kt.
 
-## Phase 2 — plan editor + wizard (next)
+## Phase 2 — plan editor + wizard (done 2026-07-07)
 
-- [ ] Plans CRUD: create/rename/activate/deactivate/delete, cycleWeeks + startedAt
-- [ ] "Suggest a split" wizard: days/week (1-7) + cycle weeks → named workouts with weekdays (7d: 4-5 split + 2-3 cardio/physio days; deload banner at cycle end)
-- [ ] Workout editor: add exercises from library (+ button), set templates (type/weight/reps-secs/rest), bulk rest apply, weight mode per exercise
-- [ ] Custom exercise creation
-- [ ] Home shows today's workouts; Active/Inactive tabs list plans
-- [ ] Bottom bar hidden while editing
+- [x] Plans CRUD (PlansViewModel), active/inactive toggle, delete, cycleWeeks + startedAt
+- [x] Split wizard (SplitWizard.kt): 1-7 days/week templates, 7-day = 5 muscle days + 2 cardio/core; cycle-week + deload banner in plan editor
+- [x] Plan editor: rename, cycle weeks, weekday chips per workout (java.time narrow names), add/delete workout
+- [x] Workout editor: add/remove/reorder exercises, weight-mode chips (Total/Per dumbbell/Per side + bar weight), per-set rows (type/kg/value/unit/rest), add set (copies last), bulk rest dialog
+- [x] Exercise picker = library in picker mode (pickerWorkoutId) with + buttons and toast; custom exercise dialog (name/description/muscle/cardio) in current language
+- [x] Home Today list (workoutsForDay ISO day), Active/Inactive tabs with plan cards + FAB new-plan dialog
+- [x] Emulator-verified in pt-BR: wizard 7-day plan "Ciclo Teste" (8-week cycle, "Semana 1 de 8" banner), searched "supino", added 2 exercises, editor renders, Home shows "Costas" on Tuesday
+
+Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/shorten in Phase 6.
 
 Phases 3–7: see IMPLEMENTATION_PLAN.md §7.

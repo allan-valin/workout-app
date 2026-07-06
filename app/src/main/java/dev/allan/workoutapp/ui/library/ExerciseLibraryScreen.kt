@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,12 +51,23 @@ import dev.allan.workoutapp.data.db.ExerciseHit
 fun ExerciseLibraryScreen(
     appLang: String,
     onBack: () -> Unit,
+    pickerWorkoutId: Long? = null,
     vm: ExerciseLibraryViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsState()
     val muscles by vm.muscles.collectAsState()
     val detail by vm.detail.collectAsState()
     var showFilters by remember { mutableStateOf(false) }
+    var showCustomDialog by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val addedMsg = stringResource(R.string.exercise_added)
+    val onAdd: ((String) -> Unit)? = pickerWorkoutId?.let { wid ->
+        { exerciseId ->
+            vm.addToWorkout(wid, exerciseId) {
+                android.widget.Toast.makeText(context, addedMsg, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -86,10 +99,15 @@ fun ExerciseLibraryScreen(
                 label = { Text(stringResource(R.string.search_exercises)) },
                 singleLine = true,
             )
-            // Deferred search: explicit button, no per-keystroke queries.
-            if (state.query.isNotBlank() || state.selectedMuscleId != null) {
-                TextButton(onClick = { vm.search(appLang) }, modifier = Modifier.align(Alignment.End)) {
-                    Text(stringResource(R.string.search_button))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onClick = { showCustomDialog = true }) {
+                    Text(stringResource(R.string.new_custom_exercise))
+                }
+                // Deferred search: explicit button, no per-keystroke queries.
+                if (state.query.isNotBlank() || state.selectedMuscleId != null) {
+                    TextButton(onClick = { vm.search(appLang) }) {
+                        Text(stringResource(R.string.search_button))
+                    }
                 }
             }
             when {
@@ -113,6 +131,7 @@ fun ExerciseLibraryScreen(
                                     ?.let { MuscleNames.display(it.nameEn, appLang) } ?: ""
                             },
                             onClick = { vm.openDetail(hit) },
+                            onAdd = onAdd,
                         )
                     }
                 }
@@ -170,6 +189,20 @@ fun ExerciseLibraryScreen(
         }
     }
 
+    if (showCustomDialog) {
+        CustomExerciseDialog(
+            muscles = muscles,
+            appLang = appLang,
+            onDismiss = { showCustomDialog = false },
+            onCreate = { name, desc, muscleId, cardio ->
+                vm.createCustomExercise(name, desc, muscleId, cardio) { id ->
+                    onAdd?.invoke(id)
+                }
+                showCustomDialog = false
+            },
+        )
+    }
+
     detail?.let { d ->
         ModalBottomSheet(onDismissRequest = vm::closeDetail) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -210,6 +243,70 @@ fun ExerciseLibraryScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CustomExerciseDialog(
+    muscles: List<dev.allan.workoutapp.data.db.Muscle>,
+    appLang: String,
+    onDismiss: () -> Unit,
+    onCreate: (name: String, description: String, muscleId: Int?, isCardio: Boolean) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var muscleId by remember { mutableStateOf<Int?>(null) }
+    var cardio by remember { mutableStateOf(false) }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.new_custom_exercise)) },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.exercise_name)) },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text(stringResource(R.string.description)) },
+                    minLines = 2,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.cardio))
+                    Switch(checked = cardio, onCheckedChange = { cardio = it })
+                }
+                Text(stringResource(R.string.muscle_group), fontWeight = FontWeight.Bold)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    muscles.forEach { m ->
+                        FilterChip(
+                            selected = muscleId == m.id,
+                            onClick = { muscleId = if (muscleId == m.id) null else m.id },
+                            label = { Text(MuscleNames.display(m.nameEn, appLang)) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (name.isNotBlank()) onCreate(name.trim(), description.trim(), muscleId, cardio) },
+            ) { Text(stringResource(R.string.ok)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
 @Composable
 private fun ExerciseRow(
     hit: ExerciseHit,
@@ -217,6 +314,7 @@ private fun ExerciseRow(
     altLine: String?,
     muscleName: (Int) -> String,
     onClick: () -> Unit,
+    onAdd: ((String) -> Unit)? = null,
 ) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
@@ -224,6 +322,14 @@ private fun ExerciseRow(
                 Text(hit.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 if (hit.lang != appLang) {
                     Text("(${hit.lang})", style = MaterialTheme.typography.labelSmall)
+                }
+                if (onAdd != null) {
+                    IconButton(onClick = { onAdd(hit.id) }) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = stringResource(R.string.add_exercise),
+                        )
+                    }
                 }
             }
             val tags = hit.primaryMuscles.map(muscleName).filter { it.isNotEmpty() }

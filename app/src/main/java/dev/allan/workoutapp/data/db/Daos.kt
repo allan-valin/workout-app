@@ -118,6 +118,9 @@ interface PlanDao {
     )
     fun workoutsForDay(isoDay: Int): Flow<List<Workout>>
 
+    @Query("SELECT COALESCE(MAX(orderIndex) + 1, 0) FROM workout_exercise WHERE workoutId = :workoutId")
+    suspend fun nextExerciseOrder(workoutId: Long): Int
+
     @Insert
     suspend fun insertWorkoutExercise(item: WorkoutExercise): Long
 
