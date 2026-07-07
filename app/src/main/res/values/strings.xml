@@ -139,4 +139,8 @@
     <string name="refresh_wger_hint">Downloads the latest exercises and translations. Needs internet. Custom exercises are never changed.</string>
     <string name="wger_refresh_done">Updated: %1$d exercises, %2$d translations.</string>
     <string name="wger_refresh_failed">Refresh failed, existing data kept: %1$s</string>
+    <string name="session_settings">Workout session</string>
+    <string name="prev_next_setting">Previous/next exercise buttons</string>
+    <string name="prev_exercise">Previous exercise</string>
+    <string name="next_exercise">Next exercise</string>
 </resources>

@@ -139,4 +139,8 @@
     <string name="refresh_wger_hint">Baixa os exercícios e traduções mais recentes. Precisa de internet. Exercícios personalizados nunca são alterados.</string>
     <string name="wger_refresh_done">Atualizado: %1$d exercícios, %2$d traduções.</string>
     <string name="wger_refresh_failed">Falha na atualização, dados existentes mantidos: %1$s</string>
+    <string name="session_settings">Sessão de treino</string>
+    <string name="prev_next_setting">Botões de exercício anterior/próximo</string>
+    <string name="prev_exercise">Exercício anterior</string>
+    <string name="next_exercise">Próximo exercício</string>
 </resources>

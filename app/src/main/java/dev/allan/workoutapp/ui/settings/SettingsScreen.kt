@@ -239,6 +239,33 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
             }
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.session_settings), fontWeight = FontWeight.Bold)
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val prevNext by dev.allan.workoutapp.data.Settings.prevNextButtons(context)
+                        .collectAsState(initial = false)
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    androidx.compose.foundation.layout.Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.prev_next_setting),
+                            modifier = Modifier.weight(1f),
+                        )
+                        androidx.compose.material3.Switch(
+                            checked = prevNext,
+                            onCheckedChange = { value ->
+                                scope.launch {
+                                    dev.allan.workoutapp.data.Settings.setPrevNextButtons(context, value)
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.exercise_db), fontWeight = FontWeight.Bold)
                     OutlinedButton(
                         onClick = vm::refreshWger,

@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MoreVert
@@ -60,6 +62,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -176,6 +179,9 @@ fun SessionScreen(
             pageCount = { state.exercises.size },
         )
         LaunchedEffect(pagerState.currentPage) { vm.setCurrentIndex(pagerState.currentPage) }
+        val prevNextEnabled by dev.allan.workoutapp.data.Settings.prevNextButtons(context)
+            .collectAsState(initial = false)
+        val pagerScope = androidx.compose.runtime.rememberCoroutineScope()
 
         Scaffold(
             topBar = {
@@ -189,6 +195,41 @@ fun SessionScreen(
             ) {
                 HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
                     ExercisePage(page, vm, state)
+                }
+                if (prevNextEnabled) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        IconButton(
+                            enabled = pagerState.currentPage > 0,
+                            onClick = {
+                                pagerScope.launch {
+                                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                }
+                            },
+                        ) {
+                            Icon(
+                                Icons.Default.ChevronLeft,
+                                contentDescription = stringResource(R.string.prev_exercise),
+                            )
+                        }
+                        IconButton(
+                            enabled = pagerState.currentPage < state.exercises.lastIndex,
+                            onClick = {
+                                pagerScope.launch {
+                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                }
+                            },
+                        ) {
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = stringResource(R.string.next_exercise),
+                            )
+                        }
+                    }
                 }
                 if (state.timerPanelVisible) {
                     TimerPanel(vm, state)
@@ -274,12 +315,32 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
     val ex = state.exercises.getOrNull(page) ?: return
     var editTarget by remember { mutableStateOf<Pair<SessionSet, String>?>(null) } // set + field
 
+    // Image collapses when the sets table scrolls up and reappears on scroll-down at the top.
+    val tableScroll = rememberScrollState()
+    var imageVisible by remember { mutableStateOf(true) }
+    val tableScrollConnection = remember(tableScroll) {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+            ): androidx.compose.ui.geometry.Offset {
+                if (available.y < -4 && tableScroll.maxValue > 0) imageVisible = false
+                else if (available.y > 4 && tableScroll.value == 0) imageVisible = true
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+    val imageHeight by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (imageVisible) 110.dp else 0.dp,
+        label = "imageHeight",
+    )
+
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         // Image slot (~1/6 height): offline copy downloaded when the exercise was added.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(110.dp)
+                .height(imageHeight)
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
@@ -344,7 +405,8 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
         Column(
             Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState()),
+                .nestedScroll(tableScrollConnection)
+                .verticalScroll(tableScroll),
         ) {
             ex.sets.forEach { set ->
                 Row(

@@ -21,6 +21,16 @@ object Settings {
         context.dataStore.edit { it[BATTERY_ONBOARDING_SHOWN] = true }
     }
 
+    private val PREV_NEXT_BUTTONS =
+        androidx.datastore.preferences.core.booleanPreferencesKey("prev_next_buttons")
+
+    fun prevNextButtons(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[PREV_NEXT_BUTTONS] ?: false }
+
+    suspend fun setPrevNextButtons(context: Context, value: Boolean) {
+        context.dataStore.edit { it[PREV_NEXT_BUTTONS] = value }
+    }
+
     fun heightCm(context: Context): Flow<Double?> =
         context.dataStore.data.map { it[HEIGHT_CM] }
 
