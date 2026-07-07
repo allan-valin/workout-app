@@ -60,7 +60,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -284,12 +283,20 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            val bitmap = remember(ex.imagePath) {
-                ex.imagePath?.let { android.graphics.BitmapFactory.decodeFile(it)?.asImageBitmap() }
+            val mediaFile = remember(ex.imagePath) {
+                ex.imagePath?.let { java.io.File(it) }?.takeIf { it.exists() }
             }
-            if (bitmap != null) {
-                androidx.compose.foundation.Image(
-                    bitmap = bitmap,
+            if (mediaFile != null) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                // GIF-capable loader (minSdk 29 ⇒ ImageDecoder is always available).
+                val gifLoader = remember {
+                    coil.ImageLoader.Builder(context)
+                        .components { add(coil.decode.ImageDecoderDecoder.Factory()) }
+                        .build()
+                }
+                coil.compose.AsyncImage(
+                    model = mediaFile,
+                    imageLoader = gifLoader,
                     contentDescription = ex.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit,

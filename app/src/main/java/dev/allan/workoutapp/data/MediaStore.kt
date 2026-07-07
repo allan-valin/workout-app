@@ -30,15 +30,36 @@ object MediaStore {
             if (!url.startsWith("https://wger.de/")) return@withContext null
 
             val dir = File(context.filesDir, "exercise_media").apply { mkdirs() }
-            val target = File(dir, exerciseId.replace(':', '_') + ".jpg")
+            val isGif = url.substringBefore('?').endsWith(".gif", ignoreCase = true)
+            val target = File(dir, exerciseId.replace(':', '_') + if (isGif) ".gif" else ".jpg")
             runCatching {
                 val bytes = download(url) ?: return@withContext null
-                val bitmap = decodeScaled(bytes) ?: return@withContext null
-                target.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+                if (isGif) {
+                    // Keep GIFs verbatim — re-encoding would drop the animation.
+                    target.writeBytes(bytes)
+                } else {
+                    val bitmap = decodeScaled(bytes) ?: return@withContext null
+                    target.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+                }
                 db.exerciseDao().setImagePath(exerciseId, target.absolutePath)
                 target.absolutePath
             }.getOrNull()
         }
+
+    /**
+     * Ref-count sweep: delete media files whose exercise is no longer in any workout.
+     * Stale Exercise.imagePath is harmless — ensureImage re-checks file existence.
+     */
+    suspend fun sweep(context: Context, db: AppDatabase) = withContext(Dispatchers.IO) {
+        val dir = File(context.filesDir, "exercise_media")
+        if (!dir.isDirectory) return@withContext
+        val referenced = db.planDao().referencedExerciseIds()
+            .map { it.replace(':', '_') }
+            .toSet()
+        dir.listFiles()?.forEach { file ->
+            if (file.nameWithoutExtension !in referenced) file.delete()
+        }
+    }
 
     private fun download(url: String): ByteArray? {
         val conn = URL(url).openConnection() as HttpURLConnection

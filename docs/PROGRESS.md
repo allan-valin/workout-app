@@ -79,7 +79,7 @@ Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/short
 ## Phase 7 — backlog dev (started 2026-07-07; Play Store explicitly excluded by Allan)
 
 - [x] wger DB refresh button in Settings (data/sync/WgerSync.kt): mirrors fetch_wger.py, fetch-all-then-one-transaction (abort keeps old data), preserves imagePath/licenseAuthor, never touches custom exercises, additive (upstream deletions kept), sanity check ≥500 exercises
-- [ ] Media ref-count sweep on plan save; GIF/animation support (Coil-gif)
+- [x] Media ref-count sweep (MediaStore.sweep, runs on app start — no explicit "plan save" moment exists; stale imagePath re-checked by ensureImage); GIF support: .gif URLs saved verbatim (no re-encode), rendered via Coil 2.7 + coil-gif ImageDecoderDecoder in session image slot
 - [ ] Optional prev/next exercise buttons setting; scroll-collapsing image
 - [ ] Injured-muscle exclusion toggle + physio category (schema ready: secondary muscles, muscle.parentId)
 - [ ] Auto workout suggestions

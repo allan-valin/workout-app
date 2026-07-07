@@ -17,6 +17,7 @@ class WorkoutApp : Application() {
         appScope.launch {
             SnapshotImporter.importIfNeeded(this@WorkoutApp)
             autoEndStaleSession()
+            dev.allan.workoutapp.data.MediaStore.sweep(this@WorkoutApp, db)
         }
     }
 

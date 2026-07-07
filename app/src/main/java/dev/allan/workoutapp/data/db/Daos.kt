@@ -166,6 +166,9 @@ interface PlanDao {
     @Query("SELECT COALESCE(MAX(orderIndex) + 1, 0) FROM workout_exercise WHERE workoutId = :workoutId")
     suspend fun nextExerciseOrder(workoutId: Long): Int
 
+    @Query("SELECT DISTINCT exerciseId FROM workout_exercise")
+    suspend fun referencedExerciseIds(): List<String>
+
     @Insert
     suspend fun insertWorkoutExercise(item: WorkoutExercise): Long
 
