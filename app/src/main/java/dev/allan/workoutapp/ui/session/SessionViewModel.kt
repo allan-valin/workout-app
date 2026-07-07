@@ -32,6 +32,9 @@ data class SessionSet(
     val value: Int,
     val valueUnit: ValueUnit,
     val restSecs: Int,
+    /** Target rep range from the template (reference; [value] is what was really done). */
+    val targetMin: Int,
+    val targetMax: Int? = null,
     val done: Boolean = false,
 )
 
@@ -43,6 +46,10 @@ data class SessionExercise(
     val barWeightKg: Double,
     val imagePath: String?,
     val sets: List<SessionSet>,
+    /** Alternates with the previous exercise (A1, B1, rest, A2, B2, …). */
+    val supersetWithPrev: Boolean = false,
+    /** Science-based progression hint; applied only when the user taps it. */
+    val suggestion: dev.allan.workoutapp.data.ProgressionEngine.Suggestion? = null,
 )
 
 data class SessionUiState(
@@ -52,6 +59,8 @@ data class SessionUiState(
     val currentIndex: Int = 0,
     /** null = exercise-list mode, else pager mode. */
     val showList: Boolean = true,
+    /** exerciseIndex to templateId of the next expected set (superset-interleaved order). */
+    val currentStep: Pair<Int, Long>? = null,
     val elapsedSecs: Int = 0,
     val restRemainingSecs: Int? = null,
     val setCountdownRemainingSecs: Int? = null,
@@ -60,6 +69,53 @@ data class SessionUiState(
     val timerPanelVisible: Boolean = false,
     val finished: Boolean = false,
 )
+
+/**
+ * Superset-aware set order. Exercises marked supersetWithPrev form a chain with their
+ * predecessor; a chain's sets interleave by round: A1, B1, A2, B2, … Rest only happens
+ * after the last chain member of a round.
+ */
+object SupersetOrder {
+
+    /** Indices of the chain containing [index] (singleton list when not paired). */
+    fun chain(exercises: List<SessionExercise>, index: Int): List<Int> {
+        var first = index
+        while (first > 0 && exercises[first].supersetWithPrev) first--
+        var last = index
+        while (last + 1 < exercises.size && exercises[last + 1].supersetWithPrev) last++
+        return (first..last).toList()
+    }
+
+    /** All (exerciseIndex, set) of a chain in execution order. */
+    fun interleaved(exercises: List<SessionExercise>, chain: List<Int>): List<Pair<Int, SessionSet>> {
+        val rounds = chain.maxOf { exercises[it].sets.size }
+        return (0 until rounds).flatMap { round ->
+            chain.mapNotNull { i -> exercises[i].sets.getOrNull(round)?.let { i to it } }
+        }
+    }
+
+    /** Next expected set across the whole workout: first undone in chain-interleaved order. */
+    fun nextStep(exercises: List<SessionExercise>): Pair<Int, Long>? {
+        var i = 0
+        while (i < exercises.size) {
+            val chain = chain(exercises, i)
+            interleaved(exercises, chain).firstOrNull { !it.second.done }?.let { (idx, set) ->
+                return idx to set.templateId
+            }
+            i = chain.last() + 1
+        }
+        return null
+    }
+
+    /** True when another chain member still has an undone set in this round → skip rest. */
+    fun restSkipped(exercises: List<SessionExercise>, exerciseIndex: Int, set: SessionSet): Boolean {
+        val chain = chain(exercises, exerciseIndex)
+        if (chain.size < 2) return false
+        val after = chain.dropWhile { it != exerciseIndex }.drop(1)
+        val round = exercises[exerciseIndex].sets.indexOfFirst { it.templateId == set.templateId }
+        return after.any { i -> exercises[i].sets.getOrNull(round)?.done == false }
+    }
+}
 
 class SessionViewModel(app: Application, private val workoutId: Long, private val lang: String) :
     AndroidViewModel(app) {
@@ -99,7 +155,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
 
         val exercises = wes.map { we ->
             val previous = db.sessionDao().previousLogs(we.id)
-            val sets = templates.filter { it.workoutExerciseId == we.id }.sortedBy { it.setIndex }.map { t ->
+            val weTemplates = templates.filter { it.workoutExerciseId == we.id }.sortedBy { it.setIndex }
+            val sets = weTemplates.map { t ->
                 // Prefill with the most recent finished-session log for the same set slot.
                 val prev = previous.firstOrNull { it.setIndex == t.setIndex }
                 val already = loggedSets.any { it.workoutExerciseId == we.id && it.setIndex == t.setIndex }
@@ -111,23 +168,34 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     value = prev?.value ?: t.targetValue,
                     valueUnit = prev?.valueUnit ?: t.valueUnit,
                     restSecs = t.restSecs,
+                    targetMin = t.targetValue,
+                    targetMax = t.targetValueMax,
                     done = already,
                 )
             }
+            val exercise = db.exerciseDao().exercise(we.exerciseId)
             SessionExercise(
                 workoutExerciseId = we.id,
                 exerciseId = we.exerciseId,
                 name = PlanRepo.displayName(db, we.exerciseId, lang),
                 weightMode = we.weightMode,
                 barWeightKg = we.barWeightKg,
-                imagePath = db.exerciseDao().exercise(we.exerciseId)?.imagePath,
+                imagePath = exercise?.imagePath,
                 sets = sets,
+                supersetWithPrev = we.supersetWithPrev,
+                suggestion = dev.allan.workoutapp.data.ProgressionEngine.suggest(
+                    templates = weTemplates,
+                    history = previous,
+                    primaryMuscles = exercise?.primaryMuscles ?: emptyList(),
+                    weightMode = we.weightMode,
+                ),
             )
         }
         _state.value = _state.value.copy(
             sessionId = session.id,
             workoutName = workout.name,
             exercises = exercises,
+            currentStep = SupersetOrder.nextStep(exercises),
         )
         // Backfill any missing images (e.g. exercise added before the media pipeline existed).
         exercises.filter { it.imagePath == null }.forEach { ex ->
@@ -186,6 +254,35 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         val exercises = _state.value.exercises.toMutableList()
         val ex = exercises[exerciseIndex]
         exercises[exerciseIndex] = ex.copy(sets = ex.sets.map { if (it.templateId == set.templateId) set else it })
+        _state.value = _state.value.copy(
+            exercises = exercises,
+            currentStep = SupersetOrder.nextStep(exercises),
+        )
+    }
+
+    /** Apply the progression hint to all undone working sets of the exercise, then clear it. */
+    fun applySuggestion(exerciseIndex: Int) {
+        val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
+        val s = ex.suggestion ?: return
+        val newSets = ex.sets.map { set ->
+            val working = !set.done && set.valueUnit == ValueUnit.REPS &&
+                (set.type == SetType.NORMAL || set.type == SetType.FAILURE)
+            when {
+                !working -> set
+                s.kind == dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_WEIGHT ->
+                    set.copy(weightKg = set.weightKg + s.weightIncrementKg)
+                else -> set.copy(value = set.value + 1)
+            }
+        }
+        val exercises = _state.value.exercises.toMutableList()
+        exercises[exerciseIndex] = ex.copy(sets = newSets, suggestion = null)
+        _state.value = _state.value.copy(exercises = exercises)
+    }
+
+    fun dismissSuggestion(exerciseIndex: Int) {
+        val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
+        val exercises = _state.value.exercises.toMutableList()
+        exercises[exerciseIndex] = ex.copy(suggestion = null)
         _state.value = _state.value.copy(exercises = exercises)
     }
 
@@ -224,8 +321,11 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         }
         updateSet(exerciseIndex, set.copy(done = true))
 
-        // Superset chains skip the rest timer.
-        if (set.type != SetType.SUPERSET) {
+        // Superset pairs alternate without rest: A1, B1 (no pause after A1), rest after B1.
+        // Legacy SUPERSET set rows keep their no-rest behavior too.
+        val skipRest = set.type == SetType.SUPERSET ||
+            SupersetOrder.restSkipped(_state.value.exercises, exerciseIndex, set)
+        if (!skipRest) {
             SessionManager.startRest(set.restSecs)
             TimerService.showCountdown(
                 getApplication(),

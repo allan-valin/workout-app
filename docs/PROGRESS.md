@@ -87,7 +87,57 @@ Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/short
 
 Excluded: Play Store (needs $25 account + 12-tester closed test) — Allan decision 2026-07-07.
 
-## Status: Phases 0-7 complete (Play Store excluded). Pending real-device test on the Redmi.
+## Phase 8 — emulator-feedback batch (started 2026-07-07)
+
+Allan's feedback after first emulator run. DB bumped to v2 (Migration 1→2: workout.archived,
+workout_exercise.supersetWithPrev, set_template.targetValueMax — additive, history preserved).
+
+- [x] Emulator fix: AVD `testphone` had hw.gpu.enabled=no (software rendering) → crash after
+      startup + host freeze on second ✨ suggestion run. Now gpu host + 3 GB RAM; documented in
+      MAINTENANCE.md. Editor also no longer re-resolves every exercise name on each set edit
+      (nameCache in WorkoutEditorViewModel).
+- [x] ✨ suggestions: dialog now asks focus AND how many exercises (Default/2/4/6/8 →
+      SuggestionEngine.scaledRecipe round-robin); button shows spinner + guarded while running
+- [x] Delete safety: plan-editor one-tap delete removed → long-press = selection mode
+      (checkboxes, contextual top bar) → archive/unarchive or delete w/ confirm. Archived
+      workouts: hidden from Today (workoutsForDay), listed in "Archived" section, history kept.
+      Editor exercise delete + set delete now confirm first.
+- [x] Workout editor UX: column header row (Type / kg·mode / Reps–max / unit / Rest); set-type
+      shows initial letter only; type + reps/secs dropdowns have tinted pill background
+      (= changeable); rep range fields (min + optional max); "Assign days" caption above weekday
+      chips; exercise-count circle badge (plan editor + Home today cards); reorder no longer
+      jumps viewport (clearFocus + animateItem slide).
+- [x] Superset redefined per Allan: exercise-level link (supersetWithPrev) = alternate A1,B1
+      (no rest), rest, A2,B2… SessionViewModel SupersetOrder handles chains >2 too; session
+      shows "Superset: A ↔ B" and highlights the current expected set (primaryContainer row);
+      legacy SetType.SUPERSET still skips rest but is hidden from new-set choices.
+- [x] Rep ranges + progression: session sets show target range as reference next to actual
+      input; ProgressionEngine (double progression + 2-for-2, ACSM increments — see
+      docs/PROGRESSION.md w/ Consensus links) → tap-to-apply/dismiss bubble, never automatic.
+      9 unit tests green (ProgressionEngineTest).
+- [x] Home: Mon–Sun circle row above Today (checkmark = finished session that day, today
+      outlined); empty-state card w/ create-plan button when no active plans; light/dark toggle
+      (DataStore theme_mode, system default until first toggle).
+- [x] Settings: "Create a plan with AI" card (in-app how-to dialog + SAF export of
+      workout_plan_generator.md, bundled as asset via gradle copy task from docs/ — single
+      source of truth); plan PDF export (PdfExport.kt, A4, per-workout sections, set tables,
+      superset marks, rep ranges).
+- [x] Plan JSON schema: optional value_max + superset_with_previous (v1-compatible, importer
+      defaults; exporter emits). Generator doc updated w/ example + field rules.
+- [x] README.md written (architecture, build, import/export incl. PDF, LLM workflow).
+- [x] Rep-range input iterated after smoke test: separate min/max fields wrapped on 360dp width
+      → single RangeField accepting "10" or "10-12" (regex parse), unit chip shows R/s initial
+- [x] Tests: ProgressionEngineTest (9) + SupersetOrderTest (7) green; full testDebug/Release green
+- [x] versionCode 2 / versionName 0.2.0; release APK built + emulator-smoke-tested 2026-07-07
+      (screenshots in session scratchpad): v1→v2 migration over existing data OK (plans/workouts
+      intact, no crash), week row w/ today outlined, dark-mode toggle persists, plan editor
+      badges/Assign days/long-press hint, workout editor headers + tinted chips + superset chip +
+      range field. NOT smoke-tested visually: session superset flow + highlight + suggestion
+      bubble (logic unit-tested), PDF export, MD asset export — Allan: try these on the Redmi.
+- [ ] Commit + push
+- [ ] Allan: real-device pass on the Redmi (`winstall`), incl. session superset flow + PDF export
+
+## Status: Phases 0-8 complete. Pending real-device test on the Redmi.
 
 Phase 7 EMULATOR-VERIFIED 2026-07-07 (AVD testphone, debug build, pt-BR; screenshots in session scratchpad):
 - pt batch: search "testa" → 5 "Tríceps Testa …" generated names; still present after wger sync (re-merge works)

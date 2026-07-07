@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MoreVert
@@ -401,6 +402,45 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             style = MaterialTheme.typography.labelMedium,
         )
 
+        // Superset chain: name the partner(s) so the alternation is visible.
+        val chain = SupersetOrder.chain(state.exercises, page)
+        if (chain.size > 1) {
+            Text(
+                stringResource(
+                    R.string.superset_chain,
+                    chain.joinToString(" ↔ ") { state.exercises[it].name },
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+
+        // Progression hint (never auto-applied): tap to take it, ✕ to dismiss.
+        ex.suggestion?.let { s ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.AssistChip(
+                    onClick = { vm.applySuggestion(page) },
+                    label = {
+                        Text(
+                            if (s.kind == dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_WEIGHT)
+                                stringResource(
+                                    R.string.suggestion_add_weight,
+                                    if (s.weightIncrementKg % 1.0 == 0.0) "${s.weightIncrementKg.toInt()}"
+                                    else "${s.weightIncrementKg}",
+                                )
+                            else stringResource(R.string.suggestion_add_rep)
+                        )
+                    },
+                )
+                IconButton(onClick = { vm.dismissSuggestion(page) }) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Default.Close,
+                        contentDescription = stringResource(R.string.cancel),
+                    )
+                }
+            }
+        }
+
         // Sets table — the only scrollable part of the page.
         Column(
             Modifier
@@ -408,13 +448,38 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 .nestedScroll(tableScrollConnection)
                 .verticalScroll(tableScroll),
         ) {
+            // Column captions: what to tap, what the numbers mean.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                SessionHeader(stringResource(R.string.header_type), Modifier.width(40.dp))
+                SessionHeader(
+                    stringResource(R.string.kg) + " · " + when (ex.weightMode) {
+                        WeightMode.TOTAL -> stringResource(R.string.weight_total)
+                        WeightMode.PER_DUMBBELL -> stringResource(R.string.weight_per_dumbbell)
+                        WeightMode.PER_SIDE -> stringResource(R.string.weight_per_side)
+                    }.lowercase(),
+                    Modifier.weight(1.2f),
+                )
+                SessionHeader(stringResource(R.string.header_done_value), Modifier.weight(1f))
+                SessionHeader(stringResource(R.string.header_target), Modifier.width(52.dp))
+                SessionHeader("", Modifier.width(48.dp))
+            }
             ex.sets.forEach { set ->
+                val isCurrent = state.currentStep == page to set.templateId
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 3.dp),
+                        .background(
+                            // Highlight = "you are here" in the (superset-aware) set order.
+                            if (isCurrent) MaterialTheme.colorScheme.primaryContainer
+                            else androidx.compose.ui.graphics.Color.Transparent,
+                            RoundedCornerShape(10.dp),
+                        )
+                        .padding(vertical = 3.dp, horizontal = 2.dp),
                 ) {
                     Text(
                         when (set.type) {
@@ -423,9 +488,9 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                             SetType.FAILURE -> stringResource(R.string.set_failure)
                             SetType.DROP -> stringResource(R.string.set_drop)
                             SetType.SUPERSET -> stringResource(R.string.set_superset)
-                        },
+                        }.take(1),
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.width(width = 64.dp),
+                        modifier = Modifier.width(width = 40.dp),
                     )
                     OutlinedButton(onClick = { editTarget = set to "weight" }, modifier = Modifier.weight(1.2f)) {
                         Text("${if (set.weightKg % 1.0 == 0.0) set.weightKg.toInt() else set.weightKg} kg")
@@ -436,6 +501,15 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                                 stringResource(R.string.reps) else stringResource(R.string.secs)
                         )
                     }
+                    // Reference rep range from the plan (what you aim for, not what you log).
+                    Text(
+                        if (set.valueUnit == ValueUnit.REPS)
+                            set.targetMax?.let { "${set.targetMin}–$it" } ?: "${set.targetMin}"
+                        else "${set.targetMin}s",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(52.dp),
+                    )
                     if (set.valueUnit == ValueUnit.SECS) {
                         IconButton(onClick = { vm.startSetCountdown(set) }) {
                             Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.start_timer))
@@ -486,6 +560,17 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             },
         )
     }
+}
+
+@Composable
+private fun SessionHeader(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = modifier,
+    )
 }
 
 @Composable

@@ -8,6 +8,9 @@ import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
+/** Row for [PlanDao.exerciseCounts]. */
+data class WorkoutExerciseCount(val workoutId: Long, val count: Int)
+
 /** Search result row: one exercise with its display name resolved for a language. */
 data class ExerciseHit(
     val id: String,
@@ -175,11 +178,16 @@ interface PlanDao {
         """
         SELECT w.* FROM workout w
         JOIN plan p ON p.id = w.planId
-        WHERE p.isActive = 1 AND (',' || w.daysOfWeek || ',') LIKE '%,' || :isoDay || ',%'
+        WHERE p.isActive = 1 AND w.archived = 0
+          AND (',' || w.daysOfWeek || ',') LIKE '%,' || :isoDay || ',%'
         ORDER BY w.orderIndex
         """
     )
     fun workoutsForDay(isoDay: Int): Flow<List<Workout>>
+
+    /** Exercise count per workout — drives the count badge on workout cards. */
+    @Query("SELECT workoutId, COUNT(*) AS count FROM workout_exercise GROUP BY workoutId")
+    fun exerciseCounts(): Flow<List<WorkoutExerciseCount>>
 
     @Query("SELECT COALESCE(MAX(orderIndex) + 1, 0) FROM workout_exercise WHERE workoutId = :workoutId")
     suspend fun nextExerciseOrder(workoutId: Long): Int

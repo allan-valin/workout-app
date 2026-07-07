@@ -93,6 +93,29 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(content.toByteArray()) }
     }
 
+    private fun writeBytes(uri: Uri, content: ByteArray) {
+        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(content) }
+    }
+
+    fun exportPlanPdf(planId: Long, uri: Uri, lang: String) {
+        viewModelScope.launch {
+            val bytes = dev.allan.workoutapp.data.transfer.PdfExport.plan(db, planId, lang)
+            if (bytes == null) { _message.value = "plan not found"; return@launch }
+            writeBytes(uri, bytes)
+            _message.value = context.getString(R.string.export_done)
+        }
+    }
+
+    /** Copies the bundled LLM plan-generator instructions (markdown) to a user file. */
+    fun exportGeneratorDoc(uri: Uri) {
+        viewModelScope.launch {
+            val text = context.assets.open("workout_plan_generator.md")
+                .use { it.readBytes().decodeToString() }
+            write(uri, text)
+            _message.value = context.getString(R.string.export_done)
+        }
+    }
+
     private fun read(uri: Uri): String? =
         context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
 
@@ -154,6 +177,8 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
     val syncing by vm.syncing.collectAsState()
     var planPickerFor by remember { mutableStateOf<Long?>(null) } // planId chosen for export
     var showPlanPicker by remember { mutableStateOf(false) }
+    var planPickerKind by remember { mutableStateOf("json") } // json | pdf
+    var showLlmInstructions by remember { mutableStateOf(false) }
 
     val importPlanLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { vm.importPlan(it, appLang) }
@@ -165,6 +190,16 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
         if (uri != null && planId != null) vm.exportPlan(planId, uri)
         planPickerFor = null
     }
+    val exportPdfLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        val planId = planPickerFor
+        if (uri != null && planId != null) vm.exportPlanPdf(planId, uri, appLang)
+        planPickerFor = null
+    }
+    val exportGeneratorLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri -> uri?.let { vm.exportGeneratorDoc(it) } }
     var csvKind by remember { mutableStateOf("sets") }
     val exportCsvLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
@@ -204,10 +239,32 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.import_plan)) }
                     OutlinedButton(
-                        onClick = { showPlanPicker = true },
+                        onClick = { planPickerKind = "json"; showPlanPicker = true },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = plans.isNotEmpty(),
                     ) { Text(stringResource(R.string.export_plan)) }
+                    OutlinedButton(
+                        onClick = { planPickerKind = "pdf"; showPlanPicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = plans.isNotEmpty(),
+                    ) { Text(stringResource(R.string.export_plan_pdf)) }
+                }
+            }
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.llm_title), fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.llm_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedButton(
+                        onClick = { showLlmInstructions = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.llm_show_instructions)) }
+                    OutlinedButton(
+                        onClick = { exportGeneratorLauncher.launch("workout_plan_generator.md") },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.llm_export_md)) }
                 }
             }
             Card(Modifier.fillMaxWidth()) {
@@ -326,14 +383,22 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
     if (showPlanPicker) {
         AlertDialog(
             onDismissRequest = { showPlanPicker = false },
-            title = { Text(stringResource(R.string.export_plan)) },
+            title = {
+                Text(
+                    stringResource(
+                        if (planPickerKind == "pdf") R.string.export_plan_pdf else R.string.export_plan
+                    )
+                )
+            },
             text = {
                 Column {
                     plans.forEach { plan ->
                         TextButton(onClick = {
                             planPickerFor = plan.id
                             showPlanPicker = false
-                            exportPlanLauncher.launch("plan_${plan.name.replace(' ', '_')}.json")
+                            val base = "plan_${plan.name.replace(' ', '_')}"
+                            if (planPickerKind == "pdf") exportPdfLauncher.launch("$base.pdf")
+                            else exportPlanLauncher.launch("$base.json")
                         }) { Text(plan.name) }
                     }
                 }
@@ -341,6 +406,21 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showPlanPicker = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    if (showLlmInstructions) {
+        AlertDialog(
+            onDismissRequest = { showLlmInstructions = false },
+            title = { Text(stringResource(R.string.llm_title)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(stringResource(R.string.llm_instructions_body))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLlmInstructions = false }) { Text(stringResource(R.string.ok)) }
             },
         )
     }

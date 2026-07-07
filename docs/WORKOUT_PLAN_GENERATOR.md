@@ -34,9 +34,16 @@ Output a single JSON code block (or downloadable `.json` file) named like
             "note": "Pause 1s at chest",
             "sets": [
               { "type": "WARMUP", "weight_kg": 20, "value": 12, "unit": "REPS", "rest_secs": 60 },
-              { "type": "NORMAL", "weight_kg": 40, "value": 10, "unit": "REPS", "rest_secs": 120 },
-              { "type": "NORMAL", "weight_kg": 40, "value": 10, "unit": "REPS", "rest_secs": 120 },
+              { "type": "NORMAL", "weight_kg": 40, "value": 10, "value_max": 12, "unit": "REPS", "rest_secs": 120 },
+              { "type": "NORMAL", "weight_kg": 40, "value": 10, "value_max": 12, "unit": "REPS", "rest_secs": 120 },
               { "type": "FAILURE", "weight_kg": 40, "value": 8,  "unit": "REPS", "rest_secs": 180 }
+            ]
+          },
+          {
+            "match": { "wger_id": 195, "names": ["Push Up", "Flexão", "Liegestütz"] },
+            "superset_with_previous": true,
+            "sets": [
+              { "type": "NORMAL", "weight_kg": 0, "value": 12, "value_max": 15, "unit": "REPS", "rest_secs": 120 }
             ]
           },
           {
@@ -73,9 +80,11 @@ Output a single JSON code block (or downloadable `.json` file) named like
 | `exercises[].custom_fallback` | Optional. If no match is found, app offers to create this custom exercise. Without it, unmatched exercises are skipped and reported. Include it for anything unusual. |
 | `weight_mode` | `TOTAL` (default) \| `PER_DUMBBELL` \| `PER_SIDE`. |
 | `bar_weight_kg` | Only meaningful with `PER_SIDE`. Default 20. |
-| `sets[].type` | `WARMUP` \| `NORMAL` \| `FAILURE` \| `DROP` \| `SUPERSET`. Consecutive `SUPERSET` sets are grouped with no rest between them. |
+| `superset_with_previous` | Optional bool (default false). This exercise alternates with the one right before it: set 1 of the previous, set 1 of this (no rest between), rest, set 2 of the previous, … Never set it on the first exercise of a workout. |
+| `sets[].type` | `WARMUP` \| `NORMAL` \| `FAILURE` \| `DROP`. (Legacy `SUPERSET` still accepted; prefer `superset_with_previous` on the exercise.) |
 | `sets[].weight_kg` | Number ≥ 0. Use 0 for bodyweight/cardio. Increments of 1.25 preferred. |
 | `sets[].value` + `unit` | `REPS` (count) or `SECS` (timed set → in-app countdown). |
+| `sets[].value_max` | Optional top of the rep range (`REPS` only), e.g. value 10 + value_max 12 = "10–12 reps". Drives the app's progression suggestions — include it for NORMAL sets. |
 | `sets[].rest_secs` | Rest AFTER this set. Sensible defaults: 60 warmup, 90–120 hypertrophy, 180 strength. |
 
 `primary_muscle` / `secondary_muscles` values (custom_fallback):

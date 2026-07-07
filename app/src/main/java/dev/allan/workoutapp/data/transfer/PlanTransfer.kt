@@ -55,6 +55,8 @@ object PlanTransfer {
         @SerialName("custom_fallback") val customFallback: CustomFallbackDto? = null,
         @SerialName("weight_mode") val weightMode: String = "TOTAL",
         @SerialName("bar_weight_kg") val barWeightKg: Double = 20.0,
+        /** Alternate with the previous exercise (A1, B1, rest, A2, B2, …). */
+        @SerialName("superset_with_previous") val supersetWithPrevious: Boolean = false,
         val note: String = "",
         val sets: List<SetDto> = emptyList(),
     )
@@ -78,6 +80,8 @@ object PlanTransfer {
         val type: String = "NORMAL",
         @SerialName("weight_kg") val weightKg: Double = 0.0,
         val value: Int = 10,
+        /** Optional top of the target rep range (REPS only); value is the bottom. */
+        @SerialName("value_max") val valueMax: Int? = null,
         val unit: String = "REPS",
         @SerialName("rest_secs") val restSecs: Int = 90,
     )
@@ -154,6 +158,7 @@ object PlanTransfer {
                         note = e.note,
                         weightMode = runCatching { WeightMode.valueOf(e.weightMode) }.getOrDefault(WeightMode.TOTAL),
                         barWeightKg = e.barWeightKg,
+                        supersetWithPrev = e.supersetWithPrevious && eIndex > 0,
                     )
                 )
                 val sets = e.sets.ifEmpty { listOf(SetDto(), SetDto(), SetDto()) }
@@ -165,6 +170,7 @@ object PlanTransfer {
                             type = runCatching { SetType.valueOf(s.type) }.getOrDefault(SetType.NORMAL),
                             targetWeightKg = s.weightKg.coerceAtLeast(0.0),
                             targetValue = s.value.coerceAtLeast(0),
+                            targetValueMax = s.valueMax?.takeIf { it > s.value },
                             valueUnit = runCatching { ValueUnit.valueOf(s.unit) }.getOrDefault(ValueUnit.REPS),
                             restSecs = s.restSecs.coerceIn(0, 3600),
                         )
@@ -229,12 +235,14 @@ object PlanTransfer {
                     ) else null,
                     weightMode = we.weightMode.name,
                     barWeightKg = we.barWeightKg,
+                    supersetWithPrevious = we.supersetWithPrev,
                     note = we.note,
                     sets = db.planDao().setTemplatesList(we.id).map { s ->
                         SetDto(
                             type = s.type.name,
                             weightKg = s.targetWeightKg,
                             value = s.targetValue,
+                            valueMax = s.targetValueMax,
                             unit = s.valueUnit.name,
                             restSecs = s.restSecs,
                         )

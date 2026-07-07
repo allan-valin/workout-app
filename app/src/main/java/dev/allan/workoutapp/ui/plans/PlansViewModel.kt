@@ -9,9 +9,12 @@ import dev.allan.workoutapp.data.db.Session
 import dev.allan.workoutapp.data.db.Workout
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 /** Backs Home / Active / Inactive tabs and plan creation (blank or via wizard). */
 class PlansViewModel(app: Application) : AndroidViewModel(app) {
@@ -31,6 +34,23 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
     val todayWorkouts: StateFlow<List<Workout>> =
         db.planDao().workoutsForDay(LocalDate.now().dayOfWeek.value)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** workoutId -> exercise count, for the badges on Today cards. */
+    val exerciseCounts: StateFlow<Map<Long, Int>> = db.planDao().exerciseCounts()
+        .map { rows -> rows.associate { it.workoutId to it.count } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** ISO days (1=Mon..7=Sun) of the current week with a finished session — week circles. */
+    val completedWeekDays: StateFlow<Set<Int>> = db.sessionDao().finishedSessionsFlow()
+        .map { sessions ->
+            val today = LocalDate.now()
+            val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+            sessions.mapNotNull { s ->
+                val day = Instant.ofEpochMilli(s.startedAt).atZone(ZoneId.systemDefault()).toLocalDate()
+                day.dayOfWeek.value.takeIf { !day.isBefore(monday) && !day.isAfter(today) }
+            }.toSet()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     fun createBlankPlan(name: String, cycleWeeks: Int?, onCreated: (Long) -> Unit) {
         viewModelScope.launch {

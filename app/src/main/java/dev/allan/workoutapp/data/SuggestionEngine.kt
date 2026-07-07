@@ -33,16 +33,45 @@ object SuggestionEngine {
         SuggestionFocus.CARDIO_CORE to listOf(CARDIO to 2, 6 to 2, 14 to 1),
     )
 
-    /** Appends suggested exercises to the workout. Returns how many were added. */
+    /**
+     * Scales a focus recipe to exactly [total] exercises by cycling its muscles
+     * round-robin (e.g. PUSH recipe chest/chest/shoulders/shoulders/triceps at
+     * total=3 → chest, shoulders, triceps).
+     */
+    fun scaledRecipe(focus: SuggestionFocus, total: Int): List<Pair<Int, Int>> {
+        val order = recipes.getValue(focus)
+        val counts = LinkedHashMap<Int, Int>()
+        var remaining = total.coerceIn(1, 15)
+        while (remaining > 0) {
+            for ((muscleId, cap) in order) {
+                if (remaining == 0) break
+                val soFar = counts[muscleId] ?: 0
+                // First pass respects recipe proportions; extra passes ignore caps.
+                if (soFar < cap || counts.size == order.size) {
+                    counts[muscleId] = soFar + 1
+                    remaining--
+                }
+            }
+            if (counts.values.sum() == 0) break
+        }
+        return counts.toList()
+    }
+
+    /**
+     * Appends suggested exercises to the workout. Returns how many were added.
+     * [total] = exact number of exercises to add; null uses the recipe's default counts.
+     */
     suspend fun fillWorkout(
         db: AppDatabase,
         workoutId: Long,
         focus: SuggestionFocus,
         injured: Set<Int>,
+        total: Int? = null,
     ): Int {
+        val recipe = if (total == null) recipes.getValue(focus) else scaledRecipe(focus, total)
         val already = db.planDao().workoutExercisesList(workoutId).map { it.exerciseId }.toMutableSet()
         var added = 0
-        for ((muscleId, count) in recipes.getValue(focus)) {
+        for ((muscleId, count) in recipe) {
             if (muscleId in injured) continue
             val pool = if (muscleId == CARDIO) {
                 db.exerciseDao().cardioHits()

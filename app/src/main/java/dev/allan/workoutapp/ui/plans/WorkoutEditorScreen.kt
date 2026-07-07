@@ -1,27 +1,35 @@
 package dev.allan.workoutapp.ui.plans
 
 import android.app.Application
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,14 +46,17 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -55,6 +66,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.allan.workoutapp.R
 import dev.allan.workoutapp.WorkoutApp
 import dev.allan.workoutapp.data.PlanRepo
+import dev.allan.workoutapp.data.SuggestionFocus
 import dev.allan.workoutapp.data.db.SetTemplate
 import dev.allan.workoutapp.data.db.SetType
 import dev.allan.workoutapp.data.db.ValueUnit
@@ -84,6 +96,12 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
     private val _workout = MutableStateFlow<Workout?>(null)
     val workout: StateFlow<Workout?> = _workout
 
+    // One name lookup per exercise, not one per Flow emission (every set edit re-emits).
+    private val nameCache = mutableMapOf<String, String>()
+
+    private val _suggesting = MutableStateFlow(false)
+    val suggesting: StateFlow<Boolean> = _suggesting
+
     val exercises: StateFlow<List<EditorExercise>> =
         combine(
             db.planDao().workoutExercises(workoutId),
@@ -93,7 +111,9 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
                 wes.map { we ->
                     EditorExercise(
                         we = we,
-                        name = PlanRepo.displayName(db, we.exerciseId, lang),
+                        name = nameCache.getOrPut(we.exerciseId) {
+                            PlanRepo.displayName(db, we.exerciseId, lang)
+                        },
                         sets = sets.filter { it.workoutExerciseId == we.id }.sortedBy { it.setIndex },
                     )
                 }
@@ -133,6 +153,12 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         viewModelScope.launch { db.planDao().updateWorkoutExercise(item.we.copy(barWeightKg = kg)) }
     }
 
+    fun toggleSuperset(item: EditorExercise) {
+        viewModelScope.launch {
+            db.planDao().updateWorkoutExercise(item.we.copy(supersetWithPrev = !item.we.supersetWithPrev))
+        }
+    }
+
     fun updateSet(set: SetTemplate) {
         viewModelScope.launch { db.planDao().updateSetTemplate(set) }
     }
@@ -157,11 +183,18 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         }
     }
 
-    fun suggestExercises(focus: dev.allan.workoutapp.data.SuggestionFocus) {
+    fun suggestExercises(focus: SuggestionFocus, total: Int?) {
+        if (_suggesting.value) return
         viewModelScope.launch {
-            val injured = dev.allan.workoutapp.data.Settings
-                .injuredMuscles(getApplication()).first()
-            dev.allan.workoutapp.data.SuggestionEngine.fillWorkout(db, workoutId, focus, injured)
+            _suggesting.value = true
+            try {
+                val injured = dev.allan.workoutapp.data.Settings
+                    .injuredMuscles(getApplication()).first()
+                dev.allan.workoutapp.data.SuggestionEngine
+                    .fillWorkout(db, workoutId, focus, injured, total)
+            } finally {
+                _suggesting.value = false
+            }
         }
     }
 
@@ -188,14 +221,16 @@ fun WorkoutEditorScreen(
     )
     val workout by vm.workout.collectAsState()
     val exercises by vm.exercises.collectAsState()
+    val suggesting by vm.suggesting.collectAsState()
     var showSuggestDialog by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     if (showSuggestDialog) {
         SuggestFocusDialog(
             onDismiss = { showSuggestDialog = false },
-            onPick = { focus ->
+            onPick = { focus, total ->
                 showSuggestDialog = false
-                vm.suggestExercises(focus)
+                vm.suggestExercises(focus, total)
             },
         )
     }
@@ -210,11 +245,15 @@ fun WorkoutEditorScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showSuggestDialog = true }) {
-                        Icon(
-                            Icons.Default.AutoAwesome,
-                            contentDescription = stringResource(R.string.suggest_exercises),
-                        )
+                    if (suggesting) {
+                        CircularProgressIndicator(Modifier.width(24.dp).height(24.dp), strokeWidth = 2.dp)
+                    } else {
+                        IconButton(onClick = { showSuggestDialog = true }) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = stringResource(R.string.suggest_exercises),
+                            )
+                        }
                     }
                     IconButton(onClick = onPickExercise) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_exercise))
@@ -248,7 +287,19 @@ fun WorkoutEditorScreen(
                 }
             }
             items(exercises, key = { it.we.id }) { item ->
-                ExerciseEditorCard(item, vm)
+                // animateItem keeps the viewport still and slides the card to its new
+                // slot, so reordering reads as movement instead of a scroll jump.
+                Box(Modifier.animateItem()) {
+                    ExerciseEditorCard(
+                        item = item,
+                        index = exercises.indexOfFirst { it.we.id == item.we.id },
+                        vm = vm,
+                        onMove = { up ->
+                            focusManager.clearFocus() // a focused field would drag the scroll along
+                            vm.move(item, up)
+                        },
+                    )
+                }
             }
         }
     }
@@ -257,29 +308,53 @@ fun WorkoutEditorScreen(
 @Composable
 private fun SuggestFocusDialog(
     onDismiss: () -> Unit,
-    onPick: (dev.allan.workoutapp.data.SuggestionFocus) -> Unit,
+    onPick: (SuggestionFocus, Int?) -> Unit,
 ) {
+    var count by remember { mutableIntStateOf(0) } // 0 = recipe default
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.suggest_exercises)) },
         text = {
             Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                dev.allan.workoutapp.data.SuggestionFocus.entries.forEach { focus ->
-                    TextButton(onClick = { onPick(focus) }, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.suggest_count), style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = count == 0,
+                        onClick = { count = 0 },
+                        label = { Text(stringResource(R.string.suggest_default)) },
+                    )
+                    listOf(2, 4, 6, 8).forEach { n ->
+                        FilterChip(
+                            selected = count == n,
+                            onClick = { count = n },
+                            label = { Text("$n") },
+                        )
+                    }
+                }
+                Text(
+                    stringResource(R.string.suggest_focus),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+                SuggestionFocus.entries.forEach { focus ->
+                    TextButton(
+                        onClick = { onPick(focus, count.takeIf { it > 0 }) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Text(
                             stringResource(
                                 when (focus) {
-                                    dev.allan.workoutapp.data.SuggestionFocus.FULL_BODY -> R.string.split_full_body
-                                    dev.allan.workoutapp.data.SuggestionFocus.PUSH -> R.string.split_push
-                                    dev.allan.workoutapp.data.SuggestionFocus.PULL -> R.string.split_pull
-                                    dev.allan.workoutapp.data.SuggestionFocus.LEGS -> R.string.split_legs
-                                    dev.allan.workoutapp.data.SuggestionFocus.UPPER -> R.string.split_upper
-                                    dev.allan.workoutapp.data.SuggestionFocus.LOWER -> R.string.split_lower
-                                    dev.allan.workoutapp.data.SuggestionFocus.CHEST -> R.string.split_chest
-                                    dev.allan.workoutapp.data.SuggestionFocus.BACK -> R.string.split_back
-                                    dev.allan.workoutapp.data.SuggestionFocus.SHOULDERS -> R.string.split_shoulders
-                                    dev.allan.workoutapp.data.SuggestionFocus.ARMS -> R.string.split_arms
-                                    dev.allan.workoutapp.data.SuggestionFocus.CARDIO_CORE -> R.string.split_cardio_core
+                                    SuggestionFocus.FULL_BODY -> R.string.split_full_body
+                                    SuggestionFocus.PUSH -> R.string.split_push
+                                    SuggestionFocus.PULL -> R.string.split_pull
+                                    SuggestionFocus.LEGS -> R.string.split_legs
+                                    SuggestionFocus.UPPER -> R.string.split_upper
+                                    SuggestionFocus.LOWER -> R.string.split_lower
+                                    SuggestionFocus.CHEST -> R.string.split_chest
+                                    SuggestionFocus.BACK -> R.string.split_back
+                                    SuggestionFocus.SHOULDERS -> R.string.split_shoulders
+                                    SuggestionFocus.ARMS -> R.string.split_arms
+                                    SuggestionFocus.CARDIO_CORE -> R.string.split_cardio_core
                                 }
                             )
                         )
@@ -295,22 +370,38 @@ private fun SuggestFocusDialog(
 }
 
 @Composable
-private fun ExerciseEditorCard(item: EditorExercise, vm: WorkoutEditorViewModel) {
+private fun ExerciseEditorCard(
+    item: EditorExercise,
+    index: Int,
+    vm: WorkoutEditorViewModel,
+    onMove: (Boolean) -> Unit,
+) {
     var showBulkRest by remember { mutableStateOf(false) }
+    var confirmDeleteExercise by remember { mutableStateOf(false) }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(item.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                IconButton(onClick = { vm.move(item, up = true) }) {
+                IconButton(onClick = { onMove(true) }) {
                     Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
                 }
-                IconButton(onClick = { vm.move(item, up = false) }) {
+                IconButton(onClick = { onMove(false) }) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.move_down))
                 }
-                IconButton(onClick = { vm.removeExercise(item) }) {
+                IconButton(onClick = { confirmDeleteExercise = true }) {
                     Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
                 }
+            }
+
+            // Superset pairing: alternate with the previous exercise, rest after the pair.
+            if (index > 0 || item.we.supersetWithPrev) {
+                FilterChip(
+                    selected = item.we.supersetWithPrev,
+                    onClick = { vm.toggleSuperset(item) },
+                    label = { Text(stringResource(R.string.superset_with_prev)) },
+                    leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
+                )
             }
 
             // Weight interpretation: total / per dumbbell / per side of the bar.
@@ -319,15 +410,7 @@ private fun ExerciseEditorCard(item: EditorExercise, vm: WorkoutEditorViewModel)
                     FilterChip(
                         selected = item.we.weightMode == mode,
                         onClick = { vm.setWeightMode(item, mode) },
-                        label = {
-                            Text(
-                                when (mode) {
-                                    WeightMode.TOTAL -> stringResource(R.string.weight_total)
-                                    WeightMode.PER_DUMBBELL -> stringResource(R.string.weight_per_dumbbell)
-                                    WeightMode.PER_SIDE -> stringResource(R.string.weight_per_side)
-                                }
-                            )
-                        },
+                        label = { Text(weightModeLabel(mode)) },
                     )
                 }
             }
@@ -340,6 +423,7 @@ private fun ExerciseEditorCard(item: EditorExercise, vm: WorkoutEditorViewModel)
                 )
             }
 
+            SetHeaderRow(item.we.weightMode)
             item.sets.forEach { set ->
                 SetRow(set, onUpdate = vm::updateSet, onDelete = { vm.removeSet(set) })
             }
@@ -355,6 +439,22 @@ private fun ExerciseEditorCard(item: EditorExercise, vm: WorkoutEditorViewModel)
                 }
             }
         }
+    }
+
+    if (confirmDeleteExercise) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteExercise = false },
+            title = { Text(stringResource(R.string.confirm_delete_exercise, item.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteExercise = false
+                    vm.removeExercise(item)
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteExercise = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 
     if (showBulkRest) {
@@ -387,46 +487,122 @@ private fun ExerciseEditorCard(item: EditorExercise, vm: WorkoutEditorViewModel)
 }
 
 @Composable
-private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: () -> Unit) {
+private fun weightModeLabel(mode: WeightMode): String = when (mode) {
+    WeightMode.TOTAL -> stringResource(R.string.weight_total)
+    WeightMode.PER_DUMBBELL -> stringResource(R.string.weight_per_dumbbell)
+    WeightMode.PER_SIDE -> stringResource(R.string.weight_per_side)
+}
+
+/** Column captions so it's obvious what each field means; weight carries the mode tag. */
+@Composable
+private fun SetHeaderRow(weightMode: WeightMode) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        EnumDropdown(
-            current = set.type.label(),
-            options = SetType.entries.map { it to it.label() },
+        HeaderText(stringResource(R.string.header_type), Modifier.width(36.dp))
+        HeaderText(
+            stringResource(R.string.kg) + " · " + weightModeLabel(weightMode).lowercase(),
+            Modifier.weight(1f),
+        )
+        HeaderText(stringResource(R.string.header_target), Modifier.weight(1.6f))
+        Box(Modifier.width(44.dp))
+        HeaderText(stringResource(R.string.rest_short), Modifier.weight(0.8f))
+        Box(Modifier.width(28.dp))
+    }
+}
+
+@Composable
+private fun HeaderText(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: () -> Unit) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        // Set type: initial letter only; tinted = tappable/changeable.
+        TintedDropdown(
+            current = set.type.label().take(1),
+            options = SetType.entries
+                .filter { it != SetType.SUPERSET } // superset is an exercise-level link now
+                .map { it to it.label() },
             onSelect = { onUpdate(set.copy(type = it)) },
+            modifier = Modifier.width(36.dp),
         )
         NumberField(
             value = set.targetWeightKg,
-            label = "kg",
+            label = stringResource(R.string.kg),
             onCommit = { onUpdate(set.copy(targetWeightKg = it)) },
             modifier = Modifier.weight(1f),
         )
-        IntField(
-            value = set.targetValue,
-            label = "×",
-            onCommit = { onUpdate(set.copy(targetValue = it)) },
-            modifier = Modifier.weight(1f),
-        )
-        EnumDropdown(
-            current = if (set.valueUnit == ValueUnit.REPS) stringResource(R.string.reps) else stringResource(R.string.secs),
+        // Target: rep range in one field ("10" or "10-12"); single duration for timed sets.
+        if (set.valueUnit == ValueUnit.REPS) {
+            RangeField(
+                min = set.targetValue,
+                max = set.targetValueMax,
+                onCommit = { min, max ->
+                    onUpdate(set.copy(targetValue = min, targetValueMax = max?.takeIf { it > min }))
+                },
+                modifier = Modifier.weight(1.6f),
+            )
+        } else {
+            IntField(
+                value = set.targetValue,
+                label = "s",
+                onCommit = { onUpdate(set.copy(targetValue = it)) },
+                modifier = Modifier.weight(1.6f),
+            )
+        }
+        // Unit toggle (R = reps, s = seconds): tinted = changeable.
+        TintedDropdown(
+            current = (if (set.valueUnit == ValueUnit.REPS) stringResource(R.string.reps)
+            else stringResource(R.string.secs)).take(1),
             options = listOf(
                 ValueUnit.REPS to stringResource(R.string.reps),
                 ValueUnit.SECS to stringResource(R.string.secs),
             ),
             onSelect = { onUpdate(set.copy(valueUnit = it)) },
+            modifier = Modifier.width(44.dp),
         )
         IntField(
             value = set.restSecs,
             label = "s",
             onCommit = { onUpdate(set.copy(restSecs = it)) },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(0.8f),
         )
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+        IconButton(onClick = { confirmDelete = true }, modifier = Modifier.width(28.dp)) {
+            Icon(
+                Icons.Default.Close,
+                contentDescription = stringResource(R.string.delete),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.confirm_delete_set)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete() }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 }
 
@@ -439,11 +615,32 @@ private fun SetType.label(): String = when (this) {
     SetType.SUPERSET -> stringResource(R.string.set_superset)
 }
 
+/** Dropdown with a tinted pill background — the tint marks "this is changeable". */
 @Composable
-private fun <T> EnumDropdown(current: String, options: List<Pair<T, String>>, onSelect: (T) -> Unit) {
+private fun <T> TintedDropdown(
+    current: String,
+    options: List<Pair<T, String>>,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var expanded by remember { mutableStateOf(false) }
-    Column {
-        TextButton(onClick = { expanded = true }) { Text(current) }
+    Column(modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(10.dp))
+                .clickable { expanded = true },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                current,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { (value, label) ->
                 DropdownMenuItem(text = { Text(label) }, onClick = {
@@ -482,6 +679,31 @@ private fun IntField(value: Int, label: String, onCommit: (Int) -> Unit, modifie
         },
         label = { Text(label) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        modifier = modifier,
+    )
+}
+
+/** Rep-range field: accepts "10" (fixed target) or "10-12" (range). */
+@Composable
+private fun RangeField(
+    min: Int,
+    max: Int?,
+    onCommit: (Int, Int?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var text by remember(min, max) {
+        mutableStateOf(if (max != null) "$min-$max" else "$min")
+    }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { input ->
+            text = input
+            Regex("""^(\d+)(?:\s*[-–]\s*(\d+))?$""").find(input.trim())?.let { m ->
+                onCommit(m.groupValues[1].toInt(), m.groupValues[2].toIntOrNull())
+            }
+        },
+        label = { Text("×") },
         singleLine = true,
         modifier = modifier,
     )

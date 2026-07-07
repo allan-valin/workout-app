@@ -15,14 +15,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -74,6 +82,7 @@ import dev.allan.workoutapp.ui.plans.WorkoutEditorScreen
 import dev.allan.workoutapp.ui.session.SessionScreen
 import dev.allan.workoutapp.ui.session.SummaryScreen
 import dev.allan.workoutapp.ui.workout.WorkoutViewScreen
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
@@ -90,8 +99,14 @@ class MainActivity : AppCompatActivity() {
 
 @Composable
 fun WorkoutTheme(content: @Composable () -> Unit) {
-    val darkTheme = isSystemInDarkTheme()
     val context = LocalContext.current
+    val themeMode by dev.allan.workoutapp.data.Settings.themeMode(context)
+        .collectAsState(initial = "system")
+    val darkTheme = when (themeMode) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
     val colorScheme = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -255,12 +270,35 @@ private fun MainScaffold(
     val inactivePlans by vm.inactivePlans.collectAsState()
     val todayWorkouts by vm.todayWorkouts.collectAsState()
     val runningSession by vm.runningSession.collectAsState()
+    val completedWeekDays by vm.completedWeekDays.collectAsState()
+    val exerciseCounts by vm.exerciseCounts.collectAsState()
+
+    val context = LocalContext.current
+    val themeMode by dev.allan.workoutapp.data.Settings.themeMode(context)
+        .collectAsState(initial = "system")
+    val themeScope = androidx.compose.runtime.rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    val dark = when (themeMode) {
+                        "dark" -> true
+                        "light" -> false
+                        else -> isSystemInDarkTheme()
+                    }
+                    IconButton(onClick = {
+                        themeScope.launch {
+                            dev.allan.workoutapp.data.Settings
+                                .setThemeMode(context, if (dark) "light" else "dark")
+                        }
+                    }) {
+                        Icon(
+                            if (dark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = stringResource(R.string.toggle_theme),
+                        )
+                    }
                     IconButton(onClick = { cycleLanguage() }) {
                         Text(flagFor(currentAppLang()), style = MaterialTheme.typography.titleLarge)
                     }
@@ -321,13 +359,42 @@ private fun MainScaffold(
                             }
                         }
                     }
+                    item { WeekRow(completedWeekDays) }
                     item { Text(stringResource(R.string.today), style = MaterialTheme.typography.titleLarge) }
                     if (todayWorkouts.isEmpty()) {
                         item { Text(stringResource(R.string.no_workouts_today)) }
                     }
+                    if (activePlans.isEmpty()) {
+                        // First-run state: nothing to train yet — offer plan creation right here.
+                        item {
+                            Card(Modifier.fillMaxWidth()) {
+                                Column(
+                                    Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(stringResource(R.string.home_empty_hint))
+                                    Button(onClick = { showNewPlan = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Text(
+                                            stringResource(R.string.new_plan),
+                                            modifier = Modifier.padding(start = 6.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     items(todayWorkouts, key = { it.id }) { w ->
                         Card(onClick = { onOpenWorkout(w.id) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(w.name, Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
+                            Row(
+                                Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                dev.allan.workoutapp.ui.plans.ExerciseCountBadge(exerciseCounts[w.id] ?: 0)
+                                Text(w.name, style = MaterialTheme.typography.titleMedium)
+                            }
                         }
                     }
                     item {
@@ -370,6 +437,55 @@ private fun MainScaffold(
                 showNewPlan = false
             },
         )
+    }
+}
+
+/**
+ * Mon–Sun circles above Today; a filled circle with a checkmark marks days of the
+ * current week where a session was finished. Today's circle is outlined.
+ */
+@Composable
+private fun WeekRow(completedDays: Set<Int>) {
+    val today = java.time.LocalDate.now().dayOfWeek.value
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        java.time.DayOfWeek.entries.forEach { day ->
+            val done = day.value in completedDays
+            val isToday = day.value == today
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            if (done) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                            CircleShape,
+                        )
+                        .then(
+                            if (isToday) Modifier.border(
+                                2.dp, MaterialTheme.colorScheme.primary, CircleShape
+                            ) else Modifier
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (done) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Text(
+                            day.getDisplayName(java.time.format.TextStyle.NARROW, Locale.getDefault()),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

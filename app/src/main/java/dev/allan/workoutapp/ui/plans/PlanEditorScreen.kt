@@ -1,21 +1,31 @@
 package dev.allan.workoutapp.ui.plans
 
 import android.app.Application
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -49,6 +59,7 @@ import dev.allan.workoutapp.data.db.Workout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -63,6 +74,11 @@ class PlanEditorViewModel(app: Application, private val planId: Long) : AndroidV
 
     val workouts: StateFlow<List<Workout>> = db.planDao().workouts(planId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** workoutId -> number of exercises, for the count badges. */
+    val exerciseCounts: StateFlow<Map<Long, Int>> = db.planDao().exerciseCounts()
+        .map { rows -> rows.associate { it.workoutId to it.count } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     init {
         refreshPlan()
@@ -93,8 +109,16 @@ class PlanEditorViewModel(app: Application, private val planId: Long) : AndroidV
         }
     }
 
-    fun deleteWorkout(w: Workout) {
-        viewModelScope.launch { db.planDao().deleteWorkout(w.id) }
+    fun deleteWorkouts(ids: Set<Long>) {
+        viewModelScope.launch { ids.forEach { db.planDao().deleteWorkout(it) } }
+    }
+
+    fun setArchived(ids: Set<Long>, archived: Boolean) {
+        viewModelScope.launch {
+            workouts.value.filter { it.id in ids }.forEach {
+                db.planDao().updateWorkout(it.copy(archived = archived))
+            }
+        }
     }
 
     fun toggleDay(w: Workout, isoDay: Int) {
@@ -129,21 +153,56 @@ fun PlanEditorScreen(
         viewModel(key = "plan-$planId", factory = PlanEditorViewModel.Factory(app, planId))
     val plan by vm.plan.collectAsState()
     val workouts by vm.workouts.collectAsState()
+    val counts by vm.exerciseCounts.collectAsState()
     var showAddWorkout by remember { mutableStateOf(false) }
+
+    // Long-press selection mode: no one-tap delete anywhere on this screen.
+    var selected by remember { mutableStateOf(setOf<Long>()) }
+    val selectionMode = selected.isNotEmpty()
+    var confirmDelete by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(plan?.name ?: "") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                },
-            )
+            if (selectionMode) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.selected_count, selected.size)) },
+                    navigationIcon = {
+                        IconButton(onClick = { selected = emptySet() }) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
+                        }
+                    },
+                    actions = {
+                        val anyArchived = workouts.any { it.id in selected && it.archived }
+                        IconButton(onClick = {
+                            vm.setArchived(selected, archived = !anyArchived)
+                            selected = emptySet()
+                        }) {
+                            Icon(
+                                if (anyArchived) Icons.Default.Unarchive else Icons.Outlined.Inventory2,
+                                contentDescription = stringResource(
+                                    if (anyArchived) R.string.unarchive else R.string.archive
+                                ),
+                            )
+                        }
+                        IconButton(onClick = { confirmDelete = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                        }
+                    },
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(plan?.name ?: "") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
+                    },
+                )
+            }
         }
     ) { padding ->
         val p = plan ?: return@Scaffold
+        val (active, archived) = workouts.partition { !it.archived }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -176,39 +235,42 @@ fun PlanEditorScreen(
             val week = vm.currentWeek()
             if (week != null && p.cycleWeeks != null) {
                 item {
-                    val deload = week >= p.cycleWeeks
+                    val deload = week >= p.cycleWeeks!!
                     Card {
                         Text(
                             text = if (deload)
-                                stringResource(R.string.deload_banner, week, p.cycleWeeks)
+                                stringResource(R.string.deload_banner, week, p.cycleWeeks!!)
                             else
-                                stringResource(R.string.cycle_week_banner, week, p.cycleWeeks),
+                                stringResource(R.string.cycle_week_banner, week, p.cycleWeeks!!),
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                 }
             }
-            items(workouts, key = { it.id }) { w ->
-                Card(onClick = { onOpenWorkout(w.id) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(w.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { vm.deleteWorkout(w) }) {
-                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            DayOfWeek.entries.forEach { day ->
-                                FilterChip(
-                                    selected = day.value in w.daysOfWeek,
-                                    onClick = { vm.toggleDay(w, day.value) },
-                                    label = { Text(day.getDisplayName(TextStyle.NARROW, Locale.getDefault())) },
-                                )
-                            }
-                        }
-                    }
+            if (workouts.isNotEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.long_press_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+            }
+            items(active, key = { it.id }) { w ->
+                WorkoutCard(
+                    w = w,
+                    exerciseCount = counts[w.id] ?: 0,
+                    selectionMode = selectionMode,
+                    isSelected = w.id in selected,
+                    onToggleDay = { vm.toggleDay(w, it) },
+                    onClick = {
+                        if (selectionMode) {
+                            selected = if (w.id in selected) selected - w.id else selected + w.id
+                        } else onOpenWorkout(w.id)
+                    },
+                    onLongPress = { selected = selected + w.id },
+                )
             }
             item {
                 Button(onClick = { showAddWorkout = true }) {
@@ -216,7 +278,48 @@ fun PlanEditorScreen(
                     Text(stringResource(R.string.add_workout), modifier = Modifier.padding(start = 6.dp))
                 }
             }
+            if (archived.isNotEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.archived_section),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                items(archived, key = { it.id }) { w ->
+                    WorkoutCard(
+                        w = w,
+                        exerciseCount = counts[w.id] ?: 0,
+                        selectionMode = selectionMode,
+                        isSelected = w.id in selected,
+                        onToggleDay = { vm.toggleDay(w, it) },
+                        onClick = {
+                            if (selectionMode) {
+                                selected = if (w.id in selected) selected - w.id else selected + w.id
+                            } else onOpenWorkout(w.id)
+                        },
+                        onLongPress = { selected = selected + w.id },
+                    )
+                }
+            }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.delete_workouts_confirm, selected.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteWorkouts(selected)
+                    selected = emptySet()
+                    confirmDelete = false
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 
     if (showAddWorkout) {
@@ -244,5 +347,72 @@ fun PlanEditorScreen(
                 TextButton(onClick = { showAddWorkout = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
+    }
+}
+
+/** Circled number: how many exercises the workout holds. */
+@Composable
+fun ExerciseCountBadge(count: Int) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "$count",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun WorkoutCard(
+    w: Workout,
+    exerciseCount: Int,
+    selectionMode: Boolean,
+    isSelected: Boolean,
+    onToggleDay: (Int) -> Unit,
+    onClick: () -> Unit,
+    onLongPress: () -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier
+                .combinedClickable(onClick = onClick, onLongClick = onLongPress)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (selectionMode) {
+                    Checkbox(checked = isSelected, onCheckedChange = { onClick() })
+                }
+                ExerciseCountBadge(exerciseCount)
+                Text(w.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (w.archived) {
+                    Icon(
+                        Icons.Outlined.Inventory2,
+                        contentDescription = stringResource(R.string.archived_section),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                stringResource(R.string.assign_days),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                DayOfWeek.entries.forEach { day ->
+                    FilterChip(
+                        selected = day.value in w.daysOfWeek,
+                        onClick = { onToggleDay(day.value) },
+                        label = { Text(day.getDisplayName(TextStyle.NARROW, Locale.getDefault())) },
+                    )
+                }
+            }
+        }
     }
 }

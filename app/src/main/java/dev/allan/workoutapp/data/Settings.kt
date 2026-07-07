@@ -43,6 +43,17 @@ object Settings {
         context.dataStore.edit { it[PREV_NEXT_BUTTONS] = value }
     }
 
+    /** "system" | "light" | "dark" — home-screen toggle switches light/dark. */
+    private val THEME_MODE =
+        androidx.datastore.preferences.core.stringPreferencesKey("theme_mode")
+
+    fun themeMode(context: Context): Flow<String> =
+        context.dataStore.data.map { it[THEME_MODE] ?: "system" }
+
+    suspend fun setThemeMode(context: Context, value: String) {
+        context.dataStore.edit { it[THEME_MODE] = value }
+    }
+
     fun heightCm(context: Context): Flow<Double?> =
         context.dataStore.data.map { it[HEIGHT_CM] }
 

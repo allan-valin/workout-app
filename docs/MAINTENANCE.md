@@ -25,6 +25,14 @@ workout-app/
   phone and open from a file manager.
 - Bump `versionCode` (+1) and `versionName` on every release Allan will install.
 
+## Emulator (AVD `testphone`)
+
+- `~/.android/avd/testphone.avd/config.ini` MUST keep `hw.gpu.enabled = yes` and
+  `hw.gpu.mode = host` (plus `hw.ramSize = 3072M`). With software rendering the emulator
+  crashes shortly after startup and can freeze the whole host machine under Compose-heavy
+  screens (bitten on 2026-07-07). When launching headless from a session, `-gpu host` is
+  fine on this machine; fall back to `-gpu swiftshader_indirect` only if host GL breaks.
+
 ## Device compatibility checklist (Redmi 15 Pro 5G, HyperOS 3.x)
 
 When Allan reports "broken after update" or asks for a compatibility pass:

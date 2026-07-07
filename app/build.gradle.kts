@@ -14,8 +14,8 @@ android {
         applicationId = "dev.allan.workoutapp"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     signingConfigs {
@@ -56,7 +56,18 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // The LLM plan-generator instructions ship inside the app (Settings → share the .md
+    // with any chatbot). Single source of truth stays docs/WORKOUT_PLAN_GENERATOR.md.
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/generatorDoc"))
 }
+
+val copyGeneratorDoc = tasks.register<Copy>("copyGeneratorDoc") {
+    from(rootProject.file("docs/WORKOUT_PLAN_GENERATOR.md"))
+    into(layout.buildDirectory.dir("generated/generatorDoc"))
+    rename { "workout_plan_generator.md" }
+}
+tasks.named("preBuild") { dependsOn(copyGeneratorDoc) }
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")

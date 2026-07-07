@@ -82,6 +82,8 @@ data class Workout(
     val orderIndex: Int,
     /** ISO day numbers 1=Mon..7=Sun. */
     val daysOfWeek: List<Int>,
+    /** Archived workouts are hidden from Today and the main plan list but keep their history. */
+    val archived: Boolean = false,
 )
 
 @Serializable
@@ -94,6 +96,12 @@ data class WorkoutExercise(
     val note: String = "",
     val weightMode: WeightMode = WeightMode.TOTAL,
     val barWeightKg: Double = 20.0,
+    /**
+     * Superset link: this exercise alternates with the previous one in the workout —
+     * set 1 of the previous exercise, then set 1 of this one (no rest between), rest,
+     * set 2 of the previous, set 2 of this one, …
+     */
+    val supersetWithPrev: Boolean = false,
 )
 
 @Serializable
@@ -105,6 +113,8 @@ data class SetTemplate(
     val type: SetType = SetType.NORMAL,
     val targetWeightKg: Double = 0.0,
     val targetValue: Int = 10,
+    /** Upper bound of the target rep range (null = fixed target, no range). REPS only. */
+    val targetValueMax: Int? = null,
     val valueUnit: ValueUnit = ValueUnit.REPS,
     val restSecs: Int = 90,
 )
