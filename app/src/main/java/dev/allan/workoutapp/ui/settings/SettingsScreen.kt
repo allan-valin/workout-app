@@ -59,6 +59,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     val plans: StateFlow<List<Plan>> = db.planDao().plans(true)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val muscles: StateFlow<List<dev.allan.workoutapp.data.db.Muscle>> = db.exerciseDao().muscles()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
 
@@ -139,7 +142,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
     val plans by vm.plans.collectAsState()
@@ -261,6 +264,38 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                                 }
                             },
                         )
+                    }
+                }
+            }
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.injuries), fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.injuries_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val muscles by vm.muscles.collectAsState()
+                    val injured by dev.allan.workoutapp.data.Settings.injuredMuscles(context)
+                        .collectAsState(initial = emptySet())
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        muscles.forEach { m ->
+                            androidx.compose.material3.FilterChip(
+                                selected = m.id in injured,
+                                onClick = {
+                                    val next = if (m.id in injured) injured - m.id else injured + m.id
+                                    scope.launch {
+                                        dev.allan.workoutapp.data.Settings.setInjuredMuscles(context, next)
+                                    }
+                                },
+                                label = {
+                                    Text(dev.allan.workoutapp.data.MuscleNames.display(m.nameEn, appLang))
+                                },
+                            )
+                        }
                     }
                 }
             }

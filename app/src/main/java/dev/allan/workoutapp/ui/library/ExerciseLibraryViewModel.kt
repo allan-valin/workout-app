@@ -9,6 +9,7 @@ import dev.allan.workoutapp.data.db.ExerciseTranslation
 import dev.allan.workoutapp.data.db.Muscle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -24,6 +25,8 @@ data class LibraryUiState(
     val selectedMuscleId: Int? = null,
     val searchLang: SearchLang = SearchLang.APP,
     val showAltNames: Boolean = false,
+    /** When on, exercises hitting an injured muscle (primary or secondary) are hidden. */
+    val excludeInjured: Boolean = true,
     /** exerciseId -> "alt names" preview line, filled when showAltNames is on. */
     val altNames: Map<String, String> = emptyMap(),
 )
@@ -45,6 +48,15 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     val muscles: StateFlow<List<Muscle>> = db.exerciseDao().muscles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val injuredMuscles: StateFlow<Set<Int>> =
+        dev.allan.workoutapp.data.Settings.injuredMuscles(app)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun setExcludeInjured(exclude: Boolean) {
+        _state.value = _state.value.copy(excludeInjured = exclude)
+        if (_state.value.searched) search(appLang())
+    }
 
     fun setQuery(q: String) = _state.value.let { _state.value = it.copy(query = q) }
 
@@ -86,7 +98,17 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
         val muscleCsv = s.selectedMuscleId?.let { "%,$it,%" }
         _state.value = s.copy(searching = true)
         viewModelScope.launch {
-            val hits = db.exerciseDao().search(s.query.trim(), lang, muscleCsv)
+            var hits = db.exerciseDao().search(s.query.trim(), lang, muscleCsv)
+            if (s.excludeInjured) {
+                val injured =
+                    dev.allan.workoutapp.data.Settings.injuredMuscles(getApplication()).first()
+                if (injured.isNotEmpty()) {
+                    hits = hits.filter { hit ->
+                        hit.primaryMuscles.none(injured::contains) &&
+                            hit.secondaryMuscles.none(injured::contains)
+                    }
+                }
+            }
             val alt = if (_state.value.showAltNames) buildAltNames(hits) else emptyMap()
             _state.value = _state.value.copy(
                 searching = false, searched = true, results = hits, altNames = alt,

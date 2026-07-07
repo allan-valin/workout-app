@@ -185,6 +185,17 @@ fun ExerciseLibraryScreen(
                     Text(stringResource(R.string.show_alt_names))
                     Switch(checked = state.showAltNames, onCheckedChange = vm::setShowAltNames)
                 }
+                val injured by vm.injuredMuscles.collectAsState()
+                if (injured.isNotEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(stringResource(R.string.hide_injured))
+                        Switch(checked = state.excludeInjured, onCheckedChange = vm::setExcludeInjured)
+                    }
+                }
             }
         }
     }

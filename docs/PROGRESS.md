@@ -81,7 +81,7 @@ Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/short
 - [x] wger DB refresh button in Settings (data/sync/WgerSync.kt): mirrors fetch_wger.py, fetch-all-then-one-transaction (abort keeps old data), preserves imagePath/licenseAuthor, never touches custom exercises, additive (upstream deletions kept), sanity check ≥500 exercises
 - [x] Media ref-count sweep (MediaStore.sweep, runs on app start — no explicit "plan save" moment exists; stale imagePath re-checked by ensureImage); GIF support: .gif URLs saved verbatim (no re-encode), rendered via Coil 2.7 + coil-gif ImageDecoderDecoder in session image slot
 - [x] Prev/next exercise buttons behind Settings toggle (chevron row under pager); scroll-collapsing image (NestedScrollConnection on sets table, animateDpAsState 110→0dp, reappears at scroll top)
-- [ ] Injured-muscle exclusion toggle + physio category (schema ready: secondary muscles, muscle.parentId)
+- [x] Injured-muscle exclusion: Settings "Injuries" chip card (DataStore set), library search hides primary+secondary matches, override toggle in filter sheet (visible only when injuries set). Physio category still skipped — no usable open dataset (plan §3 unchanged)
 - [ ] Auto workout suggestions
 - [ ] pt-BR translation batch for the 752 exercises missing pt names (import as aliases)
 

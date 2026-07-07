@@ -143,4 +143,7 @@
     <string name="prev_next_setting">Botões de exercício anterior/próximo</string>
     <string name="prev_exercise">Exercício anterior</string>
     <string name="next_exercise">Próximo exercício</string>
+    <string name="injuries">Lesões</string>
+    <string name="injuries_hint">Marque músculos lesionados — a busca de exercícios oculta os que os usam (primário ou secundário). Um botão nos filtros de busca permite ignorar isso.</string>
+    <string name="hide_injured">Ocultar exercícios de músculos lesionados</string>
 </resources>

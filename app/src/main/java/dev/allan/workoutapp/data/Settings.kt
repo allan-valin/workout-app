@@ -21,6 +21,18 @@ object Settings {
         context.dataStore.edit { it[BATTERY_ONBOARDING_SHOWN] = true }
     }
 
+    private val INJURED_MUSCLES =
+        androidx.datastore.preferences.core.stringSetPreferencesKey("injured_muscles")
+
+    fun injuredMuscles(context: Context): Flow<Set<Int>> =
+        context.dataStore.data.map { prefs ->
+            prefs[INJURED_MUSCLES]?.mapNotNull(String::toIntOrNull)?.toSet() ?: emptySet()
+        }
+
+    suspend fun setInjuredMuscles(context: Context, ids: Set<Int>) {
+        context.dataStore.edit { it[INJURED_MUSCLES] = ids.map(Int::toString).toSet() }
+    }
+
     private val PREV_NEXT_BUTTONS =
         androidx.datastore.preferences.core.booleanPreferencesKey("prev_next_buttons")
 
