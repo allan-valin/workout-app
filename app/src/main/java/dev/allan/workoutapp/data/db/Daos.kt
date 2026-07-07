@@ -52,6 +52,9 @@ interface ExerciseDao {
     @Query("DELETE FROM exercise_translation WHERE exerciseId LIKE 'wger:%'")
     suspend fun deleteWgerTranslations()
 
+    @Query("SELECT DISTINCT exerciseId FROM exercise_translation WHERE lang = :lang")
+    suspend fun exerciseIdsWithLang(lang: String): List<String>
+
     @Query("UPDATE exercise SET imagePath = :path WHERE id = :id")
     suspend fun setImagePath(id: String, path: String)
 

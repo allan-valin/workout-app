@@ -83,8 +83,10 @@ Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/short
 - [x] Prev/next exercise buttons behind Settings toggle (chevron row under pager); scroll-collapsing image (NestedScrollConnection on sets table, animateDpAsState 110→0dp, reappears at scroll top)
 - [x] Injured-muscle exclusion: Settings "Injuries" chip card (DataStore set), library search hides primary+secondary matches, override toggle in filter sheet (visible only when injuries set). Physio category still skipped — no usable open dataset (plan §3 unchanged)
 - [x] Auto workout suggestions: SuggestionEngine (focus recipes muscle-id→count, cardio pool sentinel), ✨ button in workout editor → focus dialog (reuses split_* strings), appends non-duplicate picks preferring illustrated exercises, respects injured muscles. Unit tests (SuggestionEngineTest) green
-- [ ] pt-BR translation batch for the 752 exercises missing pt names (import as aliases)
+- [x] pt-BR translation batch: 748/752 names generated (4 brand names skipped: Blaze, Blackroll, Bronco, Limber 11). Tables in tools/pt-aliases/part*.json (en name → pt name), generate.py → assets/pt_aliases.json (wger id → pt name). PtAliases.merge inserts pt translation rows (en description carried over) on app start and after wger sync; wger's own pt always wins (skip-if-exists)
 
 Excluded: Play Store (needs $25 account + 12-tester closed test) — Allan decision 2026-07-07.
 
-## Status: Phases 0-6 complete; Phase 7 backlog in progress. Pending real-device test on the Redmi.
+## Status: Phases 0-7 complete (Play Store excluded). Pending real-device test on the Redmi.
+
+Phase 7 not emulator-verified yet — unit tests + release build green; wger refresh + suggestions + pt search worth a quick manual pass on device/emulator.

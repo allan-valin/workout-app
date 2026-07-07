@@ -73,6 +73,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _syncing.value = true
             val result = WgerSync.refresh(db)
+            // Sync rebuilds the wger translation table; restore generated pt names.
+            result.onSuccess {
+                dev.allan.workoutapp.data.snapshot.PtAliases.merge(context, db)
+            }
             _syncing.value = false
             _message.value = result.fold(
                 onSuccess = { context.getString(R.string.wger_refresh_done, it.exercises, it.translations) },
