@@ -89,4 +89,13 @@ Excluded: Play Store (needs $25 account + 12-tester closed test) — Allan decis
 
 ## Status: Phases 0-7 complete (Play Store excluded). Pending real-device test on the Redmi.
 
-Phase 7 not emulator-verified yet — unit tests + release build green; wger refresh + suggestions + pt search worth a quick manual pass on device/emulator.
+Phase 7 EMULATOR-VERIFIED 2026-07-07 (AVD testphone, debug build, pt-BR; screenshots in session scratchpad):
+- pt batch: search "testa" → 5 "Tríceps Testa …" generated names; still present after wger sync (re-merge works)
+- Injured muscles: Tríceps chip in Settings → same search 0 results; filter-sheet override toggle restores them; chip state persists
+- Suggestions: ✨ in workout editor → focus dialog (11 options) → Push filled 4 exercises (2 chest + 2 shoulder-tagged), NO tríceps (injured respected), images auto-downloaded
+- Prev/next buttons: toggle in Settings → chevron row under pager, left disabled on page 1, right navigates + story bar advances
+- wger refresh: real sync OK — "Atualizado: 818 exercícios, 1511 traduções", button disabled while "Atualizando…"
+- Media sweep: on app restart planted orphan wger_99999.jpg deleted, 4 referenced files kept
+- NOT visually verified (code-only): GIF playback (no .gif exercise encountered), scroll-collapsing image (test workout tables too short to scroll)
+
+Polish note: muscle "Obliquus externus abdominis" chip shows latin (wger ships no name_en for it) — add to MuscleNames map someday.
