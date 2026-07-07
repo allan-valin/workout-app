@@ -22,17 +22,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.TimerOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -43,6 +47,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import kotlinx.coroutines.flow.first
@@ -84,6 +89,7 @@ fun SessionScreen(
     appLang: String,
     onExit: () -> Unit,
     onFinished: (Long) -> Unit,
+    onEditExercise: (Long) -> Unit = {},
 ) {
     val app = LocalContext.current.applicationContext as Application
     val vm: SessionViewModel = viewModel(
@@ -111,6 +117,17 @@ fun SessionScreen(
             showBatteryOnboarding = true
         }
     }
+    // Templates can change while we're away (per-exercise edit mid-session) — reload
+    // when this nav entry comes back to the foreground.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     if (showBatteryOnboarding) {
         BatteryOnboardingDialog(onDismiss = {
             showBatteryOnboarding = false
@@ -157,6 +174,13 @@ fun SessionScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
+                                IconButton(onClick = { onEditExercise(ex.workoutExerciseId) }) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = stringResource(R.string.edit_training),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                                 if (ex.sets.isNotEmpty() && ex.sets.all { it.done }) {
                                     Icon(Icons.Default.Check, contentDescription = null)
                                 }
@@ -180,6 +204,13 @@ fun SessionScreen(
             pageCount = { state.exercises.size },
         )
         LaunchedEffect(pagerState.currentPage) { vm.setCurrentIndex(pagerState.currentPage) }
+        // Auto-advance after logging: superset partner, next exercise, or back here.
+        LaunchedEffect(state.pendingSwipeTo) {
+            state.pendingSwipeTo?.let { target ->
+                if (target in state.exercises.indices) pagerState.animateScrollToPage(target)
+                vm.clearPendingSwipe()
+            }
+        }
         val prevNextEnabled by dev.allan.workoutapp.data.Settings.prevNextButtons(context)
             .collectAsState(initial = false)
         val pagerScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -239,6 +270,64 @@ fun SessionScreen(
         }
     }
 
+    state.descriptionSheet?.let { desc ->
+        val sheetExerciseId = state.descriptionExerciseId
+        var videoOverlayUrl by remember { mutableStateOf<String?>(null) }
+        var linkText by remember(sheetExerciseId, state.descriptionVideoUrl) {
+            mutableStateOf(state.descriptionVideoUrl ?: "")
+        }
+        ModalBottomSheet(onDismissRequest = vm::closeDescription) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    state.exercises.getOrNull(state.currentIndex)?.name ?: "",
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                Text(desc.ifBlank { stringResource(R.string.no_description) })
+
+                // User-owned video link — stored locally, never touched by wger refreshes.
+                OutlinedTextField(
+                    value = linkText,
+                    onValueChange = { linkText = it },
+                    label = { Text(stringResource(R.string.video_link)) },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (sheetExerciseId != null && linkText.trim() != (state.descriptionVideoUrl ?: "")) {
+                            IconButton(onClick = { vm.saveVideoLink(sheetExerciseId, linkText) }) {
+                                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.ok))
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                state.descriptionVideoUrl?.let { url ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { videoOverlayUrl = url }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Text(stringResource(R.string.watch_video), modifier = Modifier.padding(start = 4.dp))
+                        }
+                        val ctx = LocalContext.current
+                        OutlinedButton(
+                            onClick = {
+                                runCatching {
+                                    ctx.startActivity(
+                                        android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse(url),
+                                        )
+                                    )
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) { Text(stringResource(R.string.open_externally), maxLines = 1) }
+                    }
+                }
+            }
+        }
+        videoOverlayUrl?.let { url ->
+            VideoOverlayDialog(url = url, onDismiss = { videoOverlayUrl = null })
+        }
+    }
+
     confirmEnd?.let { save ->
         AlertDialog(
             onDismissRequest = { confirmEnd = null },
@@ -271,8 +360,13 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
             }
         },
         actions = {
-            IconButton(onClick = { noteOpen = true }) {
-                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.note))
+            IconButton(onClick = { current?.let { vm.openDescription(it.exerciseId) } }) {
+                Icon(Icons.Default.Info, contentDescription = stringResource(R.string.description))
+            }
+            // Icon alone read as "edit exercise" — label it so it's clearly a note.
+            TextButton(onClick = { noteOpen = true }) {
+                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.note), modifier = Modifier.padding(start = 4.dp))
             }
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Default.MoreVert, contentDescription = null)
@@ -332,7 +426,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
         }
     }
     val imageHeight by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (imageVisible) 110.dp else 0.dp,
+        targetValue = if (imageVisible) 165.dp else 0.dp,
         label = "imageHeight",
     )
 
@@ -449,20 +543,27 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 .verticalScroll(tableScroll),
         ) {
             // Column captions: what to tap, what the numbers mean.
+            val doneHeader = when {
+                ex.sets.isNotEmpty() && ex.sets.all { it.valueUnit == ValueUnit.SECS } ->
+                    stringResource(R.string.secs)
+                ex.sets.any { it.valueUnit == ValueUnit.SECS } ->
+                    stringResource(R.string.reps) + "/" + stringResource(R.string.secs)
+                else -> stringResource(R.string.reps)
+            }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                SessionHeader(stringResource(R.string.header_type), Modifier.width(40.dp))
+                SessionHeader(stringResource(R.string.header_type), Modifier.width(28.dp))
                 SessionHeader(
                     stringResource(R.string.kg) + " · " + when (ex.weightMode) {
                         WeightMode.TOTAL -> stringResource(R.string.weight_total)
                         WeightMode.PER_DUMBBELL -> stringResource(R.string.weight_per_dumbbell)
                         WeightMode.PER_SIDE -> stringResource(R.string.weight_per_side)
                     }.lowercase(),
-                    Modifier.weight(1.2f),
+                    Modifier.weight(1.5f),
                 )
-                SessionHeader(stringResource(R.string.header_done_value), Modifier.weight(1f))
+                SessionHeader(doneHeader, Modifier.weight(1f))
                 SessionHeader(stringResource(R.string.header_target), Modifier.width(52.dp))
                 SessionHeader("", Modifier.width(48.dp))
             }
@@ -489,17 +590,52 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                             SetType.DROP -> stringResource(R.string.set_drop)
                             SetType.SUPERSET -> stringResource(R.string.set_superset)
                         }.take(1),
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.width(width = 40.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = setTypeColor(set.type),
+                        modifier = Modifier.width(width = 28.dp),
                     )
-                    OutlinedButton(onClick = { editTarget = set to "weight" }, modifier = Modifier.weight(1.2f)) {
-                        Text("${if (set.weightKg % 1.0 == 0.0) set.weightKg.toInt() else set.weightKg} kg")
+                    // − weight + quick-steppers around the tap-to-edit weight button.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1.5f),
+                    ) {
+                        IconButton(
+                            onClick = { vm.updateWeight(page, set, (set.weightKg - 2.5).coerceAtLeast(0.0)) },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Remove,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { editTarget = set to "weight" },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("${if (set.weightKg % 1.0 == 0.0) set.weightKg.toInt() else set.weightKg}")
+                        }
+                        IconButton(
+                            onClick = { vm.updateWeight(page, set, set.weightKg + 2.5) },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                    OutlinedButton(onClick = { editTarget = set to "value" }, modifier = Modifier.weight(1f)) {
-                        Text(
-                            "${set.value} " + if (set.valueUnit == ValueUnit.REPS)
-                                stringResource(R.string.reps) else stringResource(R.string.secs)
-                        )
+                    OutlinedButton(
+                        onClick = { editTarget = set to "value" },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("${set.value}")
                     }
                     // Reference rep range from the plan (what you aim for, not what you log).
                     Text(
@@ -553,9 +689,8 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             isWeight = field == "weight",
             onDismiss = { editTarget = null },
             onConfirm = { newValue ->
-                val updated = if (field == "weight") set.copy(weightKg = newValue.coerceAtLeast(0.0))
-                else set.copy(value = newValue.toInt().coerceAtLeast(0))
-                vm.updateSet(page, updated)
+                if (field == "weight") vm.updateWeight(page, set, newValue.coerceAtLeast(0.0))
+                else vm.updateSet(page, set.copy(value = newValue.toInt().coerceAtLeast(0)))
                 editTarget = null
             },
         )
@@ -569,44 +704,90 @@ private fun SessionHeader(text: String, modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
+        textAlign = TextAlign.Center,
         modifier = modifier,
     )
 }
 
+/** Color code per set type so the single letters scan at a glance. */
+@Composable
+private fun setTypeColor(type: SetType): androidx.compose.ui.graphics.Color = when (type) {
+    SetType.WARMUP -> androidx.compose.ui.graphics.Color(0xFFFF9800)   // orange
+    SetType.NORMAL -> MaterialTheme.colorScheme.onSurface
+    SetType.FAILURE -> MaterialTheme.colorScheme.error
+    SetType.DROP -> androidx.compose.ui.graphics.Color(0xFFAB47BC)     // purple
+    SetType.SUPERSET -> MaterialTheme.colorScheme.tertiary
+}
+
 @Composable
 private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
+    val restRunning = state.restRemainingSecs != null
     Surface(tonalElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.rest), style = MaterialTheme.typography.labelSmall)
-                Text(
-                    state.restRemainingSecs?.let(::fmt) ?: "–",
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            if (state.setCountdownRemainingSecs != null) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.set_timer), style = MaterialTheme.typography.labelSmall)
-                    Text(fmt(state.setCountdownRemainingSecs), style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(R.string.rest), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        state.restRemainingSecs?.let(::fmt) ?: "–",
+                        style = MaterialTheme.typography.headlineMedium,
+                        textAlign = TextAlign.Center,
+                        color = if (restRunning) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                if (state.setCountdownRemainingSecs != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(stringResource(R.string.set_timer), style = MaterialTheme.typography.labelSmall)
+                        Text(fmt(state.setCountdownRemainingSecs), style = MaterialTheme.typography.headlineMedium)
+                    }
+                }
+                // Stopwatch is for timing the active set — irrelevant (and grayed) during rest.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.stopwatch), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        fmt(state.stopwatchSecs),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = if (restRunning) MaterialTheme.colorScheme.outlineVariant
+                        else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                // Running total of tracked active (working) time this session.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.active_time), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        fmt(state.activeSecs),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
                 }
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.stopwatch), style = MaterialTheme.typography.labelSmall)
-                Text(fmt(state.stopwatchSecs), style = MaterialTheme.typography.headlineMedium)
-            }
-            IconButton(onClick = vm::toggleStopwatch) {
-                Icon(
-                    if (state.stopwatchRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = stringResource(R.string.stopwatch),
-                )
-            }
-            IconButton(onClick = vm::stopRest) {
-                Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stop_rest))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (restRunning) {
+                    TextButton(onClick = vm::stopRest) {
+                        Icon(Icons.Default.TimerOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.stop_rest), modifier = Modifier.padding(start = 4.dp))
+                    }
+                }
+                IconButton(onClick = vm::toggleStopwatch, enabled = !restRunning) {
+                    Icon(
+                        if (state.stopwatchRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = stringResource(R.string.stopwatch),
+                    )
+                }
+                IconButton(
+                    onClick = vm::resetStopwatch,
+                    enabled = !restRunning && (state.stopwatchRunning || state.stopwatchSecs > 0),
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stopwatch_reset))
+                }
             }
         }
     }
@@ -662,6 +843,40 @@ private fun BatteryOnboardingDialog(onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) }
+        },
+    )
+}
+
+/**
+ * Inline YouTube playback via a WebView embed. Needs network (user action only).
+ * Non-YouTube or unparsable links fall back to loading the URL directly.
+ */
+@Composable
+private fun VideoOverlayDialog(url: String, onDismiss: () -> Unit) {
+    val embedUrl = remember(url) {
+        val id = Regex("""(?:v=|youtu\.be/|shorts/|embed/)([\w-]{11})""").find(url)?.groupValues?.get(1)
+        if (id != null) "https://www.youtube.com/embed/$id?autoplay=1&playsinline=1" else url
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            androidx.compose.ui.viewinterop.AndroidView(
+                factory = { ctx ->
+                    android.webkit.WebView(ctx).apply {
+                        settings.javaScriptEnabled = true
+                        settings.mediaPlaybackRequiresUserGesture = false
+                        webChromeClient = android.webkit.WebChromeClient()
+                        loadUrl(embedUrl)
+                    }
+                },
+                onRelease = { it.destroy() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         },
     )
 }

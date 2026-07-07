@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LightMode
@@ -66,6 +67,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -113,7 +115,18 @@ fun WorkoutTheme(content: @Composable () -> Unit) {
         darkTheme -> darkColorScheme()
         else -> lightColorScheme()
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
+    // Slightly larger type across the board — defaults were hard to read mid-workout.
+    val base = androidx.compose.material3.Typography()
+    val typography = base.copy(
+        bodySmall = base.bodySmall.copy(fontSize = 13.sp),
+        bodyMedium = base.bodyMedium.copy(fontSize = 15.sp),
+        bodyLarge = base.bodyLarge.copy(fontSize = 17.sp),
+        labelSmall = base.labelSmall.copy(fontSize = 12.sp),
+        labelMedium = base.labelMedium.copy(fontSize = 13.sp),
+        labelLarge = base.labelLarge.copy(fontSize = 15.sp),
+        titleMedium = base.titleMedium.copy(fontSize = 17.sp),
+    )
+    MaterialTheme(colorScheme = colorScheme, typography = typography, content = content)
 }
 
 /** Current app language, normalized to the three supported codes. */
@@ -189,6 +202,7 @@ fun AppRoot() {
                         popUpTo("main")
                     }
                 },
+                onEditExercise = { weId -> navController.navigate("workout/$workoutId?focus=$weId") },
             )
         }
         composable(
@@ -229,15 +243,20 @@ fun AppRoot() {
             )
         }
         composable(
-            "workout/{workoutId}",
-            arguments = listOf(navArgument("workoutId") { type = NavType.LongType }),
+            "workout/{workoutId}?focus={focusId}",
+            arguments = listOf(
+                navArgument("workoutId") { type = NavType.LongType },
+                navArgument("focusId") { type = NavType.LongType; defaultValue = -1L },
+            ),
         ) { entry ->
             val workoutId = entry.arguments!!.getLong("workoutId")
+            val focusId = entry.arguments!!.getLong("focusId").takeIf { it >= 0 }
             WorkoutEditorScreen(
                 workoutId = workoutId,
                 appLang = currentAppLang(),
                 onBack = { navController.popBackStack() },
                 onPickExercise = { navController.navigate("picker/$workoutId") },
+                focusExerciseId = focusId,
             )
         }
         composable(
@@ -265,6 +284,9 @@ private fun MainScaffold(
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var showNewPlan by remember { mutableStateOf(false) }
+    // Plan selection for deletion (checkboxes on Active/Inactive plan cards).
+    var selectedPlans by remember { mutableStateOf(setOf<Long>()) }
+    var confirmDeletePlans by remember { mutableStateOf(false) }
 
     val activePlans by vm.activePlans.collectAsState()
     val inactivePlans by vm.inactivePlans.collectAsState()
@@ -272,6 +294,7 @@ private fun MainScaffold(
     val runningSession by vm.runningSession.collectAsState()
     val completedWeekDays by vm.completedWeekDays.collectAsState()
     val exerciseCounts by vm.exerciseCounts.collectAsState()
+    val workoutCounts by vm.workoutCounts.collectAsState()
 
     val context = LocalContext.current
     val themeMode by dev.allan.workoutapp.data.Settings.themeMode(context)
@@ -283,6 +306,14 @@ private fun MainScaffold(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    if (selectedPlans.isNotEmpty()) {
+                        IconButton(onClick = { confirmDeletePlans = true }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = stringResource(R.string.delete),
+                            )
+                        }
+                    }
                     val dark = when (themeMode) {
                         "dark" -> true
                         "light" -> false
@@ -409,7 +440,18 @@ private fun MainScaffold(
                         item { Text(stringResource(R.string.no_active_plans), Modifier.padding(top = 16.dp)) }
                     }
                     items(activePlans, key = { it.id }) { plan ->
-                        PlanCard(plan, onOpen = { onOpenPlan(plan.id) }, onToggle = { vm.setPlanActive(plan, false) })
+                        PlanCard(
+                            plan,
+                            workoutCount = workoutCounts[plan.id] ?: 0,
+                            selected = plan.id in selectedPlans,
+                            onToggleSelect = {
+                                selectedPlans =
+                                    if (plan.id in selectedPlans) selectedPlans - plan.id
+                                    else selectedPlans + plan.id
+                            },
+                            onOpen = { onOpenPlan(plan.id) },
+                            onToggle = { vm.setPlanActive(plan, false) },
+                        )
                     }
                 }
                 Tab.Inactive -> {
@@ -417,12 +459,40 @@ private fun MainScaffold(
                         item { Text(stringResource(R.string.no_inactive_plans), Modifier.padding(top = 16.dp)) }
                     }
                     items(inactivePlans, key = { it.id }) { plan ->
-                        PlanCard(plan, onOpen = { onOpenPlan(plan.id) }, onToggle = { vm.setPlanActive(plan, true) })
+                        PlanCard(
+                            plan,
+                            workoutCount = workoutCounts[plan.id] ?: 0,
+                            selected = plan.id in selectedPlans,
+                            onToggleSelect = {
+                                selectedPlans =
+                                    if (plan.id in selectedPlans) selectedPlans - plan.id
+                                    else selectedPlans + plan.id
+                            },
+                            onOpen = { onOpenPlan(plan.id) },
+                            onToggle = { vm.setPlanActive(plan, true) },
+                        )
                     }
                 }
                 Tab.Stats -> item { dev.allan.workoutapp.ui.stats.StatsTab() }
             }
         }
+    }
+
+    if (confirmDeletePlans) {
+        AlertDialog(
+            onDismissRequest = { confirmDeletePlans = false },
+            title = { Text(stringResource(R.string.delete_plans_confirm, selectedPlans.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deletePlans(selectedPlans)
+                    selectedPlans = emptySet()
+                    confirmDeletePlans = false
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeletePlans = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 
     if (showNewPlan) {
@@ -490,17 +560,29 @@ private fun WeekRow(completedDays: Set<Int>) {
 }
 
 @Composable
-private fun PlanCard(plan: Plan, onOpen: () -> Unit, onToggle: () -> Unit) {
+private fun PlanCard(
+    plan: Plan,
+    workoutCount: Int,
+    selected: Boolean,
+    onToggleSelect: () -> Unit,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
+) {
     Card(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
         Row(
             Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            androidx.compose.material3.Checkbox(checked = selected, onCheckedChange = { onToggleSelect() })
             Column(Modifier.weight(1f)) {
                 Text(plan.name, style = MaterialTheme.typography.titleMedium)
-                plan.cycleWeeks?.let {
-                    Text(stringResource(R.string.cycle_weeks) + ": $it", style = MaterialTheme.typography.bodySmall)
-                }
+                // Plans hold workouts — the count makes the plan/workout hierarchy visible.
+                Text(
+                    stringResource(R.string.plan_workout_count, workoutCount) +
+                        (plan.cycleWeeks?.let { " · ${stringResource(R.string.cycle_weeks)}: $it" } ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Switch(checked = plan.isActive, onCheckedChange = { onToggle() })
         }

@@ -150,6 +150,30 @@ data class SetLog(
     val completedAt: Long,
 )
 
+/**
+ * Weight/reps the user typed during a session but hasn't logged yet. Survives leaving
+ * the session screen (or an app kill) and is dropped when the session ends.
+ */
+@Serializable
+@Entity(tableName = "session_set_draft", primaryKeys = ["sessionId", "templateId"])
+data class SessionSetDraft(
+    val sessionId: Long,
+    val templateId: Long,
+    val weightKg: Double,
+    val value: Int,
+)
+
+/**
+ * User-added video link (e.g. YouTube) per exercise. Lives in its own table so wger
+ * snapshot refreshes (which replace the exercise tables) never touch it.
+ */
+@Serializable
+@Entity(tableName = "exercise_link")
+data class ExerciseLink(
+    @PrimaryKey val exerciseId: String,
+    val url: String,
+)
+
 @Serializable
 @Entity(tableName = "exercise_note", indices = [Index("exerciseId")])
 data class ExerciseNote(

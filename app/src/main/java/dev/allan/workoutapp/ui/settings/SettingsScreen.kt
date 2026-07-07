@@ -119,16 +119,93 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private fun read(uri: Uri): String? =
         context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
 
+    /** A plan import whose name collides with an existing plan; user must choose. */
+    data class PendingPlanImport(
+        val plan: PlanTransfer.PlanDto,
+        val existingPlanId: Long,
+        val suggestedName: String,
+    )
+
+    private val _pendingPlanImport = MutableStateFlow<PendingPlanImport?>(null)
+    val pendingPlanImport: StateFlow<PendingPlanImport?> = _pendingPlanImport
+
+    /** A single-workout file waiting for a target plan choice. */
+    private val _pendingWorkoutImport = MutableStateFlow<PlanTransfer.WorkoutDto?>(null)
+    val pendingWorkoutImport: StateFlow<PlanTransfer.WorkoutDto?> = _pendingWorkoutImport
+
+    private var importLang: String = "en"
+
+    /** Parses the file, auto-detects plan vs workout, and routes collisions to dialogs. */
     fun importPlan(uri: Uri, lang: String) {
+        importLang = lang
         viewModelScope.launch {
             val text = read(uri) ?: run { _message.value = "read failed"; return@launch }
-            val report = PlanTransfer.import(db, text, lang)
-            _message.value = report.error?.let { context.getString(R.string.import_failed, it) }
-                ?: context.getString(
-                    R.string.import_report,
-                    report.workouts, report.exercises, report.createdCustom.size, report.skipped.size,
-                ) + (if (report.skipped.isNotEmpty()) "\n" + report.skipped.joinToString() else "")
+            when (val parsed = PlanTransfer.parse(text)) {
+                is PlanTransfer.Parsed.Error ->
+                    _message.value = context.getString(R.string.import_failed, parsed.message)
+                is PlanTransfer.Parsed.PlanFile -> {
+                    val existing = db.planDao().planByName(parsed.plan.name)
+                    if (existing == null) {
+                        report(PlanTransfer.importPlan(db, parsed.plan, lang))
+                    } else {
+                        _pendingPlanImport.value = PendingPlanImport(
+                            plan = parsed.plan,
+                            existingPlanId = existing.id,
+                            suggestedName = uniquePlanName(parsed.plan.name),
+                        )
+                    }
+                }
+                is PlanTransfer.Parsed.WorkoutFile -> _pendingWorkoutImport.value = parsed.workout
+            }
         }
+    }
+
+    /** Collision resolution: rename = import as a new plan; merge = append workouts. */
+    fun resolvePlanCollision(rename: Boolean) {
+        val pending = _pendingPlanImport.value ?: return
+        _pendingPlanImport.value = null
+        viewModelScope.launch {
+            report(
+                if (rename) PlanTransfer.importPlan(db, pending.plan, importLang, renameTo = pending.suggestedName)
+                else PlanTransfer.importPlan(db, pending.plan, importLang, mergeIntoPlanId = pending.existingPlanId)
+            )
+        }
+    }
+
+    fun cancelPendingImport() {
+        _pendingPlanImport.value = null
+        _pendingWorkoutImport.value = null
+    }
+
+    /** Workout file: import into [planId], or a fresh plan when null. */
+    fun importWorkoutInto(planId: Long?) {
+        val workout = _pendingWorkoutImport.value ?: return
+        _pendingWorkoutImport.value = null
+        viewModelScope.launch {
+            val targetId = planId ?: db.planDao().insertPlan(
+                Plan(
+                    name = uniquePlanName(workout.name.ifBlank { "Imported" }),
+                    startedAt = System.currentTimeMillis(),
+                    createdAt = System.currentTimeMillis(),
+                )
+            )
+            report(PlanTransfer.importWorkout(db, workout, targetId, importLang))
+        }
+    }
+
+    private suspend fun uniquePlanName(base: String): String {
+        if (db.planDao().planByName(base) == null) return base
+        var n = 2
+        while (db.planDao().planByName("$base ($n)") != null) n++
+        return "$base ($n)"
+    }
+
+    private fun report(report: PlanTransfer.ImportReport) {
+        _message.value = report.error?.let { context.getString(R.string.import_failed, it) }
+            ?: context.getString(
+                R.string.import_report,
+                report.workouts, report.exercises, report.createdCustom.size, report.skipped.size,
+            ) + (if (report.skipped.isNotEmpty()) "\n" + report.skipped.joinToString() else "")
     }
 
     fun exportPlan(planId: Long, uri: Uri) {
@@ -175,6 +252,8 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
     val plans by vm.plans.collectAsState()
     val message by vm.message.collectAsState()
     val syncing by vm.syncing.collectAsState()
+    val pendingPlanImport by vm.pendingPlanImport.collectAsState()
+    val pendingWorkoutImport by vm.pendingWorkoutImport.collectAsState()
     var planPickerFor by remember { mutableStateOf<Long?>(null) } // planId chosen for export
     var showPlanPicker by remember { mutableStateOf(false) }
     var planPickerKind by remember { mutableStateOf("json") } // json | pdf
@@ -391,15 +470,18 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                 )
             },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     plans.forEach { plan ->
-                        TextButton(onClick = {
-                            planPickerFor = plan.id
-                            showPlanPicker = false
-                            val base = "plan_${plan.name.replace(' ', '_')}"
-                            if (planPickerKind == "pdf") exportPdfLauncher.launch("$base.pdf")
-                            else exportPlanLauncher.launch("$base.json")
-                        }) { Text(plan.name) }
+                        OutlinedButton(
+                            onClick = {
+                                planPickerFor = plan.id
+                                showPlanPicker = false
+                                val base = "plan_${plan.name.replace(' ', '_')}"
+                                if (planPickerKind == "pdf") exportPdfLauncher.launch("$base.pdf")
+                                else exportPlanLauncher.launch("$base.json")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(plan.name) }
                     }
                 }
             },
@@ -421,6 +503,59 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
             },
             confirmButton = {
                 TextButton(onClick = { showLlmInstructions = false }) { Text(stringResource(R.string.ok)) }
+            },
+        )
+    }
+
+    // Imported plan name already taken: rename it or merge its workouts into the existing plan.
+    pendingPlanImport?.let { pending ->
+        AlertDialog(
+            onDismissRequest = vm::cancelPendingImport,
+            title = { Text(stringResource(R.string.import_collision_title, pending.plan.name)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { vm.resolvePlanCollision(rename = true) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.import_rename, pending.suggestedName)) }
+                    OutlinedButton(
+                        onClick = { vm.resolvePlanCollision(rename = false) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.import_merge)) }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = vm::cancelPendingImport) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    // Single-workout file: pick which plan receives it (or spin up a new one).
+    pendingWorkoutImport?.let {
+        AlertDialog(
+            onDismissRequest = vm::cancelPendingImport,
+            title = { Text(stringResource(R.string.choose_plan_for_workout)) },
+            text = {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    plans.forEach { plan ->
+                        OutlinedButton(
+                            onClick = { vm.importWorkoutInto(plan.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(plan.name) }
+                    }
+                    OutlinedButton(
+                        onClick = { vm.importWorkoutInto(null) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.new_plan)) }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = vm::cancelPendingImport) { Text(stringResource(R.string.cancel)) }
             },
         )
     }

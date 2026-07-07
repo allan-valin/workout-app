@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.Flow
 /** Row for [PlanDao.exerciseCounts]. */
 data class WorkoutExerciseCount(val workoutId: Long, val count: Int)
 
+data class PlanWorkoutCount(val planId: Long, val count: Int)
+
 /** Search result row: one exercise with its display name resolved for a language. */
 data class ExerciseHit(
     val id: String,
@@ -71,6 +73,21 @@ interface ExerciseDao {
 
     @Query("SELECT * FROM exercise_translation WHERE exerciseId = :exerciseId")
     suspend fun translations(exerciseId: String): List<ExerciseTranslation>
+
+    @Query("SELECT url FROM exercise_link WHERE exerciseId = :exerciseId")
+    suspend fun videoLink(exerciseId: String): String?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertVideoLink(link: ExerciseLink)
+
+    @Query("DELETE FROM exercise_link WHERE exerciseId = :exerciseId")
+    suspend fun deleteVideoLink(exerciseId: String)
+
+    @Query("SELECT * FROM exercise_link")
+    suspend fun allVideoLinks(): List<ExerciseLink>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreVideoLinks(items: List<ExerciseLink>)
 
     /**
      * Deferred search. lang = null searches all languages; muscleId filters primary OR
@@ -159,6 +176,24 @@ interface PlanDao {
     @Query("DELETE FROM plan WHERE id = :id")
     suspend fun deletePlan(id: Long)
 
+    @Query("SELECT * FROM plan WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun planByName(name: String): Plan?
+
+    @Query("SELECT * FROM workout ORDER BY planId, orderIndex")
+    suspend fun allWorkoutsList(): List<Workout>
+
+    // No FK cascades in the schema — child rows must be removed explicitly.
+    @Query(
+        """
+        DELETE FROM set_template WHERE workoutExerciseId IN
+            (SELECT id FROM workout_exercise WHERE workoutId = :workoutId)
+        """
+    )
+    suspend fun deleteSetTemplatesForWorkout(workoutId: Long)
+
+    @Query("DELETE FROM workout_exercise WHERE workoutId = :workoutId")
+    suspend fun deleteWorkoutExercisesForWorkout(workoutId: Long)
+
     @Insert
     suspend fun insertWorkout(workout: Workout): Long
 
@@ -188,6 +223,10 @@ interface PlanDao {
     /** Exercise count per workout — drives the count badge on workout cards. */
     @Query("SELECT workoutId, COUNT(*) AS count FROM workout_exercise GROUP BY workoutId")
     fun exerciseCounts(): Flow<List<WorkoutExerciseCount>>
+
+    /** Workout count per plan — the plan/workout distinction on plan cards. */
+    @Query("SELECT planId, COUNT(*) AS count FROM workout GROUP BY planId")
+    fun workoutCounts(): Flow<List<PlanWorkoutCount>>
 
     @Query("SELECT COALESCE(MAX(orderIndex) + 1, 0) FROM workout_exercise WHERE workoutId = :workoutId")
     suspend fun nextExerciseOrder(workoutId: Long): Int
@@ -255,6 +294,32 @@ interface SessionDao {
 
     @Insert
     suspend fun insertSetLog(log: SetLog): Long
+
+    @Query(
+        """
+        SELECT * FROM set_log
+        WHERE sessionId = :sessionId AND workoutExerciseId = :workoutExerciseId AND setIndex = :setIndex
+        LIMIT 1
+        """
+    )
+    suspend fun setLog(sessionId: Long, workoutExerciseId: Long, setIndex: Int): SetLog?
+
+    @Query(
+        """
+        DELETE FROM set_log
+        WHERE sessionId = :sessionId AND workoutExerciseId = :workoutExerciseId AND setIndex = :setIndex
+        """
+    )
+    suspend fun deleteSetLog(sessionId: Long, workoutExerciseId: Long, setIndex: Int)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDraft(draft: SessionSetDraft)
+
+    @Query("SELECT * FROM session_set_draft WHERE sessionId = :sessionId")
+    suspend fun drafts(sessionId: Long): List<SessionSetDraft>
+
+    @Query("DELETE FROM session_set_draft WHERE sessionId = :sessionId")
+    suspend fun deleteDrafts(sessionId: Long)
 
     @Query("SELECT * FROM set_log WHERE sessionId = :sessionId ORDER BY completedAt")
     suspend fun setLogs(sessionId: Long): List<SetLog>

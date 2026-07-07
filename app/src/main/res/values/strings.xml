@@ -163,7 +163,7 @@
     <string name="unarchive">Unarchive</string>
     <string name="archived_section">Archived</string>
     <string name="delete_workouts_confirm">Delete %1$d workout(s)? Logged session history is kept.</string>
-    <string name="long_press_hint">Long-press a workout to select, then archive or delete.</string>
+    <string name="long_press_hint">Tick workouts to archive, delete or export them.</string>
     <string name="assign_days">Assign days</string>
     <string name="toggle_theme">Toggle light/dark theme</string>
     <string name="home_empty_hint">No workout plan yet. Create one here, or import a plan JSON in Settings.</string>
@@ -174,5 +174,18 @@
     <string name="llm_hint">Any chatbot (Claude, ChatGPT, …) can build a plan file this app imports directly.</string>
     <string name="llm_show_instructions">How it works</string>
     <string name="llm_export_md">Save instructions file (.md)</string>
+    <string name="resume_workout_button">Resume workout</string>
+    <string name="stopwatch_reset">Reset stopwatch</string>
+    <string name="delete_plans_confirm">Delete %1$d plan(s) and their workouts? Logged history is kept.</string>
+    <string name="copy_existing_workout">Copy existing workout</string>
+    <string name="export_workout">Export workout (JSON)</string>
+    <string name="import_collision_title">Plan "%1$s" already exists</string>
+    <string name="import_rename">Import as "%1$s"</string>
+    <string name="import_merge">Add workouts to existing plan</string>
+    <string name="choose_plan_for_workout">Add imported workout to…</string>
+    <string name="plan_workout_count">%1$d workouts</string>
+    <string name="video_link">Video link (YouTube)</string>
+    <string name="watch_video">Watch video</string>
+    <string name="open_externally">Open in YouTube/browser</string>
     <string name="llm_instructions_body">1. Tap "Save instructions file (.md)" and save it anywhere on your phone.\n\n2. Open your AI chatbot of choice and attach or paste that file.\n\n3. Tell it your goal (strength, hypertrophy, endurance, rehab), training days per week, session length, available equipment and injuries. The file instructs the AI to ask if you forget.\n\n4. It answers with a plan_*.json file (or a JSON code block — save it as a .json file).\n\n5. Back here: Settings → Import plan (JSON). Matched exercises link to the built-in library automatically; unknown ones become custom exercises or are reported.\n\nTip: export your history CSVs and hand them to the same chat for load recommendations.</string>
 </resources>

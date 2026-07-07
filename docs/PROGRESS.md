@@ -137,7 +137,7 @@ workout_exercise.supersetWithPrev, set_template.targetValueMax — additive, his
 - [x] Commit + push (c6bb546, 2026-07-07)
 - [ ] Allan: real-device pass on the Redmi (`winstall`), incl. session superset flow + PDF export
 
-## Status: Phases 0-8 complete. Pending real-device test on the Redmi.
+## Status: Phases 0-9 complete. Pending real-device test on the Redmi.
 
 Phase 7 EMULATOR-VERIFIED 2026-07-07 (AVD testphone, debug build, pt-BR; screenshots in session scratchpad):
 - pt batch: search "testa" → 5 "Tríceps Testa …" generated names; still present after wger sync (re-merge works)
@@ -149,3 +149,51 @@ Phase 7 EMULATOR-VERIFIED 2026-07-07 (AVD testphone, debug build, pt-BR; screens
 - NOT visually verified (code-only): GIF playback (no .gif exercise encountered), scroll-collapsing image (test workout tables too short to scroll)
 
 Polish note: muscle "Obliquus externus abdominis" chip shows latin (wger ships no name_en for it) — add to MuscleNames map someday.
+
+## Phase 9 — Allan's first-emulator-QA feedback batch (2026-07-08)
+
+Session (SessionScreen/ViewModel/SessionManager):
+- [x] DB v3 (MIGRATION_2_3): `session_set_draft` (unlogged weight/reps typed mid-session persist
+      across leaving the screen / process death; dropped on session end) + `exercise_link`
+      (user YouTube link per exercise — own table so wger snapshot refreshes never touch it;
+      included in full backup).
+- [x] Checkmark toggle: tapping a done set un-logs it (SetLog row deleted, active secs refunded).
+- [x] Weight forward-fill: editing a set's weight fills later undone 0-kg sets of the exercise.
+- [x] Set rows: − / + steppers (2.5 kg) around weight button, "kg" suffix dropped (header has it),
+      value button number-only, done-header shows Reps/Secs per exercise, set-type letters
+      color-coded (W orange, F error red, D purple, S tertiary), headers centered.
+- [x] Timer panel rework: stopwatch play/pause keeps value & resumes; square stop = reset (books
+      nothing); stopwatch disabled+grayed while rest runs; explicit "stop rest" text button;
+      new Active column (booked active secs + live stopwatch) makes active-time tracking visible.
+      SessionManager: stopwatchAccumSecs added; pause no longer books into activeSecs (consume does).
+- [x] Auto-advance: after logging, pager follows SupersetOrder.nextStep (superset partner ↔ back,
+      next exercise on last set); all sets done → back to exercise list (End workout lives there).
+- [x] Top bar: ℹ description button (bottom sheet w/ localized description), notes button now has
+      text label; description sheet hosts the YouTube link field (save icon), Watch video
+      (WebView embed overlay dialog, autoplay) + open externally (ACTION_VIEW).
+- [x] Exercise-list mode: per-exercise ✎ opens WorkoutEditorScreen?focus=weId (editor filtered to
+      that one exercise); session VM refreshes templates on nav-entry ON_RESUME.
+
+Plans / import-export:
+- [x] WorkoutViewScreen start button says "Resume workout" when this workout's session is RUNNING.
+- [x] Plan editor: workout checkboxes always visible (long-press still toggles), selection top bar
+      gains single-workout JSON export (Share icon); "Add workout" dialog offers copy-existing
+      (any plan, exercises + sets duplicated via PlanRepo.copyWorkout).
+- [x] Active/Inactive tabs: plan cards show checkbox + "N workouts" subtitle (plan vs workout
+      distinction); top-bar delete with confirm; PlanRepo.deletePlanDeep/deleteWorkoutDeep clean
+      child rows (schema has no FK cascades — deleteWorkouts previously orphaned rows).
+- [x] PlanTransfer: File.plan now optional + File.workout added (additive v1; LLM contract files
+      unchanged). parse() detects plan vs workout; plan-name collision → dialog: rename (auto
+      "name (2)") or merge (append workouts); workout files → target-plan picker (or new plan).
+      exportWorkout() shares one workout. Settings plan-picker options now bordered buttons.
+- [x] Typography bumped app-wide (Material defaults +1–2 sp); editor unit dropdown shows 3 letters
+      (Rep/Sec/Seg/Wdh…), tinted dropdowns get outline border; session image 110→165 dp (+50%).
+- [x] Strings: all new UI in en/pt-BR/de. Tests green (`./gradlew test`). versionCode 3 / 0.3.0.
+- [x] Emulator-verified: v2→v3 migration over existing data OK, home + Active tab render
+      (checkbox, treinos count). NOT visually verified: session flow details, import dialogs,
+      video overlay — next emulator/Redmi pass.
+
+Env notes (2026-07-08): `-gpu host` segfaults this machine's emulator right after boot — always
+launch with `-gpu swiftshader_indirect` (docs/MAINTENANCE.md updated 2026-07-07). AVD `testphone`
+now has hw.keyboard=yes (host keyboard typing works). Android nav keyevents verified working
+(`adb shell input keyevent 3/4/187`).

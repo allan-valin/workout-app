@@ -37,6 +37,7 @@ object Backup {
         val sessions: List<Session> = emptyList(),
         val setLogs: List<SetLog> = emptyList(),
         val bodyMetrics: List<BodyMetric> = emptyList(),
+        val exerciseLinks: List<dev.allan.workoutapp.data.db.ExerciseLink> = emptyList(),
     )
 
     suspend fun export(context: Context, db: AppDatabase): String {
@@ -58,6 +59,7 @@ object Backup {
                 sessions = db.sessionDao().allSessions(),
                 setLogs = db.sessionDao().allSetLogs(),
                 bodyMetrics = db.sessionDao().allBodyMetrics(),
+                exerciseLinks = db.exerciseDao().allVideoLinks(),
             )
         )
     }
@@ -79,6 +81,7 @@ object Backup {
         db.sessionDao().restoreSessions(file.sessions)
         db.sessionDao().restoreSetLogs(file.setLogs)
         db.sessionDao().restoreBodyMetrics(file.bodyMetrics)
+        db.exerciseDao().restoreVideoLinks(file.exerciseLinks)
         file.heightCm?.let { Settings.setHeightCm(context, it) }
         return null
     }

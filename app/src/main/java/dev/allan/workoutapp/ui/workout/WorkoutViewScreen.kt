@@ -74,6 +74,12 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
     private val _detail = MutableStateFlow<List<ExerciseTranslation>?>(null)
     val detail: StateFlow<List<ExerciseTranslation>?> = _detail
 
+    /** True while a session for THIS workout is running — the start button becomes "resume". */
+    val hasRunningSession: StateFlow<Boolean> =
+        db.sessionDao().runningSessionFlow()
+            .map { it?.workoutId == workoutId }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val exercises: StateFlow<List<ViewExercise>> =
         combine(
             db.planDao().workoutExercises(workoutId),
@@ -138,6 +144,7 @@ fun WorkoutViewScreen(
     val workout by vm.workout.collectAsState()
     val exercises by vm.exercises.collectAsState()
     val detail by vm.detail.collectAsState()
+    val hasRunningSession by vm.hasRunningSession.collectAsState()
 
     Scaffold(
         topBar = {
@@ -165,7 +172,12 @@ fun WorkoutViewScreen(
         ) {
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Text(stringResource(R.string.start_workout), modifier = Modifier.padding(start = 6.dp))
+                Text(
+                    stringResource(
+                        if (hasRunningSession) R.string.resume_workout_button else R.string.start_workout
+                    ),
+                    modifier = Modifier.padding(start = 6.dp),
+                )
             }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(exercises, key = { it.workoutExerciseId }) { ex ->

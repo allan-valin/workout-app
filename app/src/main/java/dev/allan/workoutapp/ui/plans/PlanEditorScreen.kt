@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +19,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.AlertDialog
@@ -110,7 +116,36 @@ class PlanEditorViewModel(app: Application, private val planId: Long) : AndroidV
     }
 
     fun deleteWorkouts(ids: Set<Long>) {
-        viewModelScope.launch { ids.forEach { db.planDao().deleteWorkout(it) } }
+        viewModelScope.launch {
+            ids.forEach { dev.allan.workoutapp.data.PlanRepo.deleteWorkoutDeep(db, it) }
+        }
+    }
+
+    /** All workouts across plans (with plan name) — candidates for "copy existing". */
+    private val _copyCandidates = MutableStateFlow<List<Pair<Workout, String>>>(emptyList())
+    val copyCandidates: StateFlow<List<Pair<Workout, String>>> = _copyCandidates
+
+    fun loadCopyCandidates() {
+        viewModelScope.launch {
+            val planNames = db.planDao().allPlans().associate { it.id to it.name }
+            _copyCandidates.value = db.planDao().allWorkoutsList()
+                .map { it to (planNames[it.planId] ?: "?") }
+        }
+    }
+
+    fun copyWorkoutHere(sourceWorkoutId: Long) {
+        viewModelScope.launch {
+            dev.allan.workoutapp.data.PlanRepo.copyWorkout(db, sourceWorkoutId, planId)
+        }
+    }
+
+    fun exportWorkout(workoutId: Long, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val text = dev.allan.workoutapp.data.transfer.PlanTransfer.exportWorkout(db, workoutId)
+                ?: return@launch
+            getApplication<Application>().contentResolver.openOutputStream(uri)
+                ?.use { it.write(text.toByteArray()) }
+        }
     }
 
     fun setArchived(ids: Set<Long>, archived: Boolean) {
@@ -156,10 +191,18 @@ fun PlanEditorScreen(
     val counts by vm.exerciseCounts.collectAsState()
     var showAddWorkout by remember { mutableStateOf(false) }
 
-    // Long-press selection mode: no one-tap delete anywhere on this screen.
+    // Checkbox selection: no one-tap delete anywhere on this screen.
     var selected by remember { mutableStateOf(setOf<Long>()) }
     val selectionMode = selected.isNotEmpty()
     var confirmDelete by remember { mutableStateOf(false) }
+
+    val exportWorkoutLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        val workoutId = selected.firstOrNull()
+        if (uri != null && workoutId != null) vm.exportWorkout(workoutId, uri)
+        selected = emptySet()
+    }
 
     Scaffold(
         topBar = {
@@ -172,6 +215,17 @@ fun PlanEditorScreen(
                         }
                     },
                     actions = {
+                        if (selected.size == 1) {
+                            IconButton(onClick = {
+                                val name = workouts.firstOrNull { it.id == selected.first() }?.name ?: "workout"
+                                exportWorkoutLauncher.launch("workout_${name.replace(' ', '_')}.json")
+                            }) {
+                                Icon(
+                                    Icons.Default.Share,
+                                    contentDescription = stringResource(R.string.export_workout),
+                                )
+                            }
+                        }
                         val anyArchived = workouts.any { it.id in selected && it.archived }
                         IconButton(onClick = {
                             vm.setArchived(selected, archived = !anyArchived)
@@ -261,7 +315,6 @@ fun PlanEditorScreen(
                 WorkoutCard(
                     w = w,
                     exerciseCount = counts[w.id] ?: 0,
-                    selectionMode = selectionMode,
                     isSelected = w.id in selected,
                     onToggleDay = { vm.toggleDay(w, it) },
                     onClick = {
@@ -269,7 +322,9 @@ fun PlanEditorScreen(
                             selected = if (w.id in selected) selected - w.id else selected + w.id
                         } else onOpenWorkout(w.id)
                     },
-                    onLongPress = { selected = selected + w.id },
+                    onToggleSelect = {
+                        selected = if (w.id in selected) selected - w.id else selected + w.id
+                    },
                 )
             }
             item {
@@ -290,7 +345,6 @@ fun PlanEditorScreen(
                     WorkoutCard(
                         w = w,
                         exerciseCount = counts[w.id] ?: 0,
-                        selectionMode = selectionMode,
                         isSelected = w.id in selected,
                         onToggleDay = { vm.toggleDay(w, it) },
                         onClick = {
@@ -298,7 +352,9 @@ fun PlanEditorScreen(
                                 selected = if (w.id in selected) selected - w.id else selected + w.id
                             } else onOpenWorkout(w.id)
                         },
-                        onLongPress = { selected = selected + w.id },
+                        onToggleSelect = {
+                            selected = if (w.id in selected) selected - w.id else selected + w.id
+                        },
                     )
                 }
             }
@@ -324,16 +380,46 @@ fun PlanEditorScreen(
 
     if (showAddWorkout) {
         var name by remember { mutableStateOf("") }
+        androidx.compose.runtime.LaunchedEffect(Unit) { vm.loadCopyCandidates() }
+        val candidates by vm.copyCandidates.collectAsState()
         AlertDialog(
             onDismissRequest = { showAddWorkout = false },
             title = { Text(stringResource(R.string.add_workout)) },
             text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.workout_name)) },
-                    singleLine = true,
-                )
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(stringResource(R.string.workout_name)) },
+                        singleLine = true,
+                    )
+                    // Reuse a workout you already built (from any plan) as a starting copy.
+                    if (candidates.isNotEmpty()) {
+                        Text(
+                            stringResource(R.string.copy_existing_workout),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        candidates.forEach { (w, planName) ->
+                            TextButton(
+                                onClick = {
+                                    vm.copyWorkoutHere(w.id)
+                                    showAddWorkout = false
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null)
+                                Text(
+                                    "${w.name} · $planName",
+                                    modifier = Modifier.padding(start = 6.dp),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
@@ -372,23 +458,21 @@ fun ExerciseCountBadge(count: Int) {
 private fun WorkoutCard(
     w: Workout,
     exerciseCount: Int,
-    selectionMode: Boolean,
     isSelected: Boolean,
     onToggleDay: (Int) -> Unit,
     onClick: () -> Unit,
-    onLongPress: () -> Unit,
+    onToggleSelect: () -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(
             Modifier
-                .combinedClickable(onClick = onClick, onLongClick = onLongPress)
+                .combinedClickable(onClick = onClick, onLongClick = onToggleSelect)
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (selectionMode) {
-                    Checkbox(checked = isSelected, onCheckedChange = { onClick() })
-                }
+                // Always visible — long-press-only selection was too hidden.
+                Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect() })
                 ExerciseCountBadge(exerciseCount)
                 Text(w.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 if (w.archived) {

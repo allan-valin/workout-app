@@ -163,7 +163,7 @@
     <string name="unarchive">Wiederherstellen</string>
     <string name="archived_section">Archiviert</string>
     <string name="delete_workouts_confirm">%1$d Training(s) löschen? Der Sitzungsverlauf bleibt erhalten.</string>
-    <string name="long_press_hint">Training lange drücken zum Auswählen, dann archivieren oder löschen.</string>
+    <string name="long_press_hint">Trainings ankreuzen, um sie zu archivieren, zu löschen oder zu exportieren.</string>
     <string name="assign_days">Tage zuweisen</string>
     <string name="toggle_theme">Helles/dunkles Design umschalten</string>
     <string name="home_empty_hint">Noch kein Trainingsplan. Erstelle hier einen oder importiere ein Plan-JSON in den Einstellungen.</string>
@@ -175,4 +175,17 @@
     <string name="llm_show_instructions">So funktioniert es</string>
     <string name="llm_export_md">Anleitungsdatei speichern (.md)</string>
     <string name="llm_instructions_body">1. Tippe auf "Anleitungsdatei speichern (.md)" und speichere sie irgendwo auf dem Handy.\n\n2. Öffne deinen KI-Chatbot und hänge die Datei an oder füge sie ein.\n\n3. Nenne dein Ziel (Kraft, Hypertrophie, Ausdauer, Reha), Trainingstage pro Woche, Sitzungslänge, verfügbare Geräte und Verletzungen. Die Datei weist die KI an nachzufragen, falls du etwas vergisst.\n\n4. Sie antwortet mit einer plan_*.json-Datei (oder einem JSON-Block — als .json speichern).\n\n5. Zurück hier: Einstellungen → Plan importieren (JSON). Erkannte Übungen werden automatisch mit der Bibliothek verknüpft; unbekannte werden zu eigenen Übungen oder gemeldet.\n\nTipp: Exportiere die Verlaufs-CSVs und gib sie demselben Chat für Empfehlungen zur Laststeigerung.</string>
+    <string name="resume_workout_button">Training fortsetzen</string>
+    <string name="stopwatch_reset">Stoppuhr zurücksetzen</string>
+    <string name="delete_plans_confirm">%1$d Plan/Pläne samt Trainings löschen? Der Verlauf bleibt erhalten.</string>
+    <string name="copy_existing_workout">Vorhandenes Training kopieren</string>
+    <string name="export_workout">Training exportieren (JSON)</string>
+    <string name="import_collision_title">Plan "%1$s" existiert bereits</string>
+    <string name="import_rename">Als "%1$s" importieren</string>
+    <string name="import_merge">Trainings zum vorhandenen Plan hinzufügen</string>
+    <string name="choose_plan_for_workout">Importiertes Training hinzufügen zu…</string>
+    <string name="plan_workout_count">%1$d Trainings</string>
+    <string name="video_link">Video-Link (YouTube)</string>
+    <string name="watch_video">Video ansehen</string>
+    <string name="open_externally">In YouTube/Browser öffnen</string>
 </resources>

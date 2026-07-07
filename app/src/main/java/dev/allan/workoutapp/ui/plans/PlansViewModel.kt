@@ -85,7 +85,14 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { db.planDao().updatePlan(plan.copy(isActive = active)) }
     }
 
-    fun deletePlan(plan: Plan) {
-        viewModelScope.launch { db.planDao().deletePlan(plan.id) }
+    /** planId -> workout count, for the plan-card subtitle. */
+    val workoutCounts: StateFlow<Map<Long, Int>> = db.planDao().workoutCounts()
+        .map { rows -> rows.associate { it.planId to it.count } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    fun deletePlans(ids: Set<Long>) {
+        viewModelScope.launch {
+            ids.forEach { dev.allan.workoutapp.data.PlanRepo.deletePlanDeep(db, it) }
+        }
     }
 }

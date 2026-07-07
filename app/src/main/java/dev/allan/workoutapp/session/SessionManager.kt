@@ -19,8 +19,10 @@ object SessionManager {
         /** Timed-set countdown end instant. */
         val setCountdownEndAt: Long? = null,
         val setCountdownDurationSecs: Int = 0,
-        /** Stopwatch start instant, null = stopped. */
+        /** Start instant of the running stopwatch segment, null = paused/stopped. */
         val stopwatchStartedAt: Long? = null,
+        /** Seconds accumulated by previous stopwatch segments (pause keeps them). */
+        val stopwatchAccumSecs: Int = 0,
         /** Accumulated active/rest seconds for the running session. */
         val activeSecs: Int = 0,
         val restSecs: Int = 0,
@@ -73,6 +75,14 @@ object SessionManager {
         _state.value = _state.value.copy(setCountdownEndAt = null, setCountdownDurationSecs = 0)
     }
 
+    /** Current stopwatch reading: accumulated segments + the running one. */
+    fun stopwatchSecs(now: Long = System.currentTimeMillis()): Int {
+        val s = _state.value
+        val running = s.stopwatchStartedAt?.let { ((now - it) / 1000L).toInt() } ?: 0
+        return s.stopwatchAccumSecs + running
+    }
+
+    /** Play/pause: pause keeps the reading; play resumes from it. Nothing is booked here. */
     fun toggleStopwatch() {
         val s = _state.value
         if (s.stopwatchStartedAt == null) {
@@ -81,18 +91,22 @@ object SessionManager {
             val elapsed = ((System.currentTimeMillis() - s.stopwatchStartedAt) / 1000L).toInt()
             _state.value = s.copy(
                 stopwatchStartedAt = null,
-                activeSecs = s.activeSecs + elapsed,
+                stopwatchAccumSecs = s.stopwatchAccumSecs + elapsed,
             )
         }
     }
 
-    /** Stops the stopwatch and returns its elapsed seconds without double-booking. */
+    /** Stop-and-reset: back to 0:00 without booking anything. */
+    fun resetStopwatch() {
+        _state.value = _state.value.copy(stopwatchStartedAt = null, stopwatchAccumSecs = 0)
+    }
+
+    /** Stops + resets the stopwatch and returns its reading without double-booking. */
     fun consumeStopwatch(): Int? {
-        val s = _state.value
-        val start = s.stopwatchStartedAt ?: return null
-        val elapsed = ((System.currentTimeMillis() - start) / 1000L).toInt()
-        _state.value = s.copy(stopwatchStartedAt = null)
-        return elapsed
+        val total = stopwatchSecs()
+        if (total == 0 && _state.value.stopwatchStartedAt == null) return null
+        _state.value = _state.value.copy(stopwatchStartedAt = null, stopwatchAccumSecs = 0)
+        return total.takeIf { it > 0 }
     }
 
     fun addActiveSecs(secs: Int) {

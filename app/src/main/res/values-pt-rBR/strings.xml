@@ -163,7 +163,7 @@
     <string name="unarchive">Desarquivar</string>
     <string name="archived_section">Arquivados</string>
     <string name="delete_workouts_confirm">Excluir %1$d treino(s)? O histórico de sessões é mantido.</string>
-    <string name="long_press_hint">Segure um treino para selecionar, depois arquive ou exclua.</string>
+    <string name="long_press_hint">Marque treinos para arquivar, excluir ou exportar.</string>
     <string name="assign_days">Atribuir dias</string>
     <string name="toggle_theme">Alternar tema claro/escuro</string>
     <string name="home_empty_hint">Nenhum plano de treino ainda. Crie um aqui ou importe um JSON em Ajustes.</string>
@@ -175,4 +175,17 @@
     <string name="llm_show_instructions">Como funciona</string>
     <string name="llm_export_md">Salvar arquivo de instruções (.md)</string>
     <string name="llm_instructions_body">1. Toque em "Salvar arquivo de instruções (.md)" e salve em qualquer lugar do celular.\n\n2. Abra seu chatbot de IA preferido e anexe ou cole esse arquivo.\n\n3. Diga seu objetivo (força, hipertrofia, resistência, reabilitação), dias de treino por semana, duração da sessão, equipamentos disponíveis e lesões. O arquivo instrui a IA a perguntar se você esquecer.\n\n4. Ela responde com um arquivo plan_*.json (ou um bloco JSON — salve como arquivo .json).\n\n5. De volta aqui: Ajustes → Importar plano (JSON). Exercícios reconhecidos são vinculados à biblioteca automaticamente; desconhecidos viram exercícios personalizados ou são reportados.\n\nDica: exporte os CSVs de histórico e entregue ao mesmo chat para recomendações de carga.</string>
+    <string name="resume_workout_button">Retomar treino</string>
+    <string name="stopwatch_reset">Zerar cronômetro</string>
+    <string name="delete_plans_confirm">Excluir %1$d plano(s) e seus treinos? O histórico registrado é mantido.</string>
+    <string name="copy_existing_workout">Copiar treino existente</string>
+    <string name="export_workout">Exportar treino (JSON)</string>
+    <string name="import_collision_title">O plano "%1$s" já existe</string>
+    <string name="import_rename">Importar como "%1$s"</string>
+    <string name="import_merge">Adicionar treinos ao plano existente</string>
+    <string name="choose_plan_for_workout">Adicionar treino importado a…</string>
+    <string name="plan_workout_count">%1$d treinos</string>
+    <string name="video_link">Link de vídeo (YouTube)</string>
+    <string name="watch_video">Assistir vídeo</string>
+    <string name="open_externally">Abrir no YouTube/navegador</string>
 </resources>

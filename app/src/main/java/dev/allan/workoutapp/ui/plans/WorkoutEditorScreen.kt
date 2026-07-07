@@ -2,6 +2,7 @@ package dev.allan.workoutapp.ui.plans
 
 import android.app.Application
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -213,6 +214,8 @@ fun WorkoutEditorScreen(
     appLang: String,
     onBack: () -> Unit,
     onPickExercise: () -> Unit,
+    /** Non-null: edit only this workout-exercise (quick edit from a running session). */
+    focusExerciseId: Long? = null,
 ) {
     val app = LocalContext.current.applicationContext as Application
     val vm: WorkoutEditorViewModel = viewModel(
@@ -286,7 +289,9 @@ fun WorkoutEditorScreen(
                     }
                 }
             }
-            items(exercises, key = { it.we.id }) { item ->
+            val shownExercises = focusExerciseId
+                ?.let { f -> exercises.filter { it.we.id == f } } ?: exercises
+            items(shownExercises, key = { it.we.id }) { item ->
                 // animateItem keeps the viewport still and slides the card to its new
                 // slot, so reordering reads as movement instead of a scroll jump.
                 Box(Modifier.animateItem()) {
@@ -520,6 +525,7 @@ private fun HeaderText(text: String, modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
+        textAlign = TextAlign.Center,
         modifier = modifier,
     )
 }
@@ -565,16 +571,16 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
                 modifier = Modifier.weight(1.6f),
             )
         }
-        // Unit toggle (R = reps, s = seconds): tinted = changeable.
+        // Unit toggle: "Rep"/"Sec" spelled out enough to read, tinted+bordered = changeable.
         TintedDropdown(
             current = (if (set.valueUnit == ValueUnit.REPS) stringResource(R.string.reps)
-            else stringResource(R.string.secs)).take(1),
+            else stringResource(R.string.secs)).take(3),
             options = listOf(
                 ValueUnit.REPS to stringResource(R.string.reps),
                 ValueUnit.SECS to stringResource(R.string.secs),
             ),
             onSelect = { onUpdate(set.copy(valueUnit = it)) },
-            modifier = Modifier.width(44.dp),
+            modifier = Modifier.width(52.dp),
         )
         IntField(
             value = set.restSecs,
@@ -630,6 +636,8 @@ private fun <T> TintedDropdown(
                 .fillMaxWidth()
                 .height(40.dp)
                 .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(10.dp))
+                // Border marks "this is a control", not a static label.
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
                 .clickable { expanded = true },
             contentAlignment = Alignment.Center,
         ) {

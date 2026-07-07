@@ -66,7 +66,16 @@ data class SessionUiState(
     val setCountdownRemainingSecs: Int? = null,
     val stopwatchSecs: Int = 0,
     val stopwatchRunning: Boolean = false,
+    /** Live active-time total: booked seconds + the current stopwatch reading. */
+    val activeSecs: Int = 0,
     val timerPanelVisible: Boolean = false,
+    /** One-shot: pager should animate to this exercise index (superset/auto-advance). */
+    val pendingSwipeTo: Int? = null,
+    /** Exercise description shown in the bottom sheet, null = hidden. */
+    val descriptionSheet: String? = null,
+    /** Exercise the sheet belongs to + its user-saved video link. */
+    val descriptionExerciseId: String? = null,
+    val descriptionVideoUrl: String? = null,
     val finished: Boolean = false,
 )
 
@@ -152,20 +161,23 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         val wes = db.planDao().workoutExercises(workoutId).first()
         val templates = db.planDao().setTemplatesForWorkout(workoutId).first()
         val loggedSets = db.sessionDao().setLogs(session.id)
+        val drafts = db.sessionDao().drafts(session.id).associateBy { it.templateId }
 
         val exercises = wes.map { we ->
             val previous = db.sessionDao().previousLogs(we.id)
             val weTemplates = templates.filter { it.workoutExerciseId == we.id }.sortedBy { it.setIndex }
             val sets = weTemplates.map { t ->
-                // Prefill with the most recent finished-session log for the same set slot.
+                // Prefill order: this session's unlogged draft → most recent finished-session
+                // log for the same slot → template target.
                 val prev = previous.firstOrNull { it.setIndex == t.setIndex }
+                val draft = drafts[t.id]
                 val already = loggedSets.any { it.workoutExerciseId == we.id && it.setIndex == t.setIndex }
                 SessionSet(
                     templateId = t.id,
                     setIndex = t.setIndex,
                     type = prev?.type ?: t.type,
-                    weightKg = prev?.weightKg ?: t.targetWeightKg,
-                    value = prev?.value ?: t.targetValue,
+                    weightKg = draft?.weightKg ?: prev?.weightKg ?: t.targetWeightKg,
+                    value = draft?.value ?: prev?.value ?: t.targetValue,
                     valueUnit = prev?.valueUnit ?: t.valueUnit,
                     restSecs = t.restSecs,
                     targetMin = t.targetValue,
@@ -222,12 +234,14 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 if (restRemaining != null && restRemaining <= 0) SessionManager.stopRest()
                 val countdownRemaining = timers.setCountdownEndAt?.let { ((it - now) / 1000L).toInt() }
                 if (countdownRemaining != null && countdownRemaining <= 0) SessionManager.cancelSetCountdown()
+                val stopwatch = SessionManager.stopwatchSecs(now)
                 _state.value = _state.value.copy(
                     elapsedSecs = ((now - startedAt) / 1000L).toInt(),
                     restRemainingSecs = restRemaining?.takeIf { it > 0 },
                     setCountdownRemainingSecs = countdownRemaining?.takeIf { it > 0 },
-                    stopwatchSecs = timers.stopwatchStartedAt?.let { ((now - it) / 1000L).toInt() } ?: 0,
+                    stopwatchSecs = stopwatch,
                     stopwatchRunning = timers.stopwatchStartedAt != null,
+                    activeSecs = timers.activeSecs + stopwatch,
                 )
             }
             delay(250)
@@ -258,6 +272,47 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             exercises = exercises,
             currentStep = SupersetOrder.nextStep(exercises),
         )
+        saveDraft(set)
+    }
+
+    /**
+     * Weight edit with forward-fill: sets after this one that are still 0 kg and undone
+     * get the same weight, so one input covers the usual same-weight-all-sets case.
+     */
+    fun updateWeight(exerciseIndex: Int, set: SessionSet, weightKg: Double) {
+        val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
+        val editedIndex = ex.sets.indexOfFirst { it.templateId == set.templateId }
+        if (editedIndex < 0) return
+        val newSets = ex.sets.mapIndexed { i, s ->
+            when {
+                i == editedIndex -> s.copy(weightKg = weightKg)
+                i > editedIndex && !s.done && s.weightKg == 0.0 && weightKg > 0.0 ->
+                    s.copy(weightKg = weightKg)
+                else -> s
+            }
+        }
+        val exercises = _state.value.exercises.toMutableList()
+        exercises[exerciseIndex] = ex.copy(sets = newSets)
+        _state.value = _state.value.copy(
+            exercises = exercises,
+            currentStep = SupersetOrder.nextStep(exercises),
+        )
+        newSets.filterIndexed { i, s -> i == editedIndex || s.weightKg != ex.sets[i].weightKg }
+            .forEach(::saveDraft)
+    }
+
+    private fun saveDraft(set: SessionSet) {
+        val sessionId = _state.value.sessionId ?: return
+        viewModelScope.launch {
+            db.sessionDao().upsertDraft(
+                dev.allan.workoutapp.data.db.SessionSetDraft(
+                    sessionId = sessionId,
+                    templateId = set.templateId,
+                    weightKg = set.weightKg,
+                    value = set.value,
+                )
+            )
+        }
     }
 
     /** Apply the progression hint to all undone working sets of the exercise, then clear it. */
@@ -286,11 +341,15 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         _state.value = _state.value.copy(exercises = exercises)
     }
 
-    /** Log a set: write SetLog, mark done, start its rest countdown, show timer panel. */
+    /** Log a set: write SetLog, mark done, start its rest countdown, show timer panel.
+     *  Tapping an already-done set un-logs it (checkmark toggle). */
     fun logSet(exerciseIndex: Int, set: SessionSet) {
         val sessionId = _state.value.sessionId ?: return
         val ex = _state.value.exercises[exerciseIndex]
-        if (set.done) return
+        if (set.done) {
+            unlogSet(exerciseIndex, set)
+            return
+        }
 
         // Active time: timed sets count their duration; rep sets use the running
         // stopwatch when present, otherwise a 3 s/rep estimate.
@@ -333,7 +392,72 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 getApplication<Application>().getString(dev.allan.workoutapp.R.string.rest),
             )
         }
-        _state.value = _state.value.copy(timerPanelVisible = true)
+
+        // Auto-advance: follow the superset-aware next step. All done → back to the
+        // exercise list (that's where "End workout" lives).
+        val next = SupersetOrder.nextStep(_state.value.exercises)
+        _state.value = when {
+            next == null -> _state.value.copy(timerPanelVisible = true, showList = true)
+            next.first != exerciseIndex ->
+                _state.value.copy(timerPanelVisible = true, pendingSwipeTo = next.first)
+            else -> _state.value.copy(timerPanelVisible = true)
+        }
+    }
+
+    /** Undo a mistaken checkmark: delete the SetLog row and give back its active time. */
+    private fun unlogSet(exerciseIndex: Int, set: SessionSet) {
+        val sessionId = _state.value.sessionId ?: return
+        val ex = _state.value.exercises[exerciseIndex]
+        viewModelScope.launch {
+            db.sessionDao().setLog(sessionId, ex.workoutExerciseId, set.setIndex)?.let { log ->
+                log.activeSecs?.let { SessionManager.addActiveSecs(-it) }
+                db.sessionDao().deleteSetLog(sessionId, ex.workoutExerciseId, set.setIndex)
+            }
+            updateSet(exerciseIndex, set.copy(done = false))
+        }
+    }
+
+    fun clearPendingSwipe() {
+        _state.value = _state.value.copy(pendingSwipeTo = null)
+    }
+
+    /** Show the current exercise's description (localized, en fallback) in a sheet. */
+    fun openDescription(exerciseId: String) {
+        viewModelScope.launch {
+            val translations = db.exerciseDao().translations(exerciseId)
+            val best = translations.firstOrNull { it.lang == lang }
+                ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
+            _state.value = _state.value.copy(
+                descriptionSheet = best?.description.orEmpty(),
+                descriptionExerciseId = exerciseId,
+                descriptionVideoUrl = db.exerciseDao().videoLink(exerciseId),
+            )
+        }
+    }
+
+    fun closeDescription() {
+        _state.value = _state.value.copy(
+            descriptionSheet = null,
+            descriptionExerciseId = null,
+            descriptionVideoUrl = null,
+        )
+    }
+
+    /** Save (or clear, when blank) the user's video link for an exercise. */
+    fun saveVideoLink(exerciseId: String, url: String) {
+        val trimmed = url.trim()
+        _state.value = _state.value.copy(descriptionVideoUrl = trimmed.ifBlank { null })
+        viewModelScope.launch {
+            if (trimmed.isBlank()) db.exerciseDao().deleteVideoLink(exerciseId)
+            else db.exerciseDao().upsertVideoLink(
+                dev.allan.workoutapp.data.db.ExerciseLink(exerciseId = exerciseId, url = trimmed)
+            )
+        }
+    }
+
+    /** Re-read templates/logs/drafts, e.g. after editing the workout mid-session. */
+    fun refresh() {
+        viewModelScope.launch { startOrResume() }
     }
 
     fun startSetCountdown(set: SessionSet) {
@@ -348,6 +472,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
 
     fun toggleStopwatch() {
         SessionManager.toggleStopwatch()
+    }
+
+    fun resetStopwatch() {
+        SessionManager.resetStopwatch()
     }
 
     fun stopRest() {
@@ -385,6 +513,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     restSecs = timers.restSecs,
                 )
             )
+            db.sessionDao().deleteDrafts(sessionId)
             SessionManager.clear()
             TimerService.stop(getApplication())
             _state.value = _state.value.copy(finished = true)
