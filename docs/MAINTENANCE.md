@@ -27,11 +27,15 @@ workout-app/
 
 ## Emulator (AVD `testphone`)
 
-- `~/.android/avd/testphone.avd/config.ini` MUST keep `hw.gpu.enabled = yes` and
-  `hw.gpu.mode = host` (plus `hw.ramSize = 3072M`). With software rendering the emulator
-  crashes shortly after startup and can freeze the whole host machine under Compose-heavy
-  screens (bitten on 2026-07-07). When launching headless from a session, `-gpu host` is
-  fine on this machine; fall back to `-gpu swiftshader_indirect` only if host GL breaks.
+- Launch with `-gpu swiftshader_indirect`. On this machine `-gpu host` segfaults the
+  emulator seconds after boot completes (exit 139, log ends right after "Boot completed";
+  Gradle then reports "No connected devices!") — verified 2026-07-07 evening, reproducible.
+  swiftshader_indirect boots, installs, and runs the Compose UI stably.
+- Keep `hw.ramSize = 3072M` in `~/.android/avd/testphone.avd/config.ini`.
+- Working start-to-app-open block (also in README "Everyday" section):
+  `emulator -avd testphone -gpu swiftshader_indirect >/dev/null 2>&1 &` →
+  `adb wait-for-device shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'` →
+  `./gradlew installDebug` → `adb shell monkey -p dev.allan.workoutapp 1`.
 
 ## Device compatibility checklist (Redmi 15 Pro 5G, HyperOS 3.x)
 
