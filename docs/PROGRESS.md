@@ -134,7 +134,7 @@ workout_exercise.supersetWithPrev, set_template.targetValueMax — additive, his
       badges/Assign days/long-press hint, workout editor headers + tinted chips + superset chip +
       range field. NOT smoke-tested visually: session superset flow + highlight + suggestion
       bubble (logic unit-tested), PDF export, MD asset export — Allan: try these on the Redmi.
-- [ ] Commit + push
+- [x] Commit + push (c6bb546, 2026-07-07)
 - [ ] Allan: real-device pass on the Redmi (`winstall`), incl. session superset flow + PDF export
 
 ## Status: Phases 0-8 complete. Pending real-device test on the Redmi.
