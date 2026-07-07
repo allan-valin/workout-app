@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.AlertDialog
@@ -332,7 +332,7 @@ private fun MainScaffold(
                     }
                     item {
                         Button(onClick = onOpenLibrary) {
-                            Icon(Icons.Default.MenuBook, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
                             Text(stringResource(R.string.exercise_library), modifier = Modifier.padding(start = 8.dp))
                         }
                     }

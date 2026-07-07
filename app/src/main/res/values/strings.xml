@@ -133,4 +133,10 @@
     <string name="battery_onboarding_text">HyperOS aggressively kills background apps. To keep rest timers and the workout notification running with the screen off, allow both settings below once.</string>
     <string name="battery_exemption_button">Disable battery optimization</string>
     <string name="autostart_button">Allow autostart</string>
+    <string name="exercise_db">Exercise database</string>
+    <string name="refresh_wger">Refresh from wger.de</string>
+    <string name="wger_refreshing">Refreshing…</string>
+    <string name="refresh_wger_hint">Downloads the latest exercises and translations. Needs internet. Custom exercises are never changed.</string>
+    <string name="wger_refresh_done">Updated: %1$d exercises, %2$d translations.</string>
+    <string name="wger_refresh_failed">Refresh failed, existing data kept: %1$s</string>
 </resources>

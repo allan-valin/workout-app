@@ -46,6 +46,12 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise WHERE isCustom = 1")
     suspend fun customExercises(): List<Exercise>
 
+    @Query("SELECT * FROM exercise WHERE isCustom = 0")
+    suspend fun snapshotExercises(): List<Exercise>
+
+    @Query("DELETE FROM exercise_translation WHERE exerciseId LIKE 'wger:%'")
+    suspend fun deleteWgerTranslations()
+
     @Query("UPDATE exercise SET imagePath = :path WHERE id = :id")
     suspend fun setImagePath(id: String, path: String)
 

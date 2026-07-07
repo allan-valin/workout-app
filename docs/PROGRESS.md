@@ -76,13 +76,15 @@ Known polish item: set-row field labels wrap ("Re ps", "De sc.") — widen/short
 - [x] Label fixes: set-row labels now "kg"/"×"/"s" (no wrap), NumberPad increments labelSmall
 - [x] Prefill from previous session visible in new session (20 kg on set 1)
 
-## Backlog (nice-to-haves, unscheduled)
+## Phase 7 — backlog dev (started 2026-07-07; Play Store explicitly excluded by Allan)
 
-- wger DB refresh button in Settings (sync deltas; snapshot importer is idempotent groundwork)
-- Media ref-count sweep on plan save; GIF/animation support (Coil-gif)
-- Optional prev/next exercise buttons setting; scroll-collapsing image
-- Injured-muscle exclusion toggle + physio category (schema ready: secondary muscles, muscle.parentId)
-- Auto workout suggestions; Play Store (needs $25 account + 12-tester closed test)
-- pt-BR translation batch for the 752 exercises missing pt names (browser Claude can generate; import as aliases)
+- [x] wger DB refresh button in Settings (data/sync/WgerSync.kt): mirrors fetch_wger.py, fetch-all-then-one-transaction (abort keeps old data), preserves imagePath/licenseAuthor, never touches custom exercises, additive (upstream deletions kept), sanity check ≥500 exercises
+- [ ] Media ref-count sweep on plan save; GIF/animation support (Coil-gif)
+- [ ] Optional prev/next exercise buttons setting; scroll-collapsing image
+- [ ] Injured-muscle exclusion toggle + physio category (schema ready: secondary muscles, muscle.parentId)
+- [ ] Auto workout suggestions
+- [ ] pt-BR translation batch for the 752 exercises missing pt names (import as aliases)
 
-## Status: ALL PHASES 0-6 COMPLETE. App is daily-driver ready pending real-device test on the Redmi.
+Excluded: Play Store (needs $25 account + 12-tester closed test) — Allan decision 2026-07-07.
+
+## Status: Phases 0-6 complete; Phase 7 backlog in progress. Pending real-device test on the Redmi.

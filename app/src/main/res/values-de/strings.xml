@@ -133,4 +133,10 @@
     <string name="battery_onboarding_text">HyperOS beendet Hintergrund-Apps aggressiv. Damit Pausentimer und Trainings-Benachrichtigung bei ausgeschaltetem Bildschirm weiterlaufen, erlaube einmalig beide Einstellungen unten.</string>
     <string name="battery_exemption_button">Akku-Optimierung deaktivieren</string>
     <string name="autostart_button">Autostart erlauben</string>
+    <string name="exercise_db">Übungsdatenbank</string>
+    <string name="refresh_wger">Von wger.de aktualisieren</string>
+    <string name="wger_refreshing">Aktualisiere…</string>
+    <string name="refresh_wger_hint">Lädt die neuesten Übungen und Übersetzungen herunter. Benötigt Internet. Eigene Übungen werden nie verändert.</string>
+    <string name="wger_refresh_done">Aktualisiert: %1$d Übungen, %2$d Übersetzungen.</string>
+    <string name="wger_refresh_failed">Aktualisierung fehlgeschlagen, vorhandene Daten behalten: %1$s</string>
 </resources>

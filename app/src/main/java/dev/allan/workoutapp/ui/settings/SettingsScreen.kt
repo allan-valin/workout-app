@@ -41,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.allan.workoutapp.R
 import dev.allan.workoutapp.WorkoutApp
 import dev.allan.workoutapp.data.db.Plan
+import dev.allan.workoutapp.data.sync.WgerSync
 import dev.allan.workoutapp.data.transfer.Backup
 import dev.allan.workoutapp.data.transfer.CsvExport
 import dev.allan.workoutapp.data.transfer.PlanTransfer
@@ -60,6 +61,22 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
+
+    private val _syncing = MutableStateFlow(false)
+    val syncing: StateFlow<Boolean> = _syncing
+
+    fun refreshWger() {
+        if (_syncing.value) return
+        viewModelScope.launch {
+            _syncing.value = true
+            val result = WgerSync.refresh(db)
+            _syncing.value = false
+            _message.value = result.fold(
+                onSuccess = { context.getString(R.string.wger_refresh_done, it.exercises, it.translations) },
+                onFailure = { context.getString(R.string.wger_refresh_failed, it.message ?: it.javaClass.simpleName) },
+            )
+        }
+    }
 
     fun clearMessage() {
         _message.value = null
@@ -127,6 +144,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
     val plans by vm.plans.collectAsState()
     val message by vm.message.collectAsState()
+    val syncing by vm.syncing.collectAsState()
     var planPickerFor by remember { mutableStateOf<Long?>(null) } // planId chosen for export
     var showPlanPicker by remember { mutableStateOf(false) }
 
@@ -215,6 +233,22 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                     ) { Text(stringResource(R.string.restore_backup)) }
                     Text(
                         stringResource(R.string.restore_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.exercise_db), fontWeight = FontWeight.Bold)
+                    OutlinedButton(
+                        onClick = vm::refreshWger,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !syncing,
+                    ) {
+                        Text(stringResource(if (syncing) R.string.wger_refreshing else R.string.refresh_wger))
+                    }
+                    Text(
+                        stringResource(R.string.refresh_wger_hint),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

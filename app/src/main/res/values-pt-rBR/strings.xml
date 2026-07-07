@@ -133,4 +133,10 @@
     <string name="battery_onboarding_text">O HyperOS encerra apps em segundo plano agressivamente. Para manter os timers de descanso e a notificação do treino com a tela desligada, permita as duas opções abaixo uma vez.</string>
     <string name="battery_exemption_button">Desativar otimização de bateria</string>
     <string name="autostart_button">Permitir início automático</string>
+    <string name="exercise_db">Banco de exercícios</string>
+    <string name="refresh_wger">Atualizar do wger.de</string>
+    <string name="wger_refreshing">Atualizando…</string>
+    <string name="refresh_wger_hint">Baixa os exercícios e traduções mais recentes. Precisa de internet. Exercícios personalizados nunca são alterados.</string>
+    <string name="wger_refresh_done">Atualizado: %1$d exercícios, %2$d traduções.</string>
+    <string name="wger_refresh_failed">Falha na atualização, dados existentes mantidos: %1$s</string>
 </resources>
