@@ -146,4 +146,5 @@
     <string name="injuries">Lesões</string>
     <string name="injuries_hint">Marque músculos lesionados — a busca de exercícios oculta os que os usam (primário ou secundário). Um botão nos filtros de busca permite ignorar isso.</string>
     <string name="hide_injured">Ocultar exercícios de músculos lesionados</string>
+    <string name="suggest_exercises">Sugerir exercícios</string>
 </resources>

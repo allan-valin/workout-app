@@ -71,6 +71,21 @@ interface ExerciseDao {
      * secondary; query matches name or aliases, case-insensitive.
      * Picks one row per exercise, preferring the requested language.
      */
+    /** Cardio pool for workout suggestions, one row per exercise (any language). */
+    @Query(
+        """
+        SELECT e.id AS id, t.name AS name, t.lang AS lang, e.category AS category,
+               e.primaryMuscles AS primaryMuscles, e.secondaryMuscles AS secondaryMuscles,
+               e.isCustom AS isCustom, e.imageUrl AS imageUrl
+        FROM exercise e
+        JOIN exercise_translation t ON t.exerciseId = e.id
+        WHERE e.isCardio = 1
+        GROUP BY e.id
+        ORDER BY t.name
+        """
+    )
+    suspend fun cardioHits(): List<ExerciseHit>
+
     @Query(
         """
         SELECT e.id AS id,

@@ -12,7 +12,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -63,6 +65,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -154,6 +157,14 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         }
     }
 
+    fun suggestExercises(focus: dev.allan.workoutapp.data.SuggestionFocus) {
+        viewModelScope.launch {
+            val injured = dev.allan.workoutapp.data.Settings
+                .injuredMuscles(getApplication()).first()
+            dev.allan.workoutapp.data.SuggestionEngine.fillWorkout(db, workoutId, focus, injured)
+        }
+    }
+
     class Factory(private val app: Application, private val workoutId: Long, private val lang: String) :
         ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -177,6 +188,17 @@ fun WorkoutEditorScreen(
     )
     val workout by vm.workout.collectAsState()
     val exercises by vm.exercises.collectAsState()
+    var showSuggestDialog by remember { mutableStateOf(false) }
+
+    if (showSuggestDialog) {
+        SuggestFocusDialog(
+            onDismiss = { showSuggestDialog = false },
+            onPick = { focus ->
+                showSuggestDialog = false
+                vm.suggestExercises(focus)
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -188,6 +210,12 @@ fun WorkoutEditorScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showSuggestDialog = true }) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = stringResource(R.string.suggest_exercises),
+                        )
+                    }
                     IconButton(onClick = onPickExercise) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_exercise))
                     }
@@ -224,6 +252,46 @@ fun WorkoutEditorScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SuggestFocusDialog(
+    onDismiss: () -> Unit,
+    onPick: (dev.allan.workoutapp.data.SuggestionFocus) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.suggest_exercises)) },
+        text = {
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                dev.allan.workoutapp.data.SuggestionFocus.entries.forEach { focus ->
+                    TextButton(onClick = { onPick(focus) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            stringResource(
+                                when (focus) {
+                                    dev.allan.workoutapp.data.SuggestionFocus.FULL_BODY -> R.string.split_full_body
+                                    dev.allan.workoutapp.data.SuggestionFocus.PUSH -> R.string.split_push
+                                    dev.allan.workoutapp.data.SuggestionFocus.PULL -> R.string.split_pull
+                                    dev.allan.workoutapp.data.SuggestionFocus.LEGS -> R.string.split_legs
+                                    dev.allan.workoutapp.data.SuggestionFocus.UPPER -> R.string.split_upper
+                                    dev.allan.workoutapp.data.SuggestionFocus.LOWER -> R.string.split_lower
+                                    dev.allan.workoutapp.data.SuggestionFocus.CHEST -> R.string.split_chest
+                                    dev.allan.workoutapp.data.SuggestionFocus.BACK -> R.string.split_back
+                                    dev.allan.workoutapp.data.SuggestionFocus.SHOULDERS -> R.string.split_shoulders
+                                    dev.allan.workoutapp.data.SuggestionFocus.ARMS -> R.string.split_arms
+                                    dev.allan.workoutapp.data.SuggestionFocus.CARDIO_CORE -> R.string.split_cardio_core
+                                }
+                            )
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
 }
 
 @Composable

@@ -146,4 +146,5 @@
     <string name="injuries">Injuries</string>
     <string name="injuries_hint">Mark injured muscles — exercise search hides anything hitting them (primary or secondary). A toggle in the search filters overrides this.</string>
     <string name="hide_injured">Hide exercises for injured muscles</string>
+    <string name="suggest_exercises">Suggest exercises</string>
 </resources>

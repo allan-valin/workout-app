@@ -146,4 +146,5 @@
     <string name="injuries">Verletzungen</string>
     <string name="injuries_hint">Verletzte Muskeln markieren — die Übungssuche blendet alles aus, was sie trifft (primär oder sekundär). Ein Schalter in den Suchfiltern hebt das auf.</string>
     <string name="hide_injured">Übungen für verletzte Muskeln ausblenden</string>
+    <string name="suggest_exercises">Übungen vorschlagen</string>
 </resources>
