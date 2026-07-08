@@ -137,7 +137,7 @@ workout_exercise.supersetWithPrev, set_template.targetValueMax — additive, his
 - [x] Commit + push (c6bb546, 2026-07-07)
 - [ ] Allan: real-device pass on the Redmi (`winstall`), incl. session superset flow + PDF export
 
-## Status: Phases 0-9 complete. Pending real-device test on the Redmi.
+## Status: Phases 0-9 complete. Phase 10 (second QA feedback batch) captured 2026-07-08, not started. Pending real-device test on the Redmi.
 
 Phase 7 EMULATOR-VERIFIED 2026-07-07 (AVD testphone, debug build, pt-BR; screenshots in session scratchpad):
 - pt batch: search "testa" → 5 "Tríceps Testa …" generated names; still present after wger sync (re-merge works)
@@ -196,4 +196,132 @@ Plans / import-export:
 Env notes (2026-07-08): `-gpu host` segfaults this machine's emulator right after boot — always
 launch with `-gpu swiftshader_indirect` (docs/MAINTENANCE.md updated 2026-07-07). AVD `testphone`
 now has hw.keyboard=yes (host keyboard typing works). Android nav keyevents verified working
-(`adb shell input keyevent 3/4/187`).
+(`adb shell input keyevent 3/4/187`). "App resumed exactly where I left it yesterday" = emulator
+quick-boot snapshot restoring the whole OS, not app behavior; cold-boot with `-no-snapshot-load`
+to test a fresh start.
+
+## Phase 10 — Allan's second-emulator-QA feedback batch (2026-07-08, captured, NOT started)
+
+Known DB constraint for this batch: wger muscles are a flat list (~15 entries, see
+`MuscleNames.kt`) — there is NO native upper/mid/lower-pec style granularity. Sub-muscle
+features below are conditional: either add a custom sub-muscle tagging layer or drop those
+sub-items. Compound vs isolation IS derivable (primary + secondary muscle count). Decide at
+implementation time.
+
+Naming / chrome:
+- [ ] Rename "plan" to "cycle" or "mesocycle" in the create-new flow wording.
+- [ ] Top-bar title currently says "Workout" on all 4 tabs — must reflect the tab
+      ("Start", etc., localized).
+- [ ] Dark/light toggle, language switcher, and gear icon should only appear on the main
+      (Start) screen, not on the other 3 tabs.
+- [ ] Rename "Inactive" tab to "Archive" (icon already fits, keep it).
+
+Plan create / import:
+- [ ] New-plan (cycle) overlay: add a button at the bottom to import a file — same import
+      function as the gear menu, just a second entry point.
+
+Exercise search / library:
+- [ ] Replace "new custom" entry with an entry that opens the list of already-created custom
+      exercises: checkbox on the left to select, ℹ for detail, and DELETE support (currently
+      customs cannot be deleted at all).
+- [ ] Search results: show the exercise image (same one used during session execution) above
+      the title.
+- [ ] Editor edit mode: add ℹ icon that opens the chosen exercise's description.
+- [ ] Library icon moves off the main screen; show it at the bottom of the Active/Archive
+      pages instead, and allow ADDING exercises to a workout from there (today it is
+      view-only).
+- [ ] YouTube link field belongs in add/edit exercise (library), NOT in the in-progress
+      session (currently the only place it shows). In-progress = view only.
+- [ ] YouTube link bugs: cannot delete a saved link; editing the text does not update the
+      stored link (only the first save sticks); "watch video" overlay never loads; "open on
+      YouTube" opens inside the app instead of the YouTube app (ACTION_VIEW should leave the
+      app). (Emulator may lack YouTube app / internet — verify on Redmi too.)
+
+Suggestion flow (workout editor ✨):
+- [ ] Muscle-focus buttons become multi-select (same interaction as the exercise filter),
+      not single-select.
+- [ ] Space freed by multi-select: add "desired workout duration" input. Estimation model:
+      per exercise = 1 min fixed buffer (walking/setup) + per set (40 s execution + configured
+      pause). Defaults: 3 sets, 60 s pause, 40 s active → ~6 min/exercise. If the exercise is
+      seconds-based (secs instead of reps), use its configured seconds as execution time. Any
+      change to sets/pauses/exercise count recalculates so the plan matches the requested
+      total.
+- [ ] During a session, show total estimated time to the right of the elapsed time.
+- [ ] "How many exercises" row: remove the "default" option (unclear what number it is);
+      pt-BR clips the "8" button. Replace the whole row with an editable numeric text field,
+      min 1, − icon left / + icon right stepping by 1.
+- [ ] Add "Next"/"Advance" button next to Cancel → second overlay: lists the muscles selected
+      in step 1, each with a number input = how many exercises of that muscle to add.
+      Buttons: "Go back" (returns to step 1 with selections intact) and "Confirm".
+      If sub-muscle granularity exists (see constraint above), show subcategories under each
+      parent.
+- [ ] Push/pull and full-body presets pre-select their muscles; spread exercises across
+      different sub-muscles of a parent if supported. Full body offers two modes: compound
+      focus (multi-muscle exercises) or isolation (each muscle group targeted separately).
+- [ ] Step-1 overlay: below the muscle icons add an "injuries" checkbox; when marked, the
+      next overlay shows the injured-muscles list (today only in gear/settings) with
+      go-back/advance, and those selections filter the suggestions.
+
+Active screen / plan management rework:
+- [ ] Only ONE plan active at a time. Tapping the Active tab goes straight to the
+      workout-selection / day-assignment page of that plan (no plan list).
+- [ ] Drop the left checkbox there; tapping a workout opens the same page "today's workout"
+      opens from the main screen. That page gains, next to the edit icon, the actions the
+      checkbox selection used to expose: download, archive, delete.
+- [ ] The 4 bottom nav buttons stay visible on Active (and everywhere) — they only disappear
+      during an in-progress workout.
+- [ ] Plan editor, workout checked: "share" icon is confusing — swap for a download icon
+      (arrow pointing down).
+- [ ] Archiving a workout: ask confirmation, then DETACH it from the parent plan and move it
+      to Archive (today it stays listed under the same screen, which makes no sense).
+- [ ] "Add workout" overlay won't scale to dozens of workouts: replace with a button opening
+      a full screen (back arrow) listing ALL workouts, active and inactive, multi-select to
+      add several. Two add modes, visually unmistakable: (a) link the existing workout —
+      single copy shown in several plans, edits propagate everywhere; (b) use as base — an
+      independent copy is created. Wording must make the difference explicit.
+- [ ] Each workout row on the Active page gets a right-side button to start that workout
+      immediately (opens the training-summary page).
+- [ ] Archive screen: two big square buttons splitting the space evenly — "Plans" and
+      "Workouts". Plans → all inactive plans. Workouts → ALL workouts including active ones
+      (label the active ones), independent of plans; from there a workout can be added to the
+      active plan. This replaces the activate-toggle + archive dual mechanism: everything is
+      archive-based now.
+
+Workout editor (sets/pauses table):
+- [ ] Remove the per-exercise trash icon; move the reorder arrows to the right; add a
+      checkbox left of the exercise name for multi-select delete with ONE confirmation
+      (bulk-friendly). When at least one is selected, show select-all/unselect-all buttons.
+- [ ] Deleting a single set: no confirmation anymore.
+
+Statistics rework (point graphs):
+- [ ] Swap positions of bodyweight and averages sections.
+- [ ] Bodyweight: remove height/BMI (irrelevant for lifting). Keep "+ Add" but adding asks
+      for the date too (backfill forgotten days). Replace "current" with a point graph:
+      y = weight, x = day, points connected by a line, area under the line filled. Default
+      window 1 month. Tapping the graph opens a full screen with range buttons 1 w / 1 m /
+      3 m / 6 m / 1 y / all-time, plus the last 7 entries listed below with a pencil icon to
+      edit each.
+- [ ] Rename "Averages" to "Progression": opens a page with the same graph style for total
+      weight lifted per session, and one graph per muscle group.
+
+In-progress session:
+- [ ] Weight − / + steppers: step 1 kg instead of 2.5.
+- [ ] Set-complete tick colors: current gray is invisible on the current-set highlight.
+      New scheme: incomplete uses the color completed uses today; completed becomes a medium
+      green (not neon, not murky) or another palette-consistent color.
+- [ ] Timer rework: ONE centered timer instead of three. When a set triggers rest, header
+      says "rest" and start/stop becomes a single "stop resting". When the pause ends, header
+      becomes "log set duration" (the active stopwatch). Total active time is only shown in
+      the end-of-workout stats. Stop resets the visible clock to zero but books the value
+      into the total. If the user never starts "log set duration", active time = time between
+      the end of the last pause and the next logged set — but if that gap exceeds 3 min, book
+      only 40 s (assume they forgot and chatted). Logging a set (tick or button) while the
+      stopwatch runs books the time and starts the pause.
+- [ ] Auto-advance bug: unreliable. Repro sketch: skip exercise 1 (machine busy), log a set
+      on another exercise → pager swipes BACK to exercise 1 even though the logged exercise
+      isn't finished. Also after mixing timer actions + completing/uncompleting sets,
+      auto-advance stopped entirely. Exact repro unknown — needs instrumentation.
+- [ ] "Story" progress lines: slightly bigger, and tappable to jump straight to that
+      exercise.
+- [ ] End workout: if not all sets are complete, show a clear choice with colorful buttons
+      (save session vs discard), not text-only.
