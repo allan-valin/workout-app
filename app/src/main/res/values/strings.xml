@@ -90,6 +90,7 @@
     <string name="rest">Rest</string>
     <string name="set_timer">Set timer</string>
     <string name="stopwatch">Stopwatch</string>
+    <string name="log_set_duration">Log set duration</string>
     <string name="stop_rest">Stop rest</string>
     <string name="timer">Timer</string>
     <string name="log_set">Log set</string>

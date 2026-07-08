@@ -26,6 +26,9 @@ object SessionManager {
         /** Accumulated active/rest seconds for the running session. */
         val activeSecs: Int = 0,
         val restSecs: Int = 0,
+        /** Instant the last rest ended — fallback active-time anchor when the
+         *  stopwatch was never started for the following set. */
+        val lastRestEndedAt: Long? = null,
     )
 
     private val _state = MutableStateFlow(TimerState())
@@ -55,13 +58,28 @@ object SessionManager {
     private fun finishRestAccounting() {
         val s = _state.value
         val endAt = s.restEndAt ?: return
+        val now = System.currentTimeMillis()
         val startAt = endAt - s.restDurationSecs * 1000L
-        val elapsed = ((minOf(System.currentTimeMillis(), endAt) - startAt) / 1000L).toInt()
+        val elapsed = ((minOf(now, endAt) - startAt) / 1000L).toInt()
         _state.value = s.copy(
             restEndAt = null,
             restDurationSecs = 0,
             restSecs = s.restSecs + elapsed.coerceAtLeast(0),
+            lastRestEndedAt = minOf(now, endAt),
         )
+    }
+
+    /**
+     * Fallback active seconds when no stopwatch ran: gap since the last rest ended.
+     * Gaps over 3 min mean "forgot to log, was chatting" — book only 40 s. Single-use.
+     */
+    fun gapActiveSecs(): Int? {
+        val s = _state.value
+        val anchor = s.lastRestEndedAt ?: s.restEndAt?.takeIf { it <= System.currentTimeMillis() }
+        anchor ?: return null
+        _state.value = s.copy(lastRestEndedAt = null)
+        val gap = ((System.currentTimeMillis() - anchor) / 1000L).toInt().coerceAtLeast(0)
+        return if (gap > 180) 40 else gap.takeIf { it > 0 }
     }
 
     fun startSetCountdown(durationSecs: Int) {
@@ -96,9 +114,9 @@ object SessionManager {
         }
     }
 
-    /** Stop-and-reset: back to 0:00 without booking anything. */
-    fun resetStopwatch() {
-        _state.value = _state.value.copy(stopwatchStartedAt = null, stopwatchAccumSecs = 0)
+    /** Stop: back to 0:00, but the reading is booked into the session's active total. */
+    fun stopBookStopwatch() {
+        consumeStopwatch()?.let(::addActiveSecs)
     }
 
     /** Stops + resets the stopwatch and returns its reading without double-booking. */

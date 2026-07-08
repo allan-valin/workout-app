@@ -90,6 +90,7 @@
     <string name="rest">Pause</string>
     <string name="set_timer">Satz-Timer</string>
     <string name="stopwatch">Stoppuhr</string>
+    <string name="log_set_duration">Satzdauer erfassen</string>
     <string name="stop_rest">Pause stoppen</string>
     <string name="timer">Timer</string>
     <string name="log_set">Satz erfassen</string>

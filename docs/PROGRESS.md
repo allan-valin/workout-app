@@ -306,14 +306,13 @@ In-progress session:
 - [x] Weight − / + steppers: step 1 kg instead of 2.5.
 - [x] Set-complete ticks: incomplete = primary (visible on the highlight), completed =
       medium green 0xFF43A047.
-- [ ] Timer rework: ONE centered timer instead of three. When a set triggers rest, header
-      says "rest" and start/stop becomes a single "stop resting". When the pause ends, header
-      becomes "log set duration" (the active stopwatch). Total active time is only shown in
-      the end-of-workout stats. Stop resets the visible clock to zero but books the value
-      into the total. If the user never starts "log set duration", active time = time between
-      the end of the last pause and the next logged set — but if that gap exceeds 3 min, book
-      only 40 s (assume they forgot and chatted). Logging a set (tick or button) while the
-      stopwatch runs books the time and starts the pause.
+- [x] Timer rework done: ONE centered timer with role header (rest → "Rest" + stop-rest
+      button; timed set → "Set timer"; otherwise "Log set duration" stopwatch). Active total
+      removed from the panel (summary only). Stop books the reading then shows 0:00
+      (SessionManager.stopBookStopwatch). No stopwatch → gap since last rest end
+      (SessionManager.gapActiveSecs, single-use anchor; >3 min books 40 s); fallbacks to
+      3 s/rep only when no anchor exists. Logging mid-stopwatch books it and starts the
+      pause (already existing consumeStopwatch path).
 - [x] Auto-advance bug A (wrong target): logging a set jumped the pager to the FIRST
       not-fully-completed exercise instead of staying relative to the one just logged.
       Fixed 2026-07-08: `SupersetOrder.nextStepFrom(exercises, fromIndex)` — own chain

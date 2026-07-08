@@ -742,72 +742,62 @@ private fun setTypeColor(type: SetType): androidx.compose.ui.graphics.Color = wh
 
 @Composable
 private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
+    // One centered timer wearing three hats: rest countdown → timed-set countdown →
+    // set-duration stopwatch. The header names the current role; the session's active
+    // total is deliberately absent here (shown only in the end-of-workout summary).
     val restRunning = state.restRemainingSecs != null
+    val setCountdownRunning = state.setCountdownRemainingSecs != null
     Surface(tonalElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.rest), style = MaterialTheme.typography.labelSmall)
-                    Text(
-                        state.restRemainingSecs?.let(::fmt) ?: "–",
-                        style = MaterialTheme.typography.headlineMedium,
-                        textAlign = TextAlign.Center,
-                        color = if (restRunning) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                if (state.setCountdownRemainingSecs != null) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(R.string.set_timer), style = MaterialTheme.typography.labelSmall)
-                        Text(fmt(state.setCountdownRemainingSecs), style = MaterialTheme.typography.headlineMedium)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                stringResource(
+                    when {
+                        restRunning -> R.string.rest
+                        setCountdownRunning -> R.string.set_timer
+                        else -> R.string.log_set_duration
                     }
-                }
-                // Stopwatch is for timing the active set — irrelevant (and grayed) during rest.
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.stopwatch), style = MaterialTheme.typography.labelSmall)
-                    Text(
-                        fmt(state.stopwatchSecs),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = if (restRunning) MaterialTheme.colorScheme.outlineVariant
-                        else MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                // Running total of tracked active (working) time this session.
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.active_time), style = MaterialTheme.typography.labelSmall)
-                    Text(
-                        fmt(state.activeSecs),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.tertiary,
-                    )
-                }
-            }
+                ),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(
+                when {
+                    restRunning -> fmt(state.restRemainingSecs ?: 0)
+                    setCountdownRunning -> fmt(state.setCountdownRemainingSecs ?: 0)
+                    else -> fmt(state.stopwatchSecs)
+                },
+                style = MaterialTheme.typography.displaySmall,
+                textAlign = TextAlign.Center,
+                color = if (restRunning) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface,
+            )
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (restRunning) {
-                    TextButton(onClick = vm::stopRest) {
+                when {
+                    restRunning -> TextButton(onClick = vm::stopRest) {
                         Icon(Icons.Default.TimerOff, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text(stringResource(R.string.stop_rest), modifier = Modifier.padding(start = 4.dp))
                     }
-                }
-                IconButton(onClick = vm::toggleStopwatch, enabled = !restRunning) {
-                    Icon(
-                        if (state.stopwatchRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = stringResource(R.string.stopwatch),
-                    )
-                }
-                IconButton(
-                    onClick = vm::resetStopwatch,
-                    enabled = !restRunning && (state.stopwatchRunning || state.stopwatchSecs > 0),
-                ) {
-                    Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stopwatch_reset))
+                    else -> {
+                        IconButton(onClick = vm::toggleStopwatch, enabled = !setCountdownRunning) {
+                            Icon(
+                                if (state.stopwatchRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = stringResource(R.string.stopwatch),
+                            )
+                        }
+                        IconButton(
+                            onClick = vm::resetStopwatch,
+                            enabled = !setCountdownRunning && (state.stopwatchRunning || state.stopwatchSecs > 0),
+                        ) {
+                            Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stopwatch_reset))
+                        }
+                    }
                 }
             }
         }

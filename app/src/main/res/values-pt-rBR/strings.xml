@@ -90,6 +90,7 @@
     <string name="rest">Descanso</string>
     <string name="set_timer">Timer da série</string>
     <string name="stopwatch">Cronômetro</string>
+    <string name="log_set_duration">Registrar duração da série</string>
     <string name="stop_rest">Parar descanso</string>
     <string name="timer">Timer</string>
     <string name="log_set">Registrar série</string>

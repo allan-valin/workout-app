@@ -374,10 +374,13 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         }
 
         // Active time: timed sets count their duration; rep sets use the running
-        // stopwatch when present, otherwise a 3 s/rep estimate.
+        // stopwatch when present, else the gap since the last rest ended (>3 min
+        // means "forgot to log" and books only 40 s), else a 3 s/rep estimate.
         val active = when (set.valueUnit) {
             ValueUnit.SECS -> set.value
-            ValueUnit.REPS -> SessionManager.consumeStopwatch() ?: (set.value * 3)
+            ValueUnit.REPS -> SessionManager.consumeStopwatch()
+                ?: SessionManager.gapActiveSecs()
+                ?: (set.value * 3)
         }
         SessionManager.addActiveSecs(active)
 
@@ -503,7 +506,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     fun resetStopwatch() {
-        SessionManager.resetStopwatch()
+        // Stop books the reading into the active total, then shows 0:00 (Allan's spec).
+        SessionManager.stopBookStopwatch()
     }
 
     fun stopRest() {
