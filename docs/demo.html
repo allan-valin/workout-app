@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Workout App — Live Demo</title>
+<style>
+  /* ---------- Material-3-ish theme ---------- */
+  :root{
+    --bg:#141218; --surface:#211f26; --surface2:#2b2930; --surface3:#36343b;
+    --primary:#d0bcff; --on-primary:#381e72; --primary-dim:#4f378b;
+    --text:#e6e0e9; --text-dim:#cac4d0; --outline:#49454f;
+    --green:#4caf50; --orange:#ff9800; --red:#f2545b; --purple:#ab47bc;
+    --tick-off:#5b5761; --shadow:rgba(0,0,0,.45);
+  }
+  body.light{
+    --bg:#fef7ff; --surface:#f3edf7; --surface2:#e8def8; --surface3:#ded8e1;
+    --primary:#6750a4; --on-primary:#ffffff; --primary-dim:#d0bcff;
+    --text:#1d1b20; --text-dim:#49454f; --outline:#cac4d0;
+    --tick-off:#b3aebc; --shadow:rgba(0,0,0,.15);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:Roboto,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{background:#000;display:flex;justify-content:center;align-items:center}
+  #phone{width:100%;max-width:420px;height:100%;max-height:900px;background:var(--bg);color:var(--text);
+    display:flex;flex-direction:column;overflow:hidden;position:relative;border-radius:0}
+  @media(min-width:440px){ #phone{border-radius:24px;height:92vh;box-shadow:0 8px 40px var(--shadow)} }
+
+  #demoBanner{background:var(--primary);color:var(--on-primary);font-size:12px;text-align:center;padding:3px 8px;font-weight:500}
+
+  header{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface)}
+  header h1{font-size:19px;font-weight:500;flex:1}
+  .iconBtn{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:6px;border-radius:50%;line-height:1}
+  .iconBtn:active{background:var(--surface3)}
+
+  main{flex:1;overflow-y:auto;padding:12px 14px 8px}
+  nav{display:flex;background:var(--surface);border-top:1px solid var(--outline)}
+  nav button{flex:1;background:none;border:none;color:var(--text-dim);padding:8px 2px 10px;font-size:11px;cursor:pointer}
+  nav button .ic{display:block;font-size:20px;margin-bottom:2px}
+  nav button.sel{color:var(--primary)}
+  nav button.sel .ic{background:var(--primary-dim);border-radius:14px;padding:1px 14px}
+
+  .card{background:var(--surface);border-radius:14px;padding:13px 14px;margin-bottom:10px}
+  .card h3{font-size:16px;font-weight:500;margin-bottom:2px}
+  .sub{color:var(--text-dim);font-size:13px}
+  .row{display:flex;align-items:center;gap:10px}
+  .grow{flex:1}
+  .btn{background:var(--primary);color:var(--on-primary);border:none;border-radius:20px;padding:9px 18px;font-size:14px;font-weight:500;cursor:pointer}
+  .btn.tonal{background:var(--surface3);color:var(--text)}
+  .btn.danger{background:var(--red);color:#fff}
+  .btn.green{background:var(--green);color:#fff}
+  .btn:disabled{opacity:.4}
+  .chip{display:inline-block;background:var(--surface3);border-radius:9px;padding:3px 10px;font-size:12px;margin:2px 3px 2px 0;cursor:pointer;border:1px solid transparent}
+  .chip.sel{background:var(--primary-dim);border-color:var(--primary)}
+  .fab{position:absolute;right:18px;bottom:76px;width:54px;height:54px;border-radius:16px;background:var(--primary);
+    color:var(--on-primary);border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 10px var(--shadow);z-index:5}
+  input[type=text],input[type=number]{background:var(--surface2);border:1px solid var(--outline);border-radius:8px;
+    color:var(--text);padding:8px 10px;font-size:15px;width:100%}
+  label{font-size:12px;color:var(--text-dim);display:block;margin:8px 0 3px}
+
+  /* overlays */
+  #scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);display:none;z-index:9}
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:22px 22px 0 0;
+    padding:18px 16px 22px;z-index:10;display:none;max-height:82%;overflow-y:auto}
+  .sheet h2{font-size:17px;margin-bottom:10px}
+  .handle{width:36px;height:4px;background:var(--outline);border-radius:2px;margin:0 auto 12px}
+
+  /* session */
+  .story{display:flex;gap:4px;margin-bottom:10px}
+  .story div{flex:1;height:4px;border-radius:2px;background:var(--surface3);cursor:pointer}
+  .story div.done{background:var(--green)}
+  .story div.cur{background:var(--primary)}
+  .exImg{font-size:56px;text-align:center;margin:4px 0 6px}
+  table.sets{width:100%;border-collapse:collapse;font-size:14px}
+  table.sets th{color:var(--text-dim);font-weight:400;font-size:12px;padding:4px 2px;text-align:center}
+  table.sets td{padding:5px 2px;text-align:center}
+  tr.curSet{background:var(--primary-dim);border-radius:8px}
+  .setType{font-weight:700}
+  .stepBtn{background:var(--surface3);color:var(--text);border:none;border-radius:8px;width:26px;height:26px;font-size:15px;cursor:pointer}
+  .wVal{background:var(--surface2);border:1px solid var(--outline);border-radius:8px;padding:4px 8px;min-width:52px;display:inline-block}
+  .tick{width:24px;height:24px;border-radius:50%;border:2px solid var(--tick-off);background:none;cursor:pointer;color:transparent;font-size:13px;line-height:1}
+  .tick.done{background:var(--green);border-color:var(--green);color:#fff}
+  .timerPanel{background:var(--surface2);border-radius:14px;padding:10px 14px;margin-top:10px;text-align:center}
+  .timerPanel .big{font-size:30px;font-variant-numeric:tabular-nums;font-weight:500}
+  .restBar{height:6px;background:var(--surface3);border-radius:3px;margin:8px 0}
+  .restBar div{height:100%;background:var(--orange);border-radius:3px;transition:width .25s linear}
+  .pagerNav{display:flex;justify-content:space-between;margin-top:6px}
+  .muted{opacity:.55}
+  .listEx{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--outline)}
+  .empty{text-align:center;color:var(--text-dim);padding:40px 10px;font-size:14px}
+  .statBig{font-size:26px;font-weight:500}
+  .topRight{margin-left:auto;display:flex;gap:2px}
+</style>
+</head>
+<body>
+<div id="phone">
+  <div id="demoBanner"></div>
+  <header>
+    <h1 id="title">Workout</h1>
+    <div class="topRight">
+      <button class="iconBtn" id="themeBtn" title="theme">🌙</button>
+      <button class="iconBtn" id="langBtn" title="language">🇬🇧</button>
+      <button class="iconBtn" onclick="openSheet('settings')" title="settings">⚙️</button>
+    </div>
+  </header>
+  <main id="main"></main>
+  <button class="fab" id="fab" style="display:none">＋</button>
+  <nav id="nav"></nav>
+  <div id="scrim" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script>
+/* =====================================================================
+   Workout App — single-file DEMO. Everything lives in memory: create
+   plans/workouts, edit sets, run a session with timers. Refresh = reset.
+   Mirrors the Android app (Kotlin/Compose) at a functional level.
+   ===================================================================== */
+
+/* ---------- i18n ---------- */
+const STR = {
+  en:{banner:"DEMO — nothing is saved, refresh resets everything",home:"Start",active:"Active",inactive:"Inactive",
+    stats:"Statistics",todays:"Today's workout",noPlan:"No active plan. Create one in Active.",plans:"Plans",
+    newPlan:"New plan",name:"Name",create:"Create",cancel:"Cancel",workouts:"workouts",addWorkout:"Add workout",
+    exercises:"exercises",addExercise:"Add exercise",search:"Search exercise…",custom:"New custom exercise",
+    sets:"Sets",weight:"Weight",reps:"Reps",rest:"Rest",start:"Start workout",resume:"Resume workout",
+    endWorkout:"End workout",restLbl:"Rest",stopRest:"Stop rest",stopwatch:"Stopwatch",done:"Done",
+    summary:"Workout complete!",duration:"Duration",activeTime:"Active time",volume:"Total volume",
+    setsDone:"Sets done",close:"Close",archive:"Archive",activate:"Activate",delete:"Delete",
+    settings:"Settings",theme:"Theme",language:"Language",injured:"Injured muscles (filters suggestions)",
+    bodyweight:"Body weight",addEntry:"+ Add",averages:"Averages",perWeek:"sessions this demo run",
+    totalVol:"total volume lifted",noSessions:"No finished sessions yet — start a workout!",
+    confirmDel:"Delete permanently?",suggested:"Suggestion",apply:"Apply",dismiss:"Dismiss",
+    exList:"Exercise list",kg:"kg",secs:"secs",backToList:"☰ list",set:"Set",empty:"Nothing here yet.",
+    demoNote:"This demo keeps everything in memory only. The real app stores data on-device (Room DB), syncs the wger exercise catalog, exports PDF/JSON and more."},
+  pt:{banner:"DEMO — nada é salvo, recarregar apaga tudo",home:"Início",active:"Ativos",inactive:"Inativos",
+    stats:"Estatísticas",todays:"Treino de hoje",noPlan:"Nenhum plano ativo. Crie um em Ativos.",plans:"Planos",
+    newPlan:"Novo plano",name:"Nome",create:"Criar",cancel:"Cancelar",workouts:"treinos",addWorkout:"Adicionar treino",
+    exercises:"exercícios",addExercise:"Adicionar exercício",search:"Buscar exercício…",custom:"Novo exercício próprio",
+    sets:"Séries",weight:"Peso",reps:"Reps",rest:"Pausa",start:"Iniciar treino",resume:"Retomar treino",
+    endWorkout:"Encerrar treino",restLbl:"Descanso",stopRest:"Parar descanso",stopwatch:"Cronômetro",done:"Feito",
+    summary:"Treino concluído!",duration:"Duração",activeTime:"Tempo ativo",volume:"Volume total",
+    setsDone:"Séries feitas",close:"Fechar",archive:"Arquivar",activate:"Ativar",delete:"Excluir",
+    settings:"Configurações",theme:"Tema",language:"Idioma",injured:"Músculos lesionados (filtra sugestões)",
+    bodyweight:"Peso corporal",addEntry:"+ Add",averages:"Médias",perWeek:"sessões nesta demo",
+    totalVol:"volume total levantado",noSessions:"Nenhuma sessão concluída — inicie um treino!",
+    confirmDel:"Excluir permanentemente?",suggested:"Sugestão",apply:"Aplicar",dismiss:"Dispensar",
+    exList:"Lista de exercícios",kg:"kg",secs:"seg",backToList:"☰ lista",set:"Série",empty:"Nada aqui ainda.",
+    demoNote:"Esta demo mantém tudo apenas na memória. O app real salva no aparelho (Room DB), sincroniza o catálogo wger, exporta PDF/JSON e mais."},
+  de:{banner:"DEMO — nichts wird gespeichert, Neuladen setzt alles zurück",home:"Start",active:"Aktiv",inactive:"Inaktiv",
+    stats:"Statistik",todays:"Heutiges Training",noPlan:"Kein aktiver Plan. Erstelle einen unter Aktiv.",plans:"Pläne",
+    newPlan:"Neuer Plan",name:"Name",create:"Erstellen",cancel:"Abbrechen",workouts:"Trainings",addWorkout:"Training hinzufügen",
+    exercises:"Übungen",addExercise:"Übung hinzufügen",search:"Übung suchen…",custom:"Neue eigene Übung",
+    sets:"Sätze",weight:"Gewicht",reps:"Wdh",rest:"Pause",start:"Training starten",resume:"Training fortsetzen",
+    endWorkout:"Training beenden",restLbl:"Pause",stopRest:"Pause stoppen",stopwatch:"Stoppuhr",done:"Fertig",
+    summary:"Training abgeschlossen!",duration:"Dauer",activeTime:"Aktive Zeit",volume:"Gesamtvolumen",
+    setsDone:"Sätze erledigt",close:"Schließen",archive:"Archivieren",activate:"Aktivieren",delete:"Löschen",
+    settings:"Einstellungen",theme:"Design",language:"Sprache",injured:"Verletzte Muskeln (filtert Vorschläge)",
+    bodyweight:"Körpergewicht",addEntry:"+ Add",averages:"Durchschnitt",perWeek:"Sessions in dieser Demo",
+    totalVol:"Gesamtvolumen gehoben",noSessions:"Noch keine Session — starte ein Training!",
+    confirmDel:"Endgültig löschen?",suggested:"Vorschlag",apply:"Anwenden",dismiss:"Verwerfen",
+    exList:"Übungsliste",kg:"kg",secs:"Sek",backToList:"☰ Liste",set:"Satz",empty:"Noch nichts hier.",
+    demoNote:"Diese Demo hält alles nur im Speicher. Die echte App speichert auf dem Gerät (Room DB), synct den wger-Katalog, exportiert PDF/JSON u.v.m."}
+};
+const t = k => STR[state.lang][k] || STR.en[k] || k;
+
+/* ---------- embedded exercise catalog (subset of wger) ---------- */
+const CATALOG = [
+  ["Bench Press","Supino","Bankdrücken","Chest","🏋️"],["Incline Dumbbell Press","Supino inclinado c/ halteres","Schrägbank-Kurzhantel","Chest","🏋️"],
+  ["Push-up","Flexão","Liegestütz","Chest","🤸"],["Cable Fly","Crucifixo no cabo","Kabelzug-Fliegende","Chest","🎽"],
+  ["Overhead Press","Desenvolvimento","Schulterdrücken","Shoulders","🏋️"],["Lateral Raise","Elevação lateral","Seitheben","Shoulders","💪"],
+  ["Triceps Pushdown","Tríceps na polia","Trizepsdrücken","Triceps","💪"],["Skull Crusher","Tríceps testa","French Press","Triceps","🏋️"],
+  ["Pull-up","Barra fixa","Klimmzug","Lats","🤸"],["Lat Pulldown","Puxada alta","Latzug","Lats","🎽"],
+  ["Barbell Row","Remada curvada","Langhantelrudern","Lats","🏋️"],["Face Pull","Face pull","Face Pull","Trapezius","🎽"],
+  ["Biceps Curl","Rosca direta","Bizepscurl","Biceps","💪"],["Hammer Curl","Rosca martelo","Hammercurl","Biceps","💪"],
+  ["Squat","Agachamento","Kniebeuge","Quads","🏋️"],["Leg Press","Leg press","Beinpresse","Quads","🦵"],
+  ["Leg Extension","Cadeira extensora","Beinstrecker","Quads","🦵"],["Romanian Deadlift","Levantamento romeno","Rumänisches Kreuzheben","Hamstrings","🏋️"],
+  ["Leg Curl","Mesa flexora","Beinbeuger","Hamstrings","🦵"],["Hip Thrust","Elevação pélvica","Hip Thrust","Glutes","🍑"],
+  ["Calf Raise","Panturrilha em pé","Wadenheben","Calves","🦵"],["Plank","Prancha","Planke","Abs","🧘"],
+  ["Crunch","Abdominal","Crunch","Abs","🧘"],["Deadlift","Levantamento terra","Kreuzheben","Hamstrings","🏋️"],
+].map((e,i)=>({id:i+1,en:e[0],pt:e[1],de:e[2],muscle:e[3],img:e[4],custom:false}));
+const exName = ex => ex.custom ? ex.en : (ex[state.lang] || ex.en);
+
+/* ---------- state (in-memory only) ---------- */
+let nextId = 1000;
+const mkSet = (w,v,rest,type)=>({id:nextId++,type:type||"N",weightKg:w,value:v,unit:"reps",restSecs:rest??90,done:false});
+const mkWe  = (exId,sets,ss)=>({id:nextId++,exerciseId:exId,supersetWithPrev:!!ss,sets});
+function seedPlan(){
+  return {id:nextId++,name:"Push / Pull / Legs",active:true,workouts:[
+    {id:nextId++,name:"Push",exercises:[
+      mkWe(1,[mkSet(20,12,60,"W"),mkSet(50,10),mkSet(50,10),mkSet(50,8,90,"F")]),
+      mkWe(5,[mkSet(30,10),mkSet(30,10),mkSet(30,8)]),
+      mkWe(6,[mkSet(8,12,60),mkSet(8,12,60)]),
+      mkWe(7,[mkSet(25,12,60),mkSet(25,12,60)],true),
+    ]},
+    {id:nextId++,name:"Pull",exercises:[
+      mkWe(10,[mkSet(55,10),mkSet(55,10),mkSet(55,8)]),
+      mkWe(11,[mkSet(40,10),mkSet(40,10),mkSet(40,10)]),
+      mkWe(13,[mkSet(12,12,60),mkSet(12,10,60),mkSet(12,10,60)]),
+    ]},
+    {id:nextId++,name:"Legs",exercises:[
+      mkWe(15,[mkSet(60,10),mkSet(60,8),mkSet(60,8,120)]),
+      mkWe(18,[mkSet(50,10),mkSet(50,10)]),
+      mkWe(21,[mkSet(40,15,45),mkSet(40,15,45),mkSet(40,15,45)]),
+    ]},
+  ]};
+}
+const state = {
+  lang:"en", dark:true, tab:"home",
+  plans:[seedPlan()], customExercises:[], injured:[],
+  bodyweight:[{d:"–7 d",kg:79.4},{d:"–3 d",kg:79.0},{d:"today",kg:78.6}],
+  finished:[],           // {name,durSecs,activeSecs,volume,sets}
+  session:null,          // live session
+  view:null,             // {kind:'workout'|'session'|'summary', ...}
+};
+const allExercises = () => CATALOG.concat(state.customExercises);
+const exById = id => allExercises().find(e=>e.id===id);
+const activePlan = () => state.plans.find(p=>p.active);
+
+/* ---------- superset-aware order (port of SupersetOrder.kt, incl. bug-A fix) ---------- */
+function chain(exs,i){let f=i;while(f>0&&exs[f].supersetWithPrev)f--;let l=i;while(l+1<exs.length&&exs[l+1].supersetWithPrev)l++;
+  const r=[];for(let k=f;k<=l;k++)r.push(k);return r;}
+function interleaved(exs,ch){const rounds=Math.max(...ch.map(i=>exs[i].sets.length));const out=[];
+  for(let r=0;r<rounds;r++)for(const i of ch){const s=exs[i].sets[r];if(s)out.push([i,s]);}return out;}
+function nextStepFrom(exs,from){ // own chain first, forward, wrap — skipped exercises last
+  if(!exs.length)return null;
+  const sc=chain(exs,Math.min(Math.max(from,0),exs.length-1));
+  for(const [i,s] of interleaved(exs,sc)) if(!s.done) return [i,s.id];
+  let i=(sc[sc.length-1]+1)%exs.length;
+  while(!sc.includes(i)){const c=chain(exs,i);
+    for(const [j,s] of interleaved(exs,c)) if(!s.done) return [j,s.id];
+    i=(c[c.length-1]+1)%exs.length;}
+  return null;}
+function restSkipped(exs,i,set){const c=chain(exs,i);if(c.length<2)return false;
+  const after=c.slice(c.indexOf(i)+1);const round=exs[i].sets.findIndex(s=>s.id===set.id);
+  return after.some(j=>exs[j].sets[round]&&!exs[j].sets[round].done);}
+
+/* ---------- session engine ---------- */
+function startSession(workout){
+  state.session={workout,startedAt:Date.now(),activeSecs:0,restUntil:null,swStart:null,swAccum:0,
+    page:0,showList:false,curStep:nextStepFrom(workout.exercises,0)};
+  workout.exercises.forEach(we=>we.sets.forEach(s=>s.done=false));
+  state.view={kind:"session"};render();
+}
+function logSet(ei,set){
+  const S=state.session,exs=S.workout.exercises;
+  if(set.done){set.done=false;S.activeSecs=Math.max(0,S.activeSecs-(set.logged||0));set.logged=0;S.curStep=nextStepFrom(exs,ei);render();return;}
+  let active;
+  if(S.swStart||S.swAccum){active=swSecs();S.swStart=null;S.swAccum=0;}
+  else active=set.unit==="secs"?set.value:set.value*3;
+  set.done=true;set.logged=active;S.activeSecs+=active;
+  if(!restSkipped(exs,ei,set)){S.restUntil=Date.now()+set.restSecs*1000;}
+  const next=nextStepFrom(exs,ei);      // bug-A-fixed behavior
+  S.curStep=next;
+  if(next===null){S.showList=true;}
+  else if(next[0]!==ei){S.page=next[0];}
+  render();
+}
+const swSecs=()=>{const S=state.session;return S.swAccum+(S.swStart?Math.floor((Date.now()-S.swStart)/1000):0);};
+function endSession(){
+  const S=state.session;let vol=0,setsDone=0;
+  S.workout.exercises.forEach(we=>we.sets.forEach(s=>{if(s.done){vol+=s.weightKg*(s.unit==="reps"?s.value:1);setsDone++;}}));
+  state.finished.push({name:S.workout.name,durSecs:Math.floor((Date.now()-S.startedAt)/1000),activeSecs:S.activeSecs,volume:vol,sets:setsDone});
+  state.view={kind:"summary",data:state.finished[state.finished.length-1]};
+  state.session=null;render();
+}
+setInterval(()=>{const S=state.session;if(!S)return;
+  if(S.restUntil&&Date.now()>=S.restUntil)S.restUntil=null;
+  if(state.view&&state.view.kind==="session")renderTimers();},250);
+
+/* ---------- rendering ---------- */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+
+function render(){
+  $("demoBanner").textContent=t("banner");
+  $("themeBtn").textContent=state.dark?"🌙":"☀️";
+  $("langBtn").textContent={en:"🇬🇧",pt:"🇧🇷",de:"🇩🇪"}[state.lang];
+  document.body.classList.toggle("light",!state.dark);
+  renderNav();
+  const v=state.view;
+  if(v&&v.kind==="session")return renderSession();
+  if(v&&v.kind==="summary")return renderSummary();
+  if(v&&v.kind==="workout")return renderWorkout(v.workout);
+  ({home:renderHome,active:renderActive,inactive:renderInactive,stats:renderStats})[state.tab]();
+}
+function renderNav(){
+  const tabs=[["home","🏠"],["active","📋"],["inactive","🗄️"],["stats","📈"]];
+  $("nav").innerHTML=tabs.map(([k,ic])=>
+    `<button class="${state.tab===k&&!state.view?"sel":""}" onclick="goTab('${k}')"><span class="ic">${ic}</span>${t(k)}</button>`).join("");
+  $("nav").style.display=state.view&&state.view.kind==="session"?"none":"flex";
+}
+function goTab(k){state.tab=k;state.view=null;render();}
+function setTitle(x){$("title").textContent=x;}
+
+function renderHome(){
+  setTitle("Workout");$("fab").style.display="none";
+  const p=activePlan();
+  let h="";
+  if(p){
+    const w=p.workouts[state.finished.length%p.workouts.length]||p.workouts[0];
+    h+=`<div class="card"><h3>${t("todays")}</h3><div class="sub">${esc(p.name)}</div>`;
+    if(w)h+=`<div class="row" style="margin-top:8px"><div class="grow"><b>${esc(w.name)}</b>
+      <div class="sub">${w.exercises.length} ${t("exercises")}</div></div>
+      <button class="btn" onclick="openWorkout(${w.id})">▶ ${t("start")}</button></div>`;
+    h+="</div>";
+  } else h+=`<div class="empty">${t("noPlan")}</div>`;
+  if(state.finished.length){
+    h+=`<div class="card"><h3>${t("stats")}</h3><div class="sub">${state.finished.length} ${t("perWeek")} ·
+      ${state.finished.reduce((a,f)=>a+f.volume,0).toFixed(0)} ${t("kg")} ${t("totalVol")}</div></div>`;
+  }
+  h+=`<div class="card sub" style="line-height:1.5">${t("demoNote")}</div>`;
+  $("main").innerHTML=h;
+}
+
+function renderActive(){
+  setTitle(t("active"));$("fab").style.display="block";$("fab").onclick=()=>openSheet("newPlan");
+  const plans=state.plans.filter(p=>p.active);
+  $("main").innerHTML=plans.length?plans.map(planCard).join(""):`<div class="empty">${t("empty")}</div>`;
+}
+function renderInactive(){
+  setTitle(t("inactive"));$("fab").style.display="none";
+  const plans=state.plans.filter(p=>!p.active);
+  $("main").innerHTML=plans.length?plans.map(planCard).join(""):`<div class="empty">${t("empty")}</div>`;
+}
+function planCard(p){
+  return `<div class="card"><div class="row"><div class="grow" >
+    <h3>${esc(p.name)}</h3><div class="sub">${p.workouts.length} ${t("workouts")}</div></div>
+    <button class="btn tonal" onclick="togglePlan(${p.id})">${p.active?t("archive"):t("activate")}</button>
+    <button class="iconBtn" onclick="delPlan(${p.id})">🗑️</button></div>
+    ${p.workouts.map(w=>`<div class="listEx"><span class="grow">${esc(w.name)}
+      <span class="sub"> · ${w.exercises.length} ${t("exercises")}</span></span>
+      <button class="iconBtn" onclick="openWorkout(${w.id})">✎</button>
+      <button class="iconBtn" onclick="startById(${w.id})">▶</button></div>`).join("")}
+    ${p.active?`<div style="margin-top:8px"><button class="btn tonal" onclick="openSheet('newWorkout',${p.id})">＋ ${t("addWorkout")}</button></div>`:""}
+  </div>`;
+}
+function togglePlan(id){const p=state.plans.find(p=>p.id===id);
+  if(!p.active)state.plans.forEach(q=>q.active=false); // one active at a time
+  p.active=!p.active;render();}
+function delPlan(id){if(confirm(t("confirmDel"))){state.plans=state.plans.filter(p=>p.id!==id);render();}}
+function findWorkout(id){for(const p of state.plans){const w=p.workouts.find(w=>w.id===id);if(w)return w;}return null;}
+function openWorkout(id){state.view={kind:"workout",workout:findWorkout(id)};render();}
+function startById(id){startSession(findWorkout(id));}
+
+function renderWorkout(w){
+  setTitle(esc(w.name));$("fab").style.display="none";
+  let h=`<div class="row" style="margin-bottom:10px">
+    <button class="btn tonal" onclick="state.view=null;render()">←</button><div class="grow"></div>
+    <button class="btn green" onclick="startSession(findWorkout(${w.id}))">▶ ${t("start")}</button></div>`;
+  w.exercises.forEach((we,i)=>{
+    const ex=exById(we.exerciseId);
+    h+=`<div class="card">${we.supersetWithPrev?'<div class="sub">🔗 superset</div>':""}
+      <div class="row"><span style="font-size:22px">${ex.img}</span>
+      <div class="grow"><b>${esc(exName(ex))}</b><div class="sub">${ex.muscle} · ${we.sets.length} ${t("sets")}</div></div>
+      <button class="iconBtn" onclick="delWe(${w.id},${i})">🗑️</button></div>
+      <table class="sets"><tr><th>${t("set")}</th><th>${t("weight")}</th><th>${t("reps")}</th><th>${t("rest")}</th></tr>
+      ${we.sets.map((s,si)=>`<tr><td class="setType" style="color:${typeColor(s.type)}">${s.type}${si+1}</td>
+        <td><input type="number" value="${s.weightKg}" style="width:64px" onchange="editSet(${s.id},'weightKg',this.value)"></td>
+        <td><input type="number" value="${s.value}" style="width:52px" onchange="editSet(${s.id},'value',this.value)"></td>
+        <td><input type="number" value="${s.restSecs}" style="width:56px" onchange="editSet(${s.id},'restSecs',this.value)"></td></tr>`).join("")}
+      </table>
+      <button class="chip" onclick="addSet(${w.id},${i})">＋ ${t("set")}</button></div>`;
+  });
+  h+=`<button class="btn tonal" onclick="openSheet('addExercise',${w.id})">＋ ${t("addExercise")}</button>`;
+  $("main").innerHTML=h;
+}
+const typeColor=t=>({W:"var(--orange)",F:"var(--red)",D:"var(--purple)",S:"var(--primary)"}[t]||"var(--text)");
+function editSet(id,f,v){state.plans.forEach(p=>p.workouts.forEach(w=>w.exercises.forEach(we=>we.sets.forEach(s=>{
+  if(s.id===id)s[f]=Number(v);}))));}
+function addSet(wId,i){const w=findWorkout(wId);const last=w.exercises[i].sets.slice(-1)[0];
+  w.exercises[i].sets.push(mkSet(last?last.weightKg:20,last?last.value:10,last?last.restSecs:90));render();}
+function delWe(wId,i){const w=findWorkout(wId);if(confirm(t("confirmDel"))){w.exercises.splice(i,1);render();}}
+
+/* ---------- session UI ---------- */
+function renderSession(){
+  const S=state.session,exs=S.workout.exercises;
+  setTitle(esc(S.workout.name));$("fab").style.display="none";
+  if(S.showList){
+    let h=`<div class="sub" style="margin-bottom:8px">⏱ ${fmt(Math.floor((Date.now()-S.startedAt)/1000))}</div>`;
+    exs.forEach((we,i)=>{const ex=exById(we.exerciseId);const done=we.sets.filter(s=>s.done).length;
+      h+=`<div class="listEx"><span style="font-size:20px">${ex.img}</span>
+        <span class="grow">${esc(exName(ex))}<span class="sub"> ${done}/${we.sets.length}</span></span>
+        <button class="btn tonal" onclick="state.session.showList=false;state.session.page=${i};render()">▶</button></div>`;});
+    h+=`<div style="margin-top:16px;text-align:center"><button class="btn danger" onclick="endSession()">${t("endWorkout")}</button></div>`;
+    $("main").innerHTML=h;return;
+  }
+  const i=Math.min(S.page,exs.length-1),we=exs[i],ex=exById(we.exerciseId);
+  let h=`<div class="story">${exs.map((e,j)=>{
+    const all=e.sets.every(s=>s.done);
+    return `<div class="${all?"done":j===i?"cur":""}" onclick="state.session.page=${j};render()"></div>`;}).join("")}</div>`;
+  h+=`<div class="row"><button class="btn tonal" onclick="state.session.showList=true;render()">${t("backToList")}</button>
+    <div class="grow" style="text-align:center"><b>${esc(exName(ex))}</b>${we.supersetWithPrev?" 🔗":""}</div>
+    <span class="sub">${i+1}/${exs.length}</span></div>`;
+  h+=`<div class="exImg">${ex.img}</div>`;
+  h+=`<table class="sets"><tr><th></th><th>${t("weight")} (${t("kg")})</th><th>${t("reps")}</th><th>✓</th></tr>`;
+  we.sets.forEach((s,si)=>{
+    const cur=S.curStep&&S.curStep[0]===i&&S.curStep[1]===s.id;
+    h+=`<tr class="${cur?"curSet":""}"><td class="setType" style="color:${typeColor(s.type)}">${s.type}${si+1}</td>
+      <td><button class="stepBtn" onclick="bump(${i},${s.id},-2.5)">−</button>
+        <span class="wVal">${s.weightKg}</span>
+        <button class="stepBtn" onclick="bump(${i},${s.id},2.5)">＋</button></td>
+      <td>${s.value}${s.unit==="secs"?" "+t("secs"):""}</td>
+      <td><button class="tick ${s.done?"done":""}" onclick="logSet(${i},getSet(${i},${s.id}))">✓</button></td></tr>`;});
+  h+=`</table><div id="timers"></div>
+    <div class="pagerNav">
+      <button class="btn tonal" ${i===0?"disabled":""} onclick="state.session.page=${i-1};render()">‹</button>
+      <button class="btn tonal" ${i===exs.length-1?"disabled":""} onclick="state.session.page=${i+1};render()">›</button>
+    </div>`;
+  $("main").innerHTML=h;renderTimers();
+}
+function getSet(i,id){return state.session.workout.exercises[i].sets.find(s=>s.id===id);}
+function bump(i,id,d){const s=getSet(i,id);s.weightKg=Math.max(0,Math.round((s.weightKg+d)*10)/10);render();}
+function renderTimers(){
+  const el=$("timers");if(!el||!state.session)return;
+  const S=state.session;
+  const elapsed=fmt(Math.floor((Date.now()-S.startedAt)/1000));
+  let h=`<div class="timerPanel">`;
+  if(S.restUntil){
+    const left=Math.max(0,Math.ceil((S.restUntil-Date.now())/1000));
+    const total=Math.max(left,1);
+    h+=`<div class="sub">${t("restLbl")}</div><div class="big" style="color:var(--orange)">${fmt(left)}</div>
+      <div class="restBar"><div style="width:${100*left/Math.max(total,left)}%"></div></div>
+      <button class="btn tonal" onclick="state.session.restUntil=null;renderTimers()">${t("stopRest")}</button>`;
+  } else {
+    h+=`<div class="sub">${t("stopwatch")}</div><div class="big">${fmt(swSecs())}</div>
+      <button class="btn tonal" onclick="toggleSw()">${S.swStart?"⏸":"▶"}</button>
+      <button class="btn tonal" onclick="state.session.swStart=null;state.session.swAccum=0;renderTimers()">⏹</button>`;
+  }
+  h+=`<div class="sub" style="margin-top:6px">⏱ ${elapsed} · ${t("activeTime")}: ${fmt(S.activeSecs+ (S.swStart?0:0))}</div></div>`;
+  el.innerHTML=h;
+}
+function toggleSw(){const S=state.session;
+  if(S.swStart){S.swAccum=swSecs();S.swStart=null;}else S.swStart=Date.now();renderTimers();}
+
+function renderSummary(){
+  const d=state.view.data;setTitle(t("summary"));$("fab").style.display="none";
+  $("main").innerHTML=`<div class="card" style="text-align:center">
+    <div style="font-size:44px">🎉</div><h3>${esc(d.name)}</h3>
+    <div class="row" style="justify-content:space-around;margin:14px 0">
+      <div><div class="statBig">${fmt(d.durSecs)}</div><div class="sub">${t("duration")}</div></div>
+      <div><div class="statBig">${fmt(d.activeSecs)}</div><div class="sub">${t("activeTime")}</div></div>
+    </div>
+    <div class="row" style="justify-content:space-around;margin-bottom:14px">
+      <div><div class="statBig">${d.volume.toFixed(0)} ${t("kg")}</div><div class="sub">${t("volume")}</div></div>
+      <div><div class="statBig">${d.sets}</div><div class="sub">${t("setsDone")}</div></div>
+    </div>
+    <button class="btn" onclick="state.view=null;state.tab='home';render()">${t("close")}</button></div>`;
+}
+
+function renderStats(){
+  setTitle(t("stats"));$("fab").style.display="none";
+  const bw=state.bodyweight;
+  let h=`<div class="card"><div class="row"><h3 class="grow">${t("bodyweight")}</h3>
+    <button class="btn tonal" onclick="addBw()">${t("addEntry")}</button></div>
+    <div class="statBig">${bw[bw.length-1].kg.toFixed(1)} ${t("kg")}</div>
+    <div class="sub">${bw.map(e=>`${e.kg}`).join(" → ")}</div></div>`;
+  h+=`<div class="card"><h3>${t("averages")}</h3>`;
+  if(state.finished.length){
+    const vol=state.finished.reduce((a,f)=>a+f.volume,0);
+    h+=`<div class="sub" style="margin-top:6px">${state.finished.length} ${t("perWeek")}</div>
+      <div class="statBig">${vol.toFixed(0)} ${t("kg")}</div><div class="sub">${t("totalVol")}</div>
+      ${state.finished.map(f=>`<div class="listEx"><span class="grow">${esc(f.name)}</span>
+        <span class="sub">${fmt(f.durSecs)} · ${f.volume.toFixed(0)} ${t("kg")}</span></div>`).join("")}`;
+  } else h+=`<div class="sub">${t("noSessions")}</div>`;
+  h+="</div>";
+  $("main").innerHTML=h;
+}
+function addBw(){const v=prompt(t("bodyweight")+" ("+t("kg")+")");const n=parseFloat(v);
+  if(!isNaN(n)&&n>0){state.bodyweight.push({d:"now",kg:n});render();}}
+
+/* ---------- sheets (overlays) ---------- */
+function openSheet(kind,arg){
+  const sh=$("sheet");$("scrim").style.display="block";sh.style.display="block";
+  if(kind==="settings"){
+    sh.innerHTML=`<div class="handle"></div><h2>${t("settings")}</h2>
+      <label>${t("theme")}</label>
+      <button class="chip ${state.dark?"sel":""}" onclick="state.dark=true;render();openSheet('settings')">🌙 dark</button>
+      <button class="chip ${!state.dark?"sel":""}" onclick="state.dark=false;render();openSheet('settings')">☀️ light</button>
+      <label>${t("language")}</label>
+      ${["en","pt","de"].map(l=>`<button class="chip ${state.lang===l?"sel":""}"
+        onclick="state.lang='${l}';render();openSheet('settings')">${{en:"🇬🇧 English",pt:"🇧🇷 Português",de:"🇩🇪 Deutsch"}[l]}</button>`).join("")}
+      <label>${t("injured")}</label>
+      ${[...new Set(CATALOG.map(e=>e.muscle))].map(m=>`<button class="chip ${state.injured.includes(m)?"sel":""}"
+        onclick="toggleInjured('${m}')">${m}</button>`).join("")}
+      <div class="sub" style="margin-top:14px;line-height:1.5">${t("demoNote")}</div>`;
+  }
+  if(kind==="newPlan"){
+    sh.innerHTML=`<div class="handle"></div><h2>${t("newPlan")}</h2>
+      <label>${t("name")}</label><input type="text" id="npName" value="">
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button class="btn tonal" onclick="closeSheet()">${t("cancel")}</button>
+        <button class="btn" onclick="createPlan()">${t("create")}</button></div>`;
+    setTimeout(()=>$("npName").focus(),50);
+  }
+  if(kind==="newWorkout"){
+    sh.innerHTML=`<div class="handle"></div><h2>${t("addWorkout")}</h2>
+      <label>${t("name")}</label><input type="text" id="nwName">
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button class="btn tonal" onclick="closeSheet()">${t("cancel")}</button>
+        <button class="btn" onclick="createWorkout(${arg})">${t("create")}</button></div>`;
+    setTimeout(()=>$("nwName").focus(),50);
+  }
+  if(kind==="addExercise"){
+    sh.innerHTML=`<div class="handle"></div><h2>${t("addExercise")}</h2>
+      <input type="text" id="exSearch" placeholder="${t("search")}" oninput="renderExList(${arg})">
+      <div id="exList" style="margin-top:8px"></div>
+      <button class="btn tonal" style="margin-top:10px" onclick="addCustom(${arg})">＋ ${t("custom")}</button>`;
+    renderExList(arg);
+  }
+}
+function toggleInjured(m){const i=state.injured.indexOf(m);
+  i<0?state.injured.push(m):state.injured.splice(i,1);openSheet("settings");}
+function renderExList(wId){
+  const q=($("exSearch").value||"").toLowerCase();
+  const list=allExercises().filter(e=>!state.injured.includes(e.muscle))
+    .filter(e=>exName(e).toLowerCase().includes(q)||e.muscle.toLowerCase().includes(q)).slice(0,30);
+  $("exList").innerHTML=list.map(e=>`<div class="listEx"><span style="font-size:20px">${e.img}</span>
+    <span class="grow">${esc(exName(e))}<span class="sub"> · ${e.muscle}</span></span>
+    <button class="btn tonal" onclick="addExToWorkout(${wId},${e.id})">＋</button></div>`).join("");
+}
+function addExToWorkout(wId,exId){const w=findWorkout(wId);
+  w.exercises.push(mkWe(exId,[mkSet(20,10),mkSet(20,10),mkSet(20,10)]));closeSheet();render();}
+function addCustom(wId){const n=prompt(t("custom"));if(!n)return;
+  state.customExercises.push({id:nextId++,en:n,pt:n,de:n,muscle:"Custom",img:"⭐",custom:true});
+  renderExList(wId);}
+function createPlan(){const n=$("npName").value.trim();if(!n)return;
+  state.plans.forEach(p=>p.active=false);
+  state.plans.push({id:nextId++,name:n,active:true,workouts:[]});closeSheet();render();}
+function createWorkout(pId){const n=$("nwName").value.trim();if(!n)return;
+  const p=state.plans.find(p=>p.id===pId);p.workouts.push({id:nextId++,name:n,exercises:[]});closeSheet();render();}
+function closeSheet(){$("scrim").style.display="none";$("sheet").style.display="none";}
+
+/* ---------- header buttons ---------- */
+$("themeBtn").onclick=()=>{state.dark=!state.dark;render();};
+$("langBtn").onclick=()=>{state.lang={en:"pt",pt:"de",de:"en"}[state.lang];render();};
+
+render();
+</script>
+</body>
+</html>

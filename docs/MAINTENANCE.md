@@ -25,6 +25,22 @@ workout-app/
   phone and open from a file manager.
 - Bump `versionCode` (+1) and `versionName` on every release Allan will install.
 
+## Single-file web demo (`docs/demo.html`)
+
+- `docs/demo.html` is a self-contained HTML demo of the app (CSS/JS/data all inline, no
+  external requests): create plans/workouts, edit sets, run a session with rest/stopwatch
+  timers, superset ordering, en/pt-BR/de, dark/light. Everything is in-memory only —
+  refresh resets; nothing is ever saved. Purpose: show functionality without cloning the
+  repo (download the one file, or serve it via GitHub Pages → Settings → Pages → branch
+  `main`, folder `/docs` → `https://allan-valin.github.io/workout-app/demo.html`).
+- **RULE: when app behavior or UI flows change, update `docs/demo.html` in the same
+  change-set** so the demo never lies about the app. It mirrors the app at a functional
+  level, not pixel-for-pixel; port logic faithfully (e.g. `SupersetOrder.nextStepFrom`
+  has a direct JS port inside the file).
+- Smoke test after editing: extract the `<script>` body and `node --check` it; the logic
+  runs headless under a tiny DOM stub (see Phase-10 session notes) or just open the file
+  in a browser and click through create-plan → add exercise → start → log → end.
+
 ## Emulator (AVD `testphone`)
 
 - Launch with `-gpu swiftshader_indirect`. On this machine `-gpu host` segfaults the

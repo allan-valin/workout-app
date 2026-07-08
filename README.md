@@ -6,6 +6,13 @@ Single-user, offline-first Android workout tracker (Kotlin + Jetpack Compose + R
 Built for a Redmi 15 Pro 5G (HyperOS), sideloaded — no Play Store, no accounts,
 no network needed after first launch.
 
+> **Try it without installing anything:** [`docs/demo.html`](docs/demo.html) is a
+> single-file browser demo — download that one file and open it (GitHub shows the
+> source, not the page; use the *Download raw file* button, or enable GitHub Pages
+> on `/docs` to serve it at `https://allan-valin.github.io/workout-app/demo.html`).
+> Create a plan, edit sets, run a session with timers — everything works, nothing
+> is saved: it lives in memory and a refresh resets it.
+
 ## Table of contents
 
 - [What it does](#what-it-does)
