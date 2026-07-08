@@ -250,10 +250,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 @Composable
 fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
     val plans by vm.plans.collectAsState()
-    val message by vm.message.collectAsState()
     val syncing by vm.syncing.collectAsState()
-    val pendingPlanImport by vm.pendingPlanImport.collectAsState()
-    val pendingWorkoutImport by vm.pendingWorkoutImport.collectAsState()
     var planPickerFor by remember { mutableStateOf<Long?>(null) } // planId chosen for export
     var showPlanPicker by remember { mutableStateOf(false) }
     var planPickerKind by remember { mutableStateOf("json") } // json | pdf
@@ -506,6 +503,20 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
             },
         )
     }
+
+    PlanImportDialogs(vm)
+}
+
+/**
+ * Import flow dialogs — plan-name collision, single-workout target picker, result
+ * message. Shared by SettingsScreen and the new-cycle dialog on the main screen.
+ */
+@Composable
+fun PlanImportDialogs(vm: SettingsViewModel) {
+    val plans by vm.plans.collectAsState()
+    val pendingPlanImport by vm.pendingPlanImport.collectAsState()
+    val pendingWorkoutImport by vm.pendingWorkoutImport.collectAsState()
+    val message by vm.message.collectAsState()
 
     // Imported plan name already taken: rename it or merge its workouts into the existing plan.
     pendingPlanImport?.let { pending ->

@@ -23,13 +23,17 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -227,6 +231,9 @@ fun WorkoutEditorScreen(
     val suggesting by vm.suggesting.collectAsState()
     var showSuggestDialog by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    // Multi-select for bulk exercise deletion: one confirmation instead of one per trash tap.
+    var selectedExercises by remember { mutableStateOf(setOf<Long>()) }
+    var confirmBulkDelete by remember { mutableStateOf(false) }
 
     if (showSuggestDialog) {
         SuggestFocusDialog(
@@ -248,6 +255,18 @@ fun WorkoutEditorScreen(
                     }
                 },
                 actions = {
+                    if (selectedExercises.isNotEmpty()) {
+                        IconButton(onClick = { selectedExercises = exercises.map { it.we.id }.toSet() }) {
+                            Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.select_all))
+                        }
+                        IconButton(onClick = { selectedExercises = emptySet() }) {
+                            Icon(Icons.Default.Deselect, contentDescription = stringResource(R.string.unselect_all))
+                        }
+                        IconButton(onClick = { confirmBulkDelete = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                        }
+                        return@TopAppBar
+                    }
                     if (suggesting) {
                         CircularProgressIndicator(Modifier.width(24.dp).height(24.dp), strokeWidth = 2.dp)
                     } else {
@@ -303,10 +322,33 @@ fun WorkoutEditorScreen(
                             focusManager.clearFocus() // a focused field would drag the scroll along
                             vm.move(item, up)
                         },
+                        selected = item.we.id in selectedExercises,
+                        onToggleSelect = {
+                            selectedExercises =
+                                if (item.we.id in selectedExercises) selectedExercises - item.we.id
+                                else selectedExercises + item.we.id
+                        },
                     )
                 }
             }
         }
+    }
+
+    if (confirmBulkDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmBulkDelete = false },
+            title = { Text(stringResource(R.string.confirm_delete_selected, selectedExercises.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmBulkDelete = false
+                    exercises.filter { it.we.id in selectedExercises }.forEach(vm::removeExercise)
+                    selectedExercises = emptySet()
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmBulkDelete = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 }
 
@@ -315,25 +357,34 @@ private fun SuggestFocusDialog(
     onDismiss: () -> Unit,
     onPick: (SuggestionFocus, Int?) -> Unit,
 ) {
-    var count by remember { mutableIntStateOf(0) } // 0 = recipe default
+    var countText by remember { mutableStateOf("4") }
+    val count = countText.toIntOrNull()?.coerceAtLeast(1) ?: 4
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.suggest_exercises)) },
         text = {
             Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 Text(stringResource(R.string.suggest_count), style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = count == 0,
-                        onClick = { count = 0 },
-                        label = { Text(stringResource(R.string.suggest_default)) },
+                // Explicit editable count (min 1) — the old "default" chip was opaque and
+                // the fixed chip row clipped in pt-BR.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    IconButton(onClick = { countText = (count - 1).coerceAtLeast(1).toString() }) {
+                        Icon(Icons.Default.Remove, contentDescription = null)
+                    }
+                    OutlinedTextField(
+                        value = countText,
+                        onValueChange = { new -> countText = new.filter { it.isDigit() }.take(2) },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                        ),
+                        modifier = Modifier.width(72.dp),
                     )
-                    listOf(2, 4, 6, 8).forEach { n ->
-                        FilterChip(
-                            selected = count == n,
-                            onClick = { count = n },
-                            label = { Text("$n") },
-                        )
+                    IconButton(onClick = { countText = (count + 1).toString() }) {
+                        Icon(Icons.Default.Add, contentDescription = null)
                     }
                 }
                 Text(
@@ -380,22 +431,22 @@ private fun ExerciseEditorCard(
     index: Int,
     vm: WorkoutEditorViewModel,
     onMove: (Boolean) -> Unit,
+    selected: Boolean,
+    onToggleSelect: () -> Unit,
 ) {
     var showBulkRest by remember { mutableStateOf(false) }
-    var confirmDeleteExercise by remember { mutableStateOf(false) }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Checkbox feeds the top-bar multi-select delete (replaces per-card trash).
+                Checkbox(checked = selected, onCheckedChange = { onToggleSelect() })
                 Text(item.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = { onMove(true) }) {
                     Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
                 }
                 IconButton(onClick = { onMove(false) }) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.move_down))
-                }
-                IconButton(onClick = { confirmDeleteExercise = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
                 }
             }
 
@@ -444,22 +495,6 @@ private fun ExerciseEditorCard(
                 }
             }
         }
-    }
-
-    if (confirmDeleteExercise) {
-        AlertDialog(
-            onDismissRequest = { confirmDeleteExercise = false },
-            title = { Text(stringResource(R.string.confirm_delete_exercise, item.name)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDeleteExercise = false
-                    vm.removeExercise(item)
-                }) { Text(stringResource(R.string.delete)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDeleteExercise = false }) { Text(stringResource(R.string.cancel)) }
-            },
-        )
     }
 
     if (showBulkRest) {
@@ -532,7 +567,6 @@ private fun HeaderText(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: () -> Unit) {
-    var confirmDelete by remember { mutableStateOf(false) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -588,27 +622,14 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
             onCommit = { onUpdate(set.copy(restSecs = it)) },
             modifier = Modifier.weight(0.8f),
         )
-        IconButton(onClick = { confirmDelete = true }, modifier = Modifier.width(28.dp)) {
+        // Single-set delete is cheap to redo — no confirmation dialog.
+        IconButton(onClick = onDelete, modifier = Modifier.width(28.dp)) {
             Icon(
                 Icons.Default.Close,
                 contentDescription = stringResource(R.string.delete),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.confirm_delete_set)) },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = false; onDelete() }) {
-                    Text(stringResource(R.string.delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
-            },
-        )
     }
 }
 

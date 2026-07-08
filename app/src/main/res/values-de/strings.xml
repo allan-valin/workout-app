@@ -3,7 +3,7 @@
     <string name="app_name">Workout</string>
     <string name="nav_home">Start</string>
     <string name="nav_active_plans">Aktiv</string>
-    <string name="nav_inactive_plans">Inaktiv</string>
+    <string name="nav_inactive_plans">Archiv</string>
     <string name="nav_statistics">Statistiken</string>
     <string name="placeholder_phase0">Kommt in einer späteren Phase.</string>
     <string name="exercise_library">Übungsbibliothek</string>
@@ -22,7 +22,7 @@
     <string name="also_known_as">Auch bekannt als</string>
     <string name="wger_attribution">Übungsdaten: wger.de (CC-BY-SA 4.0)</string>
     <string name="no_workouts_today">Kein Training für heute geplant.</string>
-    <string name="plan_name">Planname</string>
+    <string name="plan_name">Zyklusname</string>
     <string name="cycle_weeks">Zykluswochen</string>
     <string name="cycle_weeks_optional">Zykluslänge in Wochen (optional)</string>
     <string name="plan_active">Aktiv</string>
@@ -33,7 +33,7 @@
     <string name="ok">OK</string>
     <string name="cancel">Abbrechen</string>
     <string name="delete">Löschen</string>
-    <string name="new_plan">Neuer Plan</string>
+    <string name="new_plan">Neuer Zyklus</string>
     <string name="no_active_plans">Noch keine aktiven Pläne. Mit + erstellen.</string>
     <string name="no_inactive_plans">Keine inaktiven Pläne.</string>
     <string name="today">Heute</string>
@@ -78,8 +78,9 @@
     <string name="end_workout">Training beenden</string>
     <string name="end_and_save">Beenden &amp; speichern</string>
     <string name="end_and_discard">Beenden &amp; verwerfen</string>
-    <string name="end_save_confirm">Training beenden und speichern?</string>
-    <string name="end_discard_confirm">Training verwerfen? Erfasste Sätze zählen nicht.</string>
+    <string name="end_save">Training speichern</string>
+    <string name="end_discard">Training verwerfen</string>
+    <string name="end_incomplete_warning">%1$d von %2$d Sätzen nicht abgeschlossen.</string>
     <string name="note">Notiz</string>
     <string name="rest">Pause</string>
     <string name="set_timer">Satz-Timer</string>
@@ -156,8 +157,9 @@
     <string name="rep_range_max">max</string>
     <string name="superset_with_prev">Supersatz mit vorheriger Übung</string>
     <string name="superset_chain">Supersatz: %1$s</string>
-    <string name="confirm_delete_exercise">%1$s aus diesem Training entfernen?</string>
-    <string name="confirm_delete_set">Diesen Satz löschen?</string>
+    <string name="confirm_delete_selected">%1$d ausgewählte Übungen löschen?</string>
+    <string name="select_all">Alle auswählen</string>
+    <string name="unselect_all">Auswahl aufheben</string>
     <string name="selected_count">%1$d ausgewählt</string>
     <string name="archive">Archivieren</string>
     <string name="unarchive">Wiederherstellen</string>

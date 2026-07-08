@@ -78,7 +78,7 @@
   .setType{font-weight:700}
   .stepBtn{background:var(--surface3);color:var(--text);border:none;border-radius:8px;width:26px;height:26px;font-size:15px;cursor:pointer}
   .wVal{background:var(--surface2);border:1px solid var(--outline);border-radius:8px;padding:4px 8px;min-width:52px;display:inline-block}
-  .tick{width:24px;height:24px;border-radius:50%;border:2px solid var(--tick-off);background:none;cursor:pointer;color:transparent;font-size:13px;line-height:1}
+  .tick{width:24px;height:24px;border-radius:50%;border:2px solid var(--primary);background:none;cursor:pointer;color:transparent;font-size:13px;line-height:1}
   .tick.done{background:var(--green);border-color:var(--green);color:#fff}
   .timerPanel{background:var(--surface2);border-radius:14px;padding:10px 14px;margin-top:10px;text-align:center}
   .timerPanel .big{font-size:30px;font-variant-numeric:tabular-nums;font-weight:500}
@@ -119,9 +119,9 @@
 
 /* ---------- i18n ---------- */
 const STR = {
-  en:{banner:"DEMO — nothing is saved, refresh resets everything",home:"Start",active:"Active",inactive:"Inactive",
-    stats:"Statistics",todays:"Today's workout",noPlan:"No active plan. Create one in Active.",plans:"Plans",
-    newPlan:"New plan",name:"Name",create:"Create",cancel:"Cancel",workouts:"workouts",addWorkout:"Add workout",
+  en:{banner:"DEMO — nothing is saved, refresh resets everything",home:"Start",active:"Active",inactive:"Archive",
+    stats:"Statistics",todays:"Today's workout",noPlan:"No active plan. Create one in Active.",plans:"Cycles",
+    newPlan:"New cycle",name:"Name",create:"Create",cancel:"Cancel",workouts:"workouts",addWorkout:"Add workout",
     exercises:"exercises",addExercise:"Add exercise",search:"Search exercise…",custom:"New custom exercise",
     sets:"Sets",weight:"Weight",reps:"Reps",rest:"Rest",start:"Start workout",resume:"Resume workout",
     endWorkout:"End workout",restLbl:"Rest",stopRest:"Stop rest",stopwatch:"Stopwatch",done:"Done",
@@ -133,9 +133,9 @@ const STR = {
     confirmDel:"Delete permanently?",suggested:"Suggestion",apply:"Apply",dismiss:"Dismiss",
     exList:"Exercise list",kg:"kg",secs:"secs",backToList:"☰ list",set:"Set",empty:"Nothing here yet.",
     demoNote:"This demo keeps everything in memory only. The real app stores data on-device (Room DB), syncs the wger exercise catalog, exports PDF/JSON and more."},
-  pt:{banner:"DEMO — nada é salvo, recarregar apaga tudo",home:"Início",active:"Ativos",inactive:"Inativos",
-    stats:"Estatísticas",todays:"Treino de hoje",noPlan:"Nenhum plano ativo. Crie um em Ativos.",plans:"Planos",
-    newPlan:"Novo plano",name:"Nome",create:"Criar",cancel:"Cancelar",workouts:"treinos",addWorkout:"Adicionar treino",
+  pt:{banner:"DEMO — nada é salvo, recarregar apaga tudo",home:"Início",active:"Ativos",inactive:"Arquivo",
+    stats:"Estatísticas",todays:"Treino de hoje",noPlan:"Nenhum plano ativo. Crie um em Ativos.",plans:"Ciclos",
+    newPlan:"Novo ciclo",name:"Nome",create:"Criar",cancel:"Cancelar",workouts:"treinos",addWorkout:"Adicionar treino",
     exercises:"exercícios",addExercise:"Adicionar exercício",search:"Buscar exercício…",custom:"Novo exercício próprio",
     sets:"Séries",weight:"Peso",reps:"Reps",rest:"Pausa",start:"Iniciar treino",resume:"Retomar treino",
     endWorkout:"Encerrar treino",restLbl:"Descanso",stopRest:"Parar descanso",stopwatch:"Cronômetro",done:"Feito",
@@ -147,9 +147,9 @@ const STR = {
     confirmDel:"Excluir permanentemente?",suggested:"Sugestão",apply:"Aplicar",dismiss:"Dispensar",
     exList:"Lista de exercícios",kg:"kg",secs:"seg",backToList:"☰ lista",set:"Série",empty:"Nada aqui ainda.",
     demoNote:"Esta demo mantém tudo apenas na memória. O app real salva no aparelho (Room DB), sincroniza o catálogo wger, exporta PDF/JSON e mais."},
-  de:{banner:"DEMO — nichts wird gespeichert, Neuladen setzt alles zurück",home:"Start",active:"Aktiv",inactive:"Inaktiv",
-    stats:"Statistik",todays:"Heutiges Training",noPlan:"Kein aktiver Plan. Erstelle einen unter Aktiv.",plans:"Pläne",
-    newPlan:"Neuer Plan",name:"Name",create:"Erstellen",cancel:"Abbrechen",workouts:"Trainings",addWorkout:"Training hinzufügen",
+  de:{banner:"DEMO — nichts wird gespeichert, Neuladen setzt alles zurück",home:"Start",active:"Aktiv",inactive:"Archiv",
+    stats:"Statistik",todays:"Heutiges Training",noPlan:"Kein aktiver Plan. Erstelle einen unter Aktiv.",plans:"Zyklen",
+    newPlan:"Neuer Zyklus",name:"Name",create:"Erstellen",cancel:"Abbrechen",workouts:"Trainings",addWorkout:"Training hinzufügen",
     exercises:"Übungen",addExercise:"Übung hinzufügen",search:"Übung suchen…",custom:"Neue eigene Übung",
     sets:"Sätze",weight:"Gewicht",reps:"Wdh",rest:"Pause",start:"Training starten",resume:"Training fortsetzen",
     endWorkout:"Training beenden",restLbl:"Pause",stopRest:"Pause stoppen",stopwatch:"Stoppuhr",done:"Fertig",
@@ -295,7 +295,7 @@ function goTab(k){state.tab=k;state.view=null;render();}
 function setTitle(x){$("title").textContent=x;}
 
 function renderHome(){
-  setTitle("Workout");$("fab").style.display="none";
+  setTitle(t("home"));$("fab").style.display="none";
   const p=activePlan();
   let h="";
   if(p){
@@ -398,9 +398,9 @@ function renderSession(){
   we.sets.forEach((s,si)=>{
     const cur=S.curStep&&S.curStep[0]===i&&S.curStep[1]===s.id;
     h+=`<tr class="${cur?"curSet":""}"><td class="setType" style="color:${typeColor(s.type)}">${s.type}${si+1}</td>
-      <td><button class="stepBtn" onclick="bump(${i},${s.id},-2.5)">−</button>
+      <td><button class="stepBtn" onclick="bump(${i},${s.id},-1)">−</button>
         <span class="wVal">${s.weightKg}</span>
-        <button class="stepBtn" onclick="bump(${i},${s.id},2.5)">＋</button></td>
+        <button class="stepBtn" onclick="bump(${i},${s.id},1)">＋</button></td>
       <td>${s.value}${s.unit==="secs"?" "+t("secs"):""}</td>
       <td><button class="tick ${s.done?"done":""}" onclick="logSet(${i},getSet(${i},${s.id}))">✓</button></td></tr>`;});
   h+=`</table><div id="timers"></div>

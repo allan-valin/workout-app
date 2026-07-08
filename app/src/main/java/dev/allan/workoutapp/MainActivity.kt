@@ -42,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -83,6 +84,7 @@ import dev.allan.workoutapp.ui.plans.SplitWizard
 import dev.allan.workoutapp.ui.plans.WorkoutEditorScreen
 import dev.allan.workoutapp.ui.session.SessionScreen
 import dev.allan.workoutapp.ui.session.SummaryScreen
+import dev.allan.workoutapp.ui.settings.PlanImportDialogs
 import dev.allan.workoutapp.ui.workout.WorkoutViewScreen
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -301,10 +303,17 @@ private fun MainScaffold(
         .collectAsState(initial = "system")
     val themeScope = androidx.compose.runtime.rememberCoroutineScope()
 
+    // Import from the new-cycle dialog reuses the whole Settings import pipeline
+    // (parse, plan/workout detection, collision dialogs).
+    val settingsVm: dev.allan.workoutapp.ui.settings.SettingsViewModel = viewModel()
+    val importPlanLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { settingsVm.importPlan(it, currentAppLang()) } }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
+                title = { Text(stringResource(Tab.entries[selected].labelRes)) },
                 actions = {
                     if (selectedPlans.isNotEmpty()) {
                         IconButton(onClick = { confirmDeletePlans = true }) {
@@ -314,6 +323,8 @@ private fun MainScaffold(
                             )
                         }
                     }
+                    // Theme/language/settings live on the Start tab only.
+                    if (Tab.entries[selected] != Tab.Home) return@TopAppBar
                     val dark = when (themeMode) {
                         "dark" -> true
                         "light" -> false
@@ -506,8 +517,13 @@ private fun MainScaffold(
                 vm.createWizardPlan(name, weeks, days) { onOpenPlan(it) }
                 showNewPlan = false
             },
+            onImport = {
+                showNewPlan = false
+                importPlanLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+            },
         )
     }
+    PlanImportDialogs(settingsVm)
 }
 
 /**
@@ -594,6 +610,7 @@ private fun NewPlanDialog(
     onDismiss: () -> Unit,
     onCreateBlank: (String, Int?) -> Unit,
     onCreateWizard: (String, Int?, List<Pair<String, Int>>) -> Unit,
+    onImport: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
     var cycleWeeksText by remember { mutableStateOf("") }
@@ -640,6 +657,10 @@ private fun NewPlanDialog(
                         resolvedDays.joinToString { it.first },
                         style = MaterialTheme.typography.bodySmall,
                     )
+                }
+                // Same import as Settings — second entry point so a file can seed the cycle.
+                OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.import_plan))
                 }
             }
         },

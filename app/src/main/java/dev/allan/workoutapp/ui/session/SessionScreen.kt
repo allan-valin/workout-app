@@ -328,16 +328,47 @@ fun SessionScreen(
         }
     }
 
-    confirmEnd?.let { save ->
+    if (confirmEnd != null) {
+        // One dialog for both outcomes: colored save/discard buttons, plus a warning
+        // when open sets remain so an accidental early end is obvious.
+        val totalSets = state.exercises.sumOf { it.sets.size }
+        val doneSets = state.exercises.sumOf { s -> s.sets.count { it.done } }
         AlertDialog(
             onDismissRequest = { confirmEnd = null },
-            title = { Text(stringResource(if (save) R.string.end_save_confirm else R.string.end_discard_confirm)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmEnd = null
-                    vm.endSession(save) { onFinished(it) }
-                }) { Text(stringResource(R.string.ok)) }
+            title = { Text(stringResource(R.string.end_workout)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (doneSets < totalSets) {
+                        Text(
+                            stringResource(R.string.end_incomplete_warning, totalSets - doneSets, totalSets),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            confirmEnd = null
+                            vm.endSession(true) { onFinished(it) }
+                        },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = DoneGreen,
+                            contentColor = androidx.compose.ui.graphics.Color.White,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.end_save)) }
+                    Button(
+                        onClick = {
+                            confirmEnd = null
+                            vm.endSession(false) { onFinished(it) }
+                        },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.end_discard)) }
+                }
             },
+            confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { confirmEnd = null }) { Text(stringResource(R.string.cancel)) }
             },
@@ -601,7 +632,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         modifier = Modifier.weight(1.5f),
                     ) {
                         IconButton(
-                            onClick = { vm.updateWeight(page, set, (set.weightKg - 2.5).coerceAtLeast(0.0)) },
+                            onClick = { vm.updateWeight(page, set, (set.weightKg - 1.0).coerceAtLeast(0.0)) },
                             modifier = Modifier.size(28.dp),
                         ) {
                             Icon(
@@ -619,7 +650,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                             Text("${if (set.weightKg % 1.0 == 0.0) set.weightKg.toInt() else set.weightKg}")
                         }
                         IconButton(
-                            onClick = { vm.updateWeight(page, set, set.weightKg + 2.5) },
+                            onClick = { vm.updateWeight(page, set, set.weightKg + 1.0) },
                             modifier = Modifier.size(28.dp),
                         ) {
                             Icon(
@@ -655,8 +686,10 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         Icon(
                             Icons.Default.Check,
                             contentDescription = stringResource(R.string.log_set),
-                            tint = if (set.done) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant,
+                            // Done = medium green; undone = primary so it stays visible on
+                            // the primaryContainer current-set highlight (gray vanished there).
+                            tint = if (set.done) DoneGreen
+                            else MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
@@ -708,6 +741,9 @@ private fun SessionHeader(text: String, modifier: Modifier = Modifier) {
         modifier = modifier,
     )
 }
+
+/** Medium green for completed states — visible on the current-set highlight in both themes. */
+internal val DoneGreen = androidx.compose.ui.graphics.Color(0xFF43A047)
 
 /** Color code per set type so the single letters scan at a glance. */
 @Composable

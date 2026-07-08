@@ -3,7 +3,7 @@
     <string name="app_name">Workout</string>
     <string name="nav_home">Início</string>
     <string name="nav_active_plans">Ativos</string>
-    <string name="nav_inactive_plans">Inativos</string>
+    <string name="nav_inactive_plans">Arquivo</string>
     <string name="nav_statistics">Estatísticas</string>
     <string name="placeholder_phase0">Chega em uma fase futura.</string>
     <string name="exercise_library">Biblioteca de exercícios</string>
@@ -22,7 +22,7 @@
     <string name="also_known_as">Também conhecido como</string>
     <string name="wger_attribution">Dados de exercícios: wger.de (CC-BY-SA 4.0)</string>
     <string name="no_workouts_today">Nenhum treino atribuído para hoje.</string>
-    <string name="plan_name">Nome do plano</string>
+    <string name="plan_name">Nome do ciclo</string>
     <string name="cycle_weeks">Semanas do ciclo</string>
     <string name="cycle_weeks_optional">Duração do ciclo em semanas (opcional)</string>
     <string name="plan_active">Ativo</string>
@@ -33,7 +33,7 @@
     <string name="ok">OK</string>
     <string name="cancel">Cancelar</string>
     <string name="delete">Excluir</string>
-    <string name="new_plan">Novo plano</string>
+    <string name="new_plan">Novo ciclo</string>
     <string name="no_active_plans">Nenhum plano ativo. Toque em + para criar.</string>
     <string name="no_inactive_plans">Nenhum plano inativo.</string>
     <string name="today">Hoje</string>
@@ -78,8 +78,9 @@
     <string name="end_workout">Encerrar treino</string>
     <string name="end_and_save">Encerrar e salvar</string>
     <string name="end_and_discard">Encerrar e descartar</string>
-    <string name="end_save_confirm">Encerrar o treino e salvar?</string>
-    <string name="end_discard_confirm">Descartar este treino? As séries registradas não contarão.</string>
+    <string name="end_save">Salvar treino</string>
+    <string name="end_discard">Descartar treino</string>
+    <string name="end_incomplete_warning">%1$d de %2$d séries não concluídas.</string>
     <string name="note">Nota</string>
     <string name="rest">Descanso</string>
     <string name="set_timer">Timer da série</string>
@@ -156,8 +157,9 @@
     <string name="rep_range_max">máx</string>
     <string name="superset_with_prev">Superset com o anterior</string>
     <string name="superset_chain">Superset: %1$s</string>
-    <string name="confirm_delete_exercise">Remover %1$s deste treino?</string>
-    <string name="confirm_delete_set">Excluir esta série?</string>
+    <string name="confirm_delete_selected">Excluir %1$d exercícios selecionados?</string>
+    <string name="select_all">Selecionar todos</string>
+    <string name="unselect_all">Desmarcar todos</string>
     <string name="selected_count">%1$d selecionado(s)</string>
     <string name="archive">Arquivar</string>
     <string name="unarchive">Desarquivar</string>

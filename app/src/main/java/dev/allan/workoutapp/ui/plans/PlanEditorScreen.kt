@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.AlertDialog
@@ -220,8 +220,9 @@ fun PlanEditorScreen(
                                 val name = workouts.firstOrNull { it.id == selected.first() }?.name ?: "workout"
                                 exportWorkoutLauncher.launch("workout_${name.replace(' ', '_')}.json")
                             }) {
+                                // Down arrow reads as "save to file" — Share was misleading.
                                 Icon(
-                                    Icons.Default.Share,
+                                    Icons.Default.Download,
                                     contentDescription = stringResource(R.string.export_workout),
                                 )
                             }

@@ -200,7 +200,8 @@ now has hw.keyboard=yes (host keyboard typing works). Android nav keyevents veri
 quick-boot snapshot restoring the whole OS, not app behavior; cold-boot with `-no-snapshot-load`
 to test a fresh start.
 
-## Phase 10 — Allan's second-emulator-QA feedback batch (2026-07-08, captured, NOT started)
+## Phase 10 — Allan's second-emulator-QA feedback batch (2026-07-08; IN PROGRESS —
+first implementation pass 2026-07-08, emulator-unverified)
 
 Known DB constraint for this batch: wger muscles are a flat list (~15 entries, see
 `MuscleNames.kt`) — there is NO native upper/mid/lower-pec style granularity. Sub-muscle
@@ -209,16 +210,14 @@ sub-items. Compound vs isolation IS derivable (primary + secondary muscle count)
 implementation time.
 
 Naming / chrome:
-- [ ] Rename "plan" to "cycle" or "mesocycle" in the create-new flow wording.
-- [ ] Top-bar title currently says "Workout" on all 4 tabs — must reflect the tab
-      ("Start", etc., localized).
-- [ ] Dark/light toggle, language switcher, and gear icon should only appear on the main
-      (Start) screen, not on the other 3 tabs.
-- [ ] Rename "Inactive" tab to "Archive" (icon already fits, keep it).
+- [x] Rename "plan" to "cycle" in the create-new flow wording (new_plan/plan_name strings, 3 langs).
+- [x] Top-bar title reflects the tab ("Start", "Active", "Archive", "Statistics", localized).
+- [x] Dark/light toggle, language switcher, and gear icon only appear on the Start tab.
+- [x] Renamed "Inactive" tab to "Archive" (label only; archive-screen rework still open below).
 
 Plan create / import:
-- [ ] New-plan (cycle) overlay: add a button at the bottom to import a file — same import
-      function as the gear menu, just a second entry point.
+- [x] New-cycle overlay: import-file button reusing the Settings import pipeline
+      (PlanImportDialogs extracted and shared; collision dialogs work from the main screen).
 
 Exercise search / library:
 - [ ] Replace "new custom" entry with an entry that opens the list of already-created custom
@@ -247,9 +246,8 @@ Suggestion flow (workout editor ✨):
       change to sets/pauses/exercise count recalculates so the plan matches the requested
       total.
 - [ ] During a session, show total estimated time to the right of the elapsed time.
-- [ ] "How many exercises" row: remove the "default" option (unclear what number it is);
-      pt-BR clips the "8" button. Replace the whole row with an editable numeric text field,
-      min 1, − icon left / + icon right stepping by 1.
+- [x] "How many exercises" row: "default" chip and fixed chips replaced by editable numeric
+      field (min 1) with −/+ steppers.
 - [ ] Add "Next"/"Advance" button next to Cancel → second overlay: lists the muscles selected
       in step 1, each with a number input = how many exercises of that muscle to add.
       Buttons: "Go back" (returns to step 1 with selections intact) and "Confirm".
@@ -270,8 +268,7 @@ Active screen / plan management rework:
       checkbox selection used to expose: download, archive, delete.
 - [ ] The 4 bottom nav buttons stay visible on Active (and everywhere) — they only disappear
       during an in-progress workout.
-- [ ] Plan editor, workout checked: "share" icon is confusing — swap for a download icon
-      (arrow pointing down).
+- [x] Plan editor, workout checked: share icon swapped for a download (arrow-down) icon.
 - [ ] Archiving a workout: ask confirmation, then DETACH it from the parent plan and move it
       to Archive (today it stays listed under the same screen, which makes no sense).
 - [ ] "Add workout" overlay won't scale to dozens of workouts: replace with a button opening
@@ -288,10 +285,9 @@ Active screen / plan management rework:
       archive-based now.
 
 Workout editor (sets/pauses table):
-- [ ] Remove the per-exercise trash icon; move the reorder arrows to the right; add a
-      checkbox left of the exercise name for multi-select delete with ONE confirmation
-      (bulk-friendly). When at least one is selected, show select-all/unselect-all buttons.
-- [ ] Deleting a single set: no confirmation anymore.
+- [x] Editor: per-exercise trash removed; checkbox left of the name multi-selects; top bar
+      shows select-all / unselect-all / delete with ONE confirmation for the batch.
+- [x] Deleting a single set: no confirmation anymore.
 
 Statistics rework (point graphs):
 - [ ] Swap positions of bodyweight and averages sections.
@@ -305,10 +301,9 @@ Statistics rework (point graphs):
       weight lifted per session, and one graph per muscle group.
 
 In-progress session:
-- [ ] Weight − / + steppers: step 1 kg instead of 2.5.
-- [ ] Set-complete tick colors: current gray is invisible on the current-set highlight.
-      New scheme: incomplete uses the color completed uses today; completed becomes a medium
-      green (not neon, not murky) or another palette-consistent color.
+- [x] Weight − / + steppers: step 1 kg instead of 2.5.
+- [x] Set-complete ticks: incomplete = primary (visible on the highlight), completed =
+      medium green 0xFF43A047.
 - [ ] Timer rework: ONE centered timer instead of three. When a set triggers rest, header
       says "rest" and start/stop becomes a single "stop resting". When the pause ends, header
       becomes "log set duration" (the active stopwatch). Total active time is only shown in
@@ -327,5 +322,5 @@ In-progress session:
       auto-advance stops firing entirely. Exact repro unknown — needs instrumentation.
 - [ ] "Story" progress lines: slightly bigger, and tappable to jump straight to that
       exercise.
-- [ ] End workout: if not all sets are complete, show a clear choice with colorful buttons
-      (save session vs discard), not text-only.
+- [x] End workout: unified dialog with green Save / red Discard buttons and an "N of M sets
+      not completed" warning when sets are open.

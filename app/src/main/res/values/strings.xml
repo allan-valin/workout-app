@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Workout</string>
-    <string name="nav_home">Home</string>
+    <string name="nav_home">Start</string>
     <string name="nav_active_plans">Active</string>
-    <string name="nav_inactive_plans">Inactive</string>
+    <string name="nav_inactive_plans">Archive</string>
     <string name="nav_statistics">Statistics</string>
     <string name="placeholder_phase0">Coming in a later phase.</string>
     <string name="exercise_library">Exercise library</string>
@@ -22,7 +22,7 @@
     <string name="also_known_as">Also known as</string>
     <string name="wger_attribution">Exercise data: wger.de (CC-BY-SA 4.0)</string>
     <string name="no_workouts_today">No workouts assigned for today.</string>
-    <string name="plan_name">Plan name</string>
+    <string name="plan_name">Cycle name</string>
     <string name="cycle_weeks">Cycle weeks</string>
     <string name="cycle_weeks_optional">Cycle length in weeks (optional)</string>
     <string name="plan_active">Active</string>
@@ -33,7 +33,7 @@
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>
-    <string name="new_plan">New plan</string>
+    <string name="new_plan">New cycle</string>
     <string name="no_active_plans">No active plans yet. Tap + to create one.</string>
     <string name="no_inactive_plans">No inactive plans.</string>
     <string name="today">Today</string>
@@ -78,8 +78,9 @@
     <string name="end_workout">End workout</string>
     <string name="end_and_save">End &amp; save</string>
     <string name="end_and_discard">End &amp; discard</string>
-    <string name="end_save_confirm">End the workout and save it?</string>
-    <string name="end_discard_confirm">Discard this workout? Logged sets will not count.</string>
+    <string name="end_save">Save workout</string>
+    <string name="end_discard">Discard workout</string>
+    <string name="end_incomplete_warning">%1$d of %2$d sets not completed.</string>
     <string name="note">Note</string>
     <string name="rest">Rest</string>
     <string name="set_timer">Set timer</string>
@@ -156,8 +157,9 @@
     <string name="rep_range_max">max</string>
     <string name="superset_with_prev">Superset with previous</string>
     <string name="superset_chain">Superset: %1$s</string>
-    <string name="confirm_delete_exercise">Remove %1$s from this workout?</string>
-    <string name="confirm_delete_set">Delete this set?</string>
+    <string name="confirm_delete_selected">Delete %1$d selected exercises?</string>
+    <string name="select_all">Select all</string>
+    <string name="unselect_all">Unselect all</string>
     <string name="selected_count">%1$d selected</string>
     <string name="archive">Archive</string>
     <string name="unarchive">Unarchive</string>
