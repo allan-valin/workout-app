@@ -198,4 +198,14 @@
     <string name="video_link_delete">Excluir link</string>
     <string name="watch_video">Assistir vídeo</string>
     <string name="open_externally">Abrir no YouTube/navegador</string>
+    <string name="progression">Progressão</string>
+    <string name="range_1w">1 sem</string>
+    <string name="range_1m">1 mês</string>
+    <string name="range_3m">3 m</string>
+    <string name="range_6m">6 m</string>
+    <string name="range_1y">1 ano</string>
+    <string name="range_all">Tudo</string>
+    <string name="last_entries">Últimos registros</string>
+    <string name="edit_weight">Editar registro</string>
+    <string name="tap_for_details">Toque para detalhes</string>
 </resources>

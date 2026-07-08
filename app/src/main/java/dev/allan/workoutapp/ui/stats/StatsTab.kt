@@ -39,12 +39,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.allan.workoutapp.R
 import dev.allan.workoutapp.WorkoutApp
-import dev.allan.workoutapp.data.Settings
 import dev.allan.workoutapp.data.StatsCalc
 import dev.allan.workoutapp.data.db.BodyMetric
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -70,8 +70,9 @@ class StatsViewModel(app: Application) : AndroidViewModel(app) {
     val bodyMetrics: StateFlow<List<BodyMetric>> = db.sessionDao().bodyMetrics()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val heightCm: StateFlow<Double?> = Settings.heightCm(app)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    /** Muscle display name -> (session start, volume) series for the progression page. */
+    private val _muscleSeries = MutableStateFlow<Map<String, List<Pair<Long, Double>>>>(emptyMap())
+    val muscleSeries: StateFlow<Map<String, List<Pair<Long, Double>>>> = _muscleSeries
 
     init {
         viewModelScope.launch {
@@ -83,8 +84,33 @@ class StatsViewModel(app: Application) : AndroidViewModel(app) {
                 val n = sessions.size
                 if (n == 0) {
                     _averages.value = StatsAverages()
+                    _muscleSeries.value = emptyMap()
                     return@collect
                 }
+                // Per-muscle volume per session for the progression graphs.
+                val lang = dev.allan.workoutapp.currentAppLang()
+                val muscleName = db.exerciseDao().muscles().first()
+                    .associate { it.id to dev.allan.workoutapp.data.MuscleNames.display(it.nameEn, lang) }
+                val primaryCache = mutableMapOf<String, List<Int>>()
+                suspend fun primaries(id: String) = primaryCache.getOrPut(id) {
+                    db.exerciseDao().exercise(id)?.primaryMuscles ?: emptyList()
+                }
+                val logsBySession = logs.groupBy { it.sessionId }
+                val startBySession = sessions.associate { it.id to it.startedAt }
+                val perMuscle = mutableMapOf<String, MutableList<Pair<Long, Double>>>()
+                for ((sessionId, sessionLogs) in logsBySession) {
+                    val start = startBySession[sessionId] ?: continue
+                    val perId = mutableMapOf<Int, Double>()
+                    for (log in sessionLogs) {
+                        val muscle = primaries(log.exerciseId).firstOrNull() ?: continue
+                        perId[muscle] = (perId[muscle] ?: 0.0) + StatsCalc.volumeKg(log)
+                    }
+                    perId.forEach { (id, vol) ->
+                        val name = muscleName[id] ?: return@forEach
+                        perMuscle.getOrPut(name) { mutableListOf() }.add(start to vol)
+                    }
+                }
+                _muscleSeries.value = perMuscle.mapValues { (_, v) -> v.sortedBy { it.first } }
                 val durations = sessions.map { (((it.endedAt ?: it.startedAt) - it.startedAt) / 1000L).toInt() }
                 _averages.value = StatsAverages(
                     sessions = n,
@@ -100,58 +126,31 @@ class StatsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun addBodyWeight(kg: Double) {
+    /** One entry per day; [epochDay] lets forgotten days be backfilled or edited. */
+    fun addBodyWeight(kg: Double, epochDay: Long = LocalDate.now().toEpochDay()) {
         viewModelScope.launch {
-            db.sessionDao().upsertBodyMetric(BodyMetric(epochDay = LocalDate.now().toEpochDay(), weightKg = kg))
+            db.sessionDao().upsertBodyMetric(BodyMetric(epochDay = epochDay, weightKg = kg))
         }
-    }
-
-    fun setHeight(cm: Double?) {
-        viewModelScope.launch { Settings.setHeightCm(getApplication(), cm) }
     }
 }
 
 private fun fmtHm(secs: Int): String = "%d:%02d".format(secs / 60, secs % 60)
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun StatsTab(vm: StatsViewModel = viewModel()) {
+fun StatsTab(
+    onOpenBodyweight: () -> Unit,
+    onOpenProgression: () -> Unit,
+    vm: StatsViewModel = viewModel(),
+) {
     val averages by vm.averages.collectAsState()
     val bodyMetrics by vm.bodyMetrics.collectAsState()
-    val heightCm by vm.heightCm.collectAsState()
     var showAddWeight by remember { mutableStateOf(false) }
 
+    // Bodyweight first, progression second (Allan's requested order). Height/BMI
+    // removed — irrelevant for lifting. Cards open their full-screen graph pages.
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(stringResource(R.string.averages), fontWeight = FontWeight.Bold)
-                if (averages.sessions == 0) {
-                    Text(stringResource(R.string.no_data_yet))
-                } else {
-                    StatLine(stringResource(R.string.sessions_count), averages.sessions.toString())
-                    StatLine(stringResource(R.string.avg_session_duration), fmtHm(averages.avgDurationSecs))
-                    StatLine(stringResource(R.string.avg_volume), "%.1f kg".format(averages.avgVolumeKg))
-                    StatLine(stringResource(R.string.active_time), fmtHm(averages.avgActiveSecs))
-                    StatLine(stringResource(R.string.rest_time), fmtHm(averages.avgRestSecs))
-                    StatLine(stringResource(R.string.idle_time), fmtHm(averages.avgIdleSecs))
-                }
-            }
-        }
-
-        if (averages.volumeSeries.size >= 2) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(R.string.volume_over_time), fontWeight = FontWeight.Bold)
-                    LineChart(
-                        points = averages.volumeSeries.map { it.second },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(140.dp),
-                    )
-                }
-            }
-        }
-
-        Card(Modifier.fillMaxWidth()) {
+        Card(onClick = onOpenBodyweight, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -167,41 +166,73 @@ fun StatsTab(vm: StatsViewModel = viewModel()) {
                 if (bodyMetrics.isEmpty()) {
                     Text(stringResource(R.string.no_data_yet))
                 } else {
-                    StatLine(
-                        stringResource(R.string.current_weight),
-                        "%.1f kg".format(bodyMetrics.last().weightKg),
+                    val monthCutoff = LocalDate.now().minusDays(30).toEpochDay()
+                    PointAreaChart(
+                        points = bodyMetrics
+                            .filter { it.epochDay >= monthCutoff }
+                            .map { it.epochDay * 86_400_000L to it.weightKg }
+                            .ifEmpty { listOf(bodyMetrics.last().let { it.epochDay * 86_400_000L to it.weightKg }) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
                     )
-                    if (bodyMetrics.size >= 2) {
-                        LineChart(
-                            points = bodyMetrics.map { it.weightKg },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(140.dp),
-                        )
-                    }
+                    Text(
+                        stringResource(R.string.tap_for_details),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
                 }
-                HeightField(heightCm, onCommit = vm::setHeight)
+            }
+        }
+
+        Card(onClick = onOpenProgression, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.progression), fontWeight = FontWeight.Bold)
+                if (averages.sessions == 0) {
+                    Text(stringResource(R.string.no_data_yet))
+                } else {
+                    StatLine(stringResource(R.string.sessions_count), averages.sessions.toString())
+                    StatLine(stringResource(R.string.avg_session_duration), fmtHm(averages.avgDurationSecs))
+                    StatLine(stringResource(R.string.avg_volume), "%.1f kg".format(averages.avgVolumeKg))
+                    StatLine(stringResource(R.string.active_time), fmtHm(averages.avgActiveSecs))
+                    StatLine(stringResource(R.string.rest_time), fmtHm(averages.avgRestSecs))
+                    StatLine(stringResource(R.string.idle_time), fmtHm(averages.avgIdleSecs))
+                    Text(
+                        stringResource(R.string.tap_for_details),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             }
         }
     }
 
     if (showAddWeight) {
         var text by remember { mutableStateOf("") }
+        // Date defaults to today but is pickable — forgotten days can be backfilled.
+        val dateState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = System.currentTimeMillis(),
+        )
+        var showDatePicker by remember { mutableStateOf(false) }
+        val pickedDay = (dateState.selectedDateMillis ?: System.currentTimeMillis()) / 86_400_000L
         AlertDialog(
             onDismissRequest = { showAddWeight = false },
             title = { Text(stringResource(R.string.add_weight)) },
             text = {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = { Text(stringResource(R.string.bodyweight) + " (kg)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        label = { Text(stringResource(R.string.bodyweight) + " (kg)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                    )
+                    TextButton(onClick = { showDatePicker = true }) {
+                        Text(LocalDate.ofEpochDay(pickedDay).toString())
+                    }
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    text.replace(',', '.').toDoubleOrNull()?.let { vm.addBodyWeight(it) }
+                    text.replace(',', '.').toDoubleOrNull()?.let { vm.addBodyWeight(it, pickedDay) }
                     showAddWeight = false
                 }) { Text(stringResource(R.string.ok)) }
             },
@@ -209,24 +240,17 @@ fun StatsTab(vm: StatsViewModel = viewModel()) {
                 TextButton(onClick = { showAddWeight = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
+        if (showDatePicker) {
+            androidx.compose.material3.DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.ok)) }
+                },
+            ) {
+                androidx.compose.material3.DatePicker(state = dateState)
+            }
+        }
     }
-}
-
-@Composable
-private fun HeightField(heightCm: Double?, onCommit: (Double?) -> Unit) {
-    var text by remember(heightCm) {
-        mutableStateOf(heightCm?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "")
-    }
-    OutlinedTextField(
-        value = text,
-        onValueChange = {
-            text = it
-            onCommit(it.replace(',', '.').toDoubleOrNull())
-        },
-        label = { Text(stringResource(R.string.height_cm)) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        singleLine = true,
-    )
 }
 
 @Composable
@@ -234,39 +258,5 @@ private fun StatLine(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label)
         Text(value, fontWeight = FontWeight.Medium)
-    }
-}
-
-/** Minimal dependency-free polyline chart with min/max labels. */
-@Composable
-fun LineChart(points: List<Double>, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.primary) {
-    if (points.size < 2) return
-    val min = points.min()
-    val max = points.max()
-    Column(modifier) {
-        Text("%.1f".format(max), style = MaterialTheme.typography.labelSmall)
-        Canvas(
-            Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(vertical = 4.dp),
-        ) {
-            val range = (max - min).takeIf { it > 0 } ?: 1.0
-            val stepX = size.width / (points.size - 1)
-            val coords = points.mapIndexed { i, v ->
-                Offset(i * stepX, size.height * (1f - ((v - min) / range).toFloat()))
-            }
-            for (i in 0 until coords.size - 1) {
-                drawLine(
-                    color = color,
-                    start = coords[i],
-                    end = coords[i + 1],
-                    strokeWidth = 5f,
-                    cap = StrokeCap.Round,
-                )
-            }
-            coords.forEach { drawCircle(color = color, radius = 7f, center = it) }
-        }
-        Text("%.1f".format(min), style = MaterialTheme.typography.labelSmall)
     }
 }

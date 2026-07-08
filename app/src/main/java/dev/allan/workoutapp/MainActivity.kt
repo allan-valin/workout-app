@@ -175,7 +175,15 @@ fun AppRoot() {
                 onOpenPlan = { navController.navigate("plan/$it") },
                 onOpenWorkout = { navController.navigate("view/$it") },
                 onResumeSession = { navController.navigate("session/$it") },
+                onOpenBodyweight = { navController.navigate("bodyweight") },
+                onOpenProgression = { navController.navigate("progression") },
             )
+        }
+        composable("bodyweight") {
+            dev.allan.workoutapp.ui.stats.BodyweightScreen(onBack = { navController.popBackStack() })
+        }
+        composable("progression") {
+            dev.allan.workoutapp.ui.stats.ProgressionScreen(onBack = { navController.popBackStack() })
         }
         composable(
             "view/{workoutId}",
@@ -282,6 +290,8 @@ private fun MainScaffold(
     onOpenPlan: (Long) -> Unit,
     onOpenWorkout: (Long) -> Unit,
     onResumeSession: (Long) -> Unit,
+    onOpenBodyweight: () -> Unit,
+    onOpenProgression: () -> Unit,
     vm: PlansViewModel = viewModel(),
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
@@ -484,7 +494,12 @@ private fun MainScaffold(
                         )
                     }
                 }
-                Tab.Stats -> item { dev.allan.workoutapp.ui.stats.StatsTab() }
+                Tab.Stats -> item {
+                    dev.allan.workoutapp.ui.stats.StatsTab(
+                        onOpenBodyweight = onOpenBodyweight,
+                        onOpenProgression = onOpenProgression,
+                    )
+                }
             }
         }
     }

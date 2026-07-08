@@ -292,15 +292,14 @@ Workout editor (sets/pauses table):
 - [x] Deleting a single set: no confirmation anymore.
 
 Statistics rework (point graphs):
-- [ ] Swap positions of bodyweight and averages sections.
-- [ ] Bodyweight: remove height/BMI (irrelevant for lifting). Keep "+ Add" but adding asks
-      for the date too (backfill forgotten days). Replace "current" with a point graph:
-      y = weight, x = day, points connected by a line, area under the line filled. Default
-      window 1 month. Tapping the graph opens a full screen with range buttons 1 w / 1 m /
-      3 m / 6 m / 1 y / all-time, plus the last 7 entries listed below with a pencil icon to
-      edit each.
-- [ ] Rename "Averages" to "Progression": opens a page with the same graph style for total
-      weight lifted per session, and one graph per muscle group.
+- [x] Bodyweight card now first, progression (ex-averages) second.
+- [x] Bodyweight: height/BMI removed; +Add includes a Material date picker (backfill);
+      PointAreaChart (dots + line + filled area, real time x-axis), 1-month card preview;
+      tapping opens BodyweightScreen with 1w/1m/3m/6m/1y/all chips and last-7 list with
+      pencil edit (upsert by epochDay).
+- [x] "Averages" renamed "Progression"; card opens ProgressionScreen: total-volume
+      PointAreaChart + one chart per muscle group (primary-muscle attribution), same range
+      chips. Old inline volume LineChart removed.
 
 In-progress session:
 - [x] Weight − / + steppers: step 1 kg instead of 2.5.
