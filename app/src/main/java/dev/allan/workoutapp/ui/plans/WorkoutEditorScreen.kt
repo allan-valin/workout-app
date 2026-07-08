@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -127,6 +128,23 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
 
     init {
         viewModelScope.launch { _workout.value = db.planDao().workout(workoutId) }
+    }
+
+    /** (name, description) for the ℹ dialog — localized with en fallback. */
+    private val _description = MutableStateFlow<Pair<String, String>?>(null)
+    val description: StateFlow<Pair<String, String>?> = _description
+
+    fun openDescription(item: EditorExercise) {
+        viewModelScope.launch {
+            val translations = db.exerciseDao().translations(item.we.exerciseId)
+            val best = translations.firstOrNull { it.lang == lang }
+                ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
+            _description.value = item.name to best?.description.orEmpty()
+        }
+    }
+
+    fun closeDescription() {
+        _description.value = null
     }
 
     fun renameWorkout(name: String) {
@@ -334,6 +352,23 @@ fun WorkoutEditorScreen(
         }
     }
 
+    val description by vm.description.collectAsState()
+    description?.let { (name, desc) ->
+        AlertDialog(
+            onDismissRequest = vm::closeDescription,
+            title = { Text(name) },
+            text = {
+                Text(
+                    desc.ifBlank { stringResource(R.string.no_description) },
+                    modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = vm::closeDescription) { Text(stringResource(R.string.ok)) }
+            },
+        )
+    }
+
     if (confirmBulkDelete) {
         AlertDialog(
             onDismissRequest = { confirmBulkDelete = false },
@@ -442,6 +477,9 @@ private fun ExerciseEditorCard(
                 // Checkbox feeds the top-bar multi-select delete (replaces per-card trash).
                 Checkbox(checked = selected, onCheckedChange = { onToggleSelect() })
                 Text(item.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = { vm.openDescription(item) }) {
+                    Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.description))
+                }
                 IconButton(onClick = { onMove(true) }) {
                     Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
                 }

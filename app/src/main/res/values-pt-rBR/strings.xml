@@ -71,6 +71,11 @@
     <string name="move_down">Mover para baixo</string>
     <string name="empty_workout_hint">Nenhum exercício ainda. Adicione da biblioteca.</string>
     <string name="new_custom_exercise">Novo exercício personalizado</string>
+    <string name="custom_exercises">Exercícios personalizados</string>
+    <string name="no_custom_exercises">Nenhum exercício personalizado ainda.</string>
+    <string name="add_selected">Adicionar %1$d selecionados</string>
+    <string name="confirm_delete_custom">Excluir exercício personalizado "%1$s"?</string>
+    <string name="custom_in_use">Não é possível excluir: usado em %1$d treino(s). Remova-o desses treinos primeiro.</string>
     <string name="exercise_name">Nome do exercício</string>
     <string name="description">Descrição</string>
     <string name="cardio">Cardio</string>
@@ -188,6 +193,8 @@
     <string name="choose_plan_for_workout">Adicionar treino importado a…</string>
     <string name="plan_workout_count">%1$d treinos</string>
     <string name="video_link">Link de vídeo (YouTube)</string>
+    <string name="video_link_save">Salvar link</string>
+    <string name="video_link_delete">Excluir link</string>
     <string name="watch_video">Assistir vídeo</string>
     <string name="open_externally">Abrir no YouTube/navegador</string>
 </resources>

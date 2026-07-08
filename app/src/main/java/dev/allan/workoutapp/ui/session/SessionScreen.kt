@@ -3,6 +3,7 @@ package dev.allan.workoutapp.ui.session
 import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -271,11 +272,7 @@ fun SessionScreen(
     }
 
     state.descriptionSheet?.let { desc ->
-        val sheetExerciseId = state.descriptionExerciseId
         var videoOverlayUrl by remember { mutableStateOf<String?>(null) }
-        var linkText by remember(sheetExerciseId, state.descriptionVideoUrl) {
-            mutableStateOf(state.descriptionVideoUrl ?: "")
-        }
         ModalBottomSheet(onDismissRequest = vm::closeDescription) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -284,21 +281,8 @@ fun SessionScreen(
                 )
                 Text(desc.ifBlank { stringResource(R.string.no_description) })
 
-                // User-owned video link — stored locally, never touched by wger refreshes.
-                OutlinedTextField(
-                    value = linkText,
-                    onValueChange = { linkText = it },
-                    label = { Text(stringResource(R.string.video_link)) },
-                    singleLine = true,
-                    trailingIcon = {
-                        if (sheetExerciseId != null && linkText.trim() != (state.descriptionVideoUrl ?: "")) {
-                            IconButton(onClick = { vm.saveVideoLink(sheetExerciseId, linkText) }) {
-                                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.ok))
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                // Video link is view-only mid-session; editing lives in the exercise
+                // library detail sheet (invisible-tick save button confused people here).
                 state.descriptionVideoUrl?.let { url ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { videoOverlayUrl = url }, modifier = Modifier.weight(1f)) {
@@ -493,7 +477,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             }
         }
 
-        // Story-style progress bar: one segment per exercise.
+        // Story-style progress bar: one segment per exercise; tap a segment to jump there.
         Row(
             Modifier
                 .fillMaxWidth()
@@ -511,7 +495,8 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(4.dp),
+                        .height(8.dp)
+                        .clickable { vm.requestSwipe(i) },
                 )
             }
         }

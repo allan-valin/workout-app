@@ -220,21 +220,23 @@ Plan create / import:
       (PlanImportDialogs extracted and shared; collision dialogs work from the main screen).
 
 Exercise search / library:
-- [ ] Replace "new custom" entry with an entry that opens the list of already-created custom
-      exercises: checkbox on the left to select, ℹ for detail, and DELETE support (currently
-      customs cannot be deleted at all).
-- [ ] Search results: show the exercise image (same one used during session execution) above
-      the title.
-- [ ] Editor edit mode: add ℹ icon that opens the chosen exercise's description.
+- [x] "New custom" replaced by "Custom exercises" sheet: list of existing customs, checkbox
+      select (picker mode adds all selected), ℹ detail, delete with confirm (blocked with a
+      message while workouts still use the exercise); create-new lives inside the sheet.
+- [x] Search results show the exercise image above the title (local file first, wger URL
+      fallback; ExerciseHit gained imagePath).
+- [x] Editor: ℹ icon per exercise opens a localized description dialog.
 - [ ] Library icon moves off the main screen; show it at the bottom of the Active/Archive
       pages instead, and allow ADDING exercises to a workout from there (today it is
       view-only).
-- [ ] YouTube link field belongs in add/edit exercise (library), NOT in the in-progress
-      session (currently the only place it shows). In-progress = view only.
-- [ ] YouTube link bugs: cannot delete a saved link; editing the text does not update the
-      stored link (only the first save sticks); "watch video" overlay never loads; "open on
-      YouTube" opens inside the app instead of the YouTube app (ACTION_VIEW should leave the
-      app). (Emulator may lack YouTube app / internet — verify on Redmi too.)
+- [x] YouTube link editing moved to the library detail sheet with an explicit Save/Delete
+      link button (blank clears); the in-session sheet is view-only (watch/open).
+- [ ] YouTube link bugs (2026-07-09 correction from Allan: "edits don't stick" was the save
+      tick being invisible against the field text — a CONTRAST bug, saving works): make the
+      save action clearly visible; cannot delete a saved link (empty text must clear it);
+      "watch video" overlay never loads; "open on YouTube" opens inside the app instead of
+      the YouTube app (emulator lacks the YouTube app, so ACTION_VIEW falls back to a
+      browser — verify on the Redmi before treating as a bug).
 
 Suggestion flow (workout editor ✨):
 - [ ] Muscle-focus buttons become multi-select (same interaction as the exercise filter),
@@ -320,7 +322,6 @@ In-progress session:
       tests cover stay/forward/wrap/superset cases. Not yet emulator-verified.
 - [ ] Auto-advance bug B (dead): after mixing timer actions + completing/uncompleting sets,
       auto-advance stops firing entirely. Exact repro unknown — needs instrumentation.
-- [ ] "Story" progress lines: slightly bigger, and tappable to jump straight to that
-      exercise.
+- [x] Story bar: segments 4→8 dp tall and tappable (pager jumps via pendingSwipeTo).
 - [x] End workout: unified dialog with green Save / red Discard buttons and an "N of M sets
       not completed" warning when sets are open.

@@ -34,6 +34,8 @@ data class LibraryUiState(
 data class ExerciseDetail(
     val hit: ExerciseHit,
     val translations: List<ExerciseTranslation>,
+    /** User-owned YouTube/video link (exercise_link table); edited here in the library. */
+    val videoUrl: String? = null,
 )
 
 class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
@@ -52,6 +54,28 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
     val injuredMuscles: StateFlow<Set<Int>> =
         dev.allan.workoutapp.data.Settings.injuredMuscles(app)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** Existing custom exercises — browsed, selected, and deleted from the customs sheet. */
+    val customs: StateFlow<List<ExerciseHit>> = db.exerciseDao().customHits()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _customsMessage = MutableStateFlow<String?>(null)
+    val customsMessage: StateFlow<String?> = _customsMessage
+    fun clearCustomsMessage() { _customsMessage.value = null }
+
+    /** Delete a custom exercise; refuses (with a message) while workouts still use it. */
+    fun deleteCustom(hit: ExerciseHit, inUseMessage: (Int) -> String) {
+        viewModelScope.launch {
+            val uses = db.exerciseDao().exerciseUsageCount(hit.id)
+            if (uses > 0) {
+                _customsMessage.value = inUseMessage(uses)
+            } else {
+                db.exerciseDao().deleteVideoLink(hit.id)
+                db.exerciseDao().deleteTranslationsFor(hit.id)
+                db.exerciseDao().deleteCustomExercise(hit.id)
+            }
+        }
+    }
 
     fun setExcludeInjured(exclude: Boolean) {
         _state.value = _state.value.copy(excludeInjured = exclude)
@@ -127,12 +151,30 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openDetail(hit: ExerciseHit) {
         viewModelScope.launch {
-            _detail.value = ExerciseDetail(hit, db.exerciseDao().translations(hit.id))
+            _detail.value = ExerciseDetail(
+                hit,
+                db.exerciseDao().translations(hit.id),
+                db.exerciseDao().videoLink(hit.id),
+            )
         }
     }
 
     fun closeDetail() {
         _detail.value = null
+    }
+
+    /** Save (or clear, when blank) the user's video link for the open detail exercise. */
+    fun saveVideoLink(exerciseId: String, url: String) {
+        val trimmed = url.trim()
+        _detail.value = _detail.value?.let {
+            if (it.hit.id == exerciseId) it.copy(videoUrl = trimmed.ifBlank { null }) else it
+        }
+        viewModelScope.launch {
+            if (trimmed.isBlank()) db.exerciseDao().deleteVideoLink(exerciseId)
+            else db.exerciseDao().upsertVideoLink(
+                dev.allan.workoutapp.data.db.ExerciseLink(exerciseId = exerciseId, url = trimmed)
+            )
+        }
     }
 
     /** Picker mode: append the exercise (with default sets) to the target workout. */

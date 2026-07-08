@@ -71,6 +71,11 @@
     <string name="move_down">Move down</string>
     <string name="empty_workout_hint">No exercises yet. Add some from the library.</string>
     <string name="new_custom_exercise">New custom exercise</string>
+    <string name="custom_exercises">Custom exercises</string>
+    <string name="no_custom_exercises">No custom exercises yet.</string>
+    <string name="add_selected">Add %1$d selected</string>
+    <string name="confirm_delete_custom">Delete custom exercise "%1$s"?</string>
+    <string name="custom_in_use">Cannot delete: used in %1$d workout(s). Remove it from those workouts first.</string>
     <string name="exercise_name">Exercise name</string>
     <string name="description">Description</string>
     <string name="cardio">Cardio</string>
@@ -187,6 +192,8 @@
     <string name="choose_plan_for_workout">Add imported workout to…</string>
     <string name="plan_workout_count">%1$d workouts</string>
     <string name="video_link">Video link (YouTube)</string>
+    <string name="video_link_save">Save link</string>
+    <string name="video_link_delete">Delete link</string>
     <string name="watch_video">Watch video</string>
     <string name="open_externally">Open in YouTube/browser</string>
     <string name="llm_instructions_body">1. Tap "Save instructions file (.md)" and save it anywhere on your phone.\n\n2. Open your AI chatbot of choice and attach or paste that file.\n\n3. Tell it your goal (strength, hypertrophy, endurance, rehab), training days per week, session length, available equipment and injuries. The file instructs the AI to ask if you forget.\n\n4. It answers with a plan_*.json file (or a JSON code block — save it as a .json file).\n\n5. Back here: Settings → Import plan (JSON). Matched exercises link to the built-in library automatically; unknown ones become custom exercises or are reported.\n\nTip: export your history CSVs and hand them to the same chat for load recommendations.</string>

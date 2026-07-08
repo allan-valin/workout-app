@@ -71,6 +71,11 @@
     <string name="move_down">Nach unten</string>
     <string name="empty_workout_hint">Noch keine Übungen. Aus der Bibliothek hinzufügen.</string>
     <string name="new_custom_exercise">Neue eigene Übung</string>
+    <string name="custom_exercises">Eigene Übungen</string>
+    <string name="no_custom_exercises">Noch keine eigenen Übungen.</string>
+    <string name="add_selected">%1$d ausgewählte hinzufügen</string>
+    <string name="confirm_delete_custom">Eigene Übung "%1$s" löschen?</string>
+    <string name="custom_in_use">Löschen nicht möglich: in %1$d Training(s) verwendet. Erst dort entfernen.</string>
     <string name="exercise_name">Übungsname</string>
     <string name="description">Beschreibung</string>
     <string name="cardio">Cardio</string>
@@ -188,6 +193,8 @@
     <string name="choose_plan_for_workout">Importiertes Training hinzufügen zu…</string>
     <string name="plan_workout_count">%1$d Trainings</string>
     <string name="video_link">Video-Link (YouTube)</string>
+    <string name="video_link_save">Link speichern</string>
+    <string name="video_link_delete">Link löschen</string>
     <string name="watch_video">Video ansehen</string>
     <string name="open_externally">In YouTube/Browser öffnen</string>
 </resources>

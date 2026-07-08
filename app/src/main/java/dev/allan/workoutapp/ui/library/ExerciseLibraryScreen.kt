@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.verticalScroll
@@ -14,7 +15,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,6 +64,8 @@ fun ExerciseLibraryScreen(
     val detail by vm.detail.collectAsState()
     var showFilters by remember { mutableStateOf(false) }
     var showCustomDialog by remember { mutableStateOf(false) }
+    var showCustomsSheet by remember { mutableStateOf(false) }
+    var selectedCustoms by remember { mutableStateOf(setOf<String>()) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val addedMsg = stringResource(R.string.exercise_added)
     val onAdd: ((String) -> Unit)? = pickerWorkoutId?.let { wid ->
@@ -100,8 +107,8 @@ fun ExerciseLibraryScreen(
                 singleLine = true,
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = { showCustomDialog = true }) {
-                    Text(stringResource(R.string.new_custom_exercise))
+                TextButton(onClick = { showCustomsSheet = true }) {
+                    Text(stringResource(R.string.custom_exercises))
                 }
                 // Deferred search: explicit button, no per-keystroke queries.
                 if (state.query.isNotBlank() || state.selectedMuscleId != null) {
@@ -200,6 +207,76 @@ fun ExerciseLibraryScreen(
         }
     }
 
+    if (showCustomsSheet) {
+        val customs by vm.customs.collectAsState()
+        val customsMessage by vm.customsMessage.collectAsState()
+        var confirmDeleteCustom by remember { mutableStateOf<ExerciseHit?>(null) }
+        val inUseTemplate = stringResource(R.string.custom_in_use)
+        ModalBottomSheet(onDismissRequest = { showCustomsSheet = false; selectedCustoms = emptySet() }) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.custom_exercises), style = MaterialTheme.typography.headlineSmall)
+                if (customs.isEmpty()) Text(stringResource(R.string.no_custom_exercises))
+                customs.forEach { hit ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (onAdd != null) {
+                            androidx.compose.material3.Checkbox(
+                                checked = hit.id in selectedCustoms,
+                                onCheckedChange = {
+                                    selectedCustoms =
+                                        if (hit.id in selectedCustoms) selectedCustoms - hit.id
+                                        else selectedCustoms + hit.id
+                                },
+                            )
+                        }
+                        Text(hit.name, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { vm.openDetail(hit) }) {
+                            Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.description))
+                        }
+                        IconButton(onClick = { confirmDeleteCustom = hit }) {
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = { showCustomDialog = true }) {
+                        Text(stringResource(R.string.new_custom_exercise))
+                    }
+                    if (onAdd != null && selectedCustoms.isNotEmpty()) {
+                        Button(onClick = {
+                            selectedCustoms.forEach { onAdd(it) }
+                            selectedCustoms = emptySet()
+                            showCustomsSheet = false
+                        }) { Text(stringResource(R.string.add_selected, selectedCustoms.size)) }
+                    }
+                }
+            }
+        }
+        confirmDeleteCustom?.let { hit ->
+            AlertDialog(
+                onDismissRequest = { confirmDeleteCustom = null },
+                title = { Text(stringResource(R.string.confirm_delete_custom, hit.name)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        vm.deleteCustom(hit) { uses -> inUseTemplate.format(uses) }
+                        confirmDeleteCustom = null
+                    }) { Text(stringResource(R.string.delete)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDeleteCustom = null }) { Text(stringResource(R.string.cancel)) }
+                },
+            )
+        }
+        customsMessage?.let { msg ->
+            AlertDialog(
+                onDismissRequest = vm::clearCustomsMessage,
+                text = { Text(msg) },
+                confirmButton = {
+                    TextButton(onClick = vm::clearCustomsMessage) { Text(stringResource(R.string.ok)) }
+                },
+            )
+        }
+    }
+
     if (showCustomDialog) {
         CustomExerciseDialog(
             muscles = muscles,
@@ -245,6 +322,29 @@ fun ExerciseLibraryScreen(
                     "${stringResource(R.string.also_known_as)}: ${allNames.joinToString(" · ")}",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                // Video link is edited here (library), not mid-session; the session sheet
+                // only offers watch/open. Blank + save = delete the link.
+                var linkText by remember(d.hit.id, d.videoUrl) { mutableStateOf(d.videoUrl ?: "") }
+                OutlinedTextField(
+                    value = linkText,
+                    onValueChange = { linkText = it },
+                    label = { Text(stringResource(R.string.video_link)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (linkText.trim() != (d.videoUrl ?: "")) {
+                    Button(
+                        onClick = { vm.saveVideoLink(d.hit.id, linkText) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            stringResource(
+                                if (linkText.isBlank() && d.videoUrl != null) R.string.video_link_delete
+                                else R.string.video_link_save
+                            )
+                        )
+                    }
+                }
                 Text(
                     stringResource(R.string.wger_attribution),
                     style = MaterialTheme.typography.labelSmall,
@@ -329,6 +429,20 @@ private fun ExerciseRow(
 ) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
+            // Same illustration the session shows — above the title (downloaded file
+            // first, wger URL as fallback when the media pipeline hasn't run yet).
+            val model = hit.imagePath ?: hit.imageUrl
+            if (model != null) {
+                coil.compose.AsyncImage(
+                    model = model,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(96.dp)
+                        .padding(bottom = 6.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(hit.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 if (hit.lang != appLang) {

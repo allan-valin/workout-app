@@ -23,6 +23,7 @@ data class ExerciseHit(
     val secondaryMuscles: List<Int>,
     val isCustom: Boolean,
     val imageUrl: String?,
+    val imagePath: String?,
 )
 
 @Dao
@@ -99,7 +100,7 @@ interface ExerciseDao {
         """
         SELECT e.id AS id, t.name AS name, t.lang AS lang, e.category AS category,
                e.primaryMuscles AS primaryMuscles, e.secondaryMuscles AS secondaryMuscles,
-               e.isCustom AS isCustom, e.imageUrl AS imageUrl
+               e.isCustom AS isCustom, e.imageUrl AS imageUrl, e.imagePath AS imagePath
         FROM exercise e
         JOIN exercise_translation t ON t.exerciseId = e.id
         WHERE e.isCardio = 1
@@ -118,7 +119,8 @@ interface ExerciseDao {
                e.primaryMuscles AS primaryMuscles,
                e.secondaryMuscles AS secondaryMuscles,
                e.isCustom AS isCustom,
-               e.imageUrl AS imageUrl
+               e.imageUrl AS imageUrl,
+               e.imagePath AS imagePath
         FROM exercise e
         JOIN exercise_translation t ON t.exerciseId = e.id
         WHERE (:lang IS NULL OR t.lang = :lang)
@@ -132,6 +134,31 @@ interface ExerciseDao {
         """
     )
     suspend fun search(query: String, lang: String?, muscleCsv: String?): List<ExerciseHit>
+
+    /** All custom exercises as display rows (one per exercise, any language). */
+    @Query(
+        """
+        SELECT e.id AS id, t.name AS name, t.lang AS lang, e.category AS category,
+               e.primaryMuscles AS primaryMuscles, e.secondaryMuscles AS secondaryMuscles,
+               e.isCustom AS isCustom, e.imageUrl AS imageUrl, e.imagePath AS imagePath
+        FROM exercise e
+        JOIN exercise_translation t ON t.exerciseId = e.id
+        WHERE e.isCustom = 1
+        GROUP BY e.id
+        ORDER BY t.name
+        """
+    )
+    fun customHits(): Flow<List<ExerciseHit>>
+
+    /** Workouts referencing the exercise — a custom one may only be deleted when 0. */
+    @Query("SELECT COUNT(*) FROM workout_exercise WHERE exerciseId = :id")
+    suspend fun exerciseUsageCount(id: String): Int
+
+    @Query("DELETE FROM exercise WHERE id = :id AND isCustom = 1")
+    suspend fun deleteCustomExercise(id: String)
+
+    @Query("DELETE FROM exercise_translation WHERE exerciseId = :id")
+    suspend fun deleteTranslationsFor(id: String)
 }
 
 @Dao

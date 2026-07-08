@@ -444,6 +444,11 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         _state.value = _state.value.copy(pendingSwipeTo = null)
     }
 
+    /** Jump the pager to an exercise (story-bar segment tap). */
+    fun requestSwipe(index: Int) {
+        _state.value = _state.value.copy(pendingSwipeTo = index)
+    }
+
     /** Show the current exercise's description (localized, en fallback) in a sheet. */
     fun openDescription(exerciseId: String) {
         viewModelScope.launch {
