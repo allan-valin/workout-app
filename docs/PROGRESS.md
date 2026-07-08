@@ -317,10 +317,12 @@ In-progress session:
       the end of the last pause and the next logged set — but if that gap exceeds 3 min, book
       only 40 s (assume they forgot and chatted). Logging a set (tick or button) while the
       stopwatch runs books the time and starts the pause.
-- [ ] Auto-advance bug A (wrong target): logging a set jumps the pager to the FIRST
-      not-fully-completed exercise (e.g. exercise 1 skipped because the machine was busy —
-      or exercise 2 if 1 is fully done), instead of staying on / advancing from the exercise
-      just logged, which itself still has open sets. Reproducible.
+- [x] Auto-advance bug A (wrong target): logging a set jumped the pager to the FIRST
+      not-fully-completed exercise instead of staying relative to the one just logged.
+      Fixed 2026-07-08: `SupersetOrder.nextStepFrom(exercises, fromIndex)` — own chain
+      first, then forward, wrapping so skipped exercises come last; used by
+      logSet/updateSet/updateWeight (global `nextStep` kept for session start). Unit
+      tests cover stay/forward/wrap/superset cases. Not yet emulator-verified.
 - [ ] Auto-advance bug B (dead): after mixing timer actions + completing/uncompleting sets,
       auto-advance stops firing entirely. Exact repro unknown — needs instrumentation.
 - [ ] "Story" progress lines: slightly bigger, and tappable to jump straight to that

@@ -85,6 +85,55 @@ class SupersetOrderTest {
     }
 
     @Test
+    fun `nextStepFrom stays on the current exercise while it has open sets`() {
+        // A skipped entirely, B has 1 of 3 done -> next is B's set 2, not A.
+        val a = exercise("A", sets(3))
+        val b = exercise("B", sets(3, done = 1))
+        val exs = listOf(a, b)
+        val next = SupersetOrder.nextStepFrom(exs, 1)
+        assertEquals(1, next!!.first)
+        assertEquals(b.sets[1].templateId, next.second)
+    }
+
+    @Test
+    fun `nextStepFrom moves forward before wrapping to skipped exercises`() {
+        // A skipped, B done, C untouched -> from B the next is C, not A.
+        val a = exercise("A", sets(2))
+        val b = exercise("B", sets(2, done = 2))
+        val c = exercise("C", sets(2))
+        val next = SupersetOrder.nextStepFrom(listOf(a, b, c), 1)
+        assertEquals(2, next!!.first)
+        assertEquals(c.sets[0].templateId, next.second)
+    }
+
+    @Test
+    fun `nextStepFrom wraps to a skipped exercise when nothing is left ahead`() {
+        // A skipped, B and C done -> from C wrap back to A.
+        val a = exercise("A", sets(2))
+        val b = exercise("B", sets(2, done = 2))
+        val c = exercise("C", sets(2, done = 2))
+        val next = SupersetOrder.nextStepFrom(listOf(a, b, c), 2)
+        assertEquals(0, next!!.first)
+        assertEquals(a.sets[0].templateId, next.second)
+    }
+
+    @Test
+    fun `nextStepFrom respects superset interleaving within the current chain`() {
+        // A1 done, superset partner B1 undone -> from A the next is B1.
+        val a = exercise("A", sets(2, done = 1))
+        val b = exercise("B", sets(2), superset = true)
+        val next = SupersetOrder.nextStepFrom(listOf(a, b), 0)
+        assertEquals(1, next!!.first)
+        assertEquals(b.sets[0].templateId, next.second)
+    }
+
+    @Test
+    fun `nextStepFrom is null when everything is done`() {
+        val exs = listOf(exercise("A", sets(2, done = 2)), exercise("B", sets(1, done = 1)))
+        assertNull(SupersetOrder.nextStepFrom(exs, 1))
+    }
+
+    @Test
     fun `rest is skipped after the first half of a pair and taken after the second`() {
         val a = exercise("A", sets(2))
         val b = exercise("B", sets(2), superset = true)

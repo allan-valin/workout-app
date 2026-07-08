@@ -116,6 +116,28 @@ object SupersetOrder {
         return null
     }
 
+    /**
+     * Next expected set relative to [fromIndex]: the exercise's own chain first, then the
+     * chains after it, wrapping around so earlier skipped exercises come last. Keeps the
+     * pager from jumping back to a skipped exercise while the current one has open sets.
+     */
+    fun nextStepFrom(exercises: List<SessionExercise>, fromIndex: Int): Pair<Int, Long>? {
+        if (exercises.isEmpty()) return null
+        val startChain = chain(exercises, fromIndex.coerceIn(exercises.indices))
+        interleaved(exercises, startChain).firstOrNull { !it.second.done }?.let { (idx, set) ->
+            return idx to set.templateId
+        }
+        var i = (startChain.last() + 1) % exercises.size
+        while (i !in startChain) {
+            val c = chain(exercises, i)
+            interleaved(exercises, c).firstOrNull { !it.second.done }?.let { (idx, set) ->
+                return idx to set.templateId
+            }
+            i = (c.last() + 1) % exercises.size
+        }
+        return null
+    }
+
     /** True when another chain member still has an undone set in this round → skip rest. */
     fun restSkipped(exercises: List<SessionExercise>, exerciseIndex: Int, set: SessionSet): Boolean {
         val chain = chain(exercises, exerciseIndex)
@@ -270,7 +292,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         exercises[exerciseIndex] = ex.copy(sets = ex.sets.map { if (it.templateId == set.templateId) set else it })
         _state.value = _state.value.copy(
             exercises = exercises,
-            currentStep = SupersetOrder.nextStep(exercises),
+            currentStep = SupersetOrder.nextStepFrom(exercises, exerciseIndex),
         )
         saveDraft(set)
     }
@@ -295,7 +317,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         exercises[exerciseIndex] = ex.copy(sets = newSets)
         _state.value = _state.value.copy(
             exercises = exercises,
-            currentStep = SupersetOrder.nextStep(exercises),
+            currentStep = SupersetOrder.nextStepFrom(exercises, exerciseIndex),
         )
         newSets.filterIndexed { i, s -> i == editedIndex || s.weightKg != ex.sets[i].weightKg }
             .forEach(::saveDraft)
@@ -393,9 +415,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             )
         }
 
-        // Auto-advance: follow the superset-aware next step. All done → back to the
+        // Auto-advance: follow the superset-aware next step relative to the exercise just
+        // logged — skipped earlier exercises come last, not first. All done → back to the
         // exercise list (that's where "End workout" lives).
-        val next = SupersetOrder.nextStep(_state.value.exercises)
+        val next = SupersetOrder.nextStepFrom(_state.value.exercises, exerciseIndex)
         _state.value = when {
             next == null -> _state.value.copy(timerPanelVisible = true, showList = true)
             next.first != exerciseIndex ->
