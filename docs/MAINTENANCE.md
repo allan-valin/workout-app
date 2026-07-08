@@ -33,7 +33,8 @@ workout-app/
   swiftshader_indirect boots, installs, and runs the Compose UI stably.
 - Keep `hw.ramSize = 3072M` in `~/.android/avd/testphone.avd/config.ini`.
 - Working start-to-app-open block (also in README "Everyday" section):
-  `emulator -avd testphone -gpu swiftshader_indirect >/dev/null 2>&1 &` →
+  `~/Android/Sdk/emulator/emulator -avd testphone -gpu swiftshader_indirect >/dev/null 2>&1 &` →
+  (full path required — `emulator` is not on PATH, only `platform-tools`/`adb` is) →
   `adb wait-for-device shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'` →
   `./gradlew installDebug` → `adb shell monkey -p dev.allan.workoutapp 1`.
 

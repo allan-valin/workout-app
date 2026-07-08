@@ -15,6 +15,7 @@ no network needed after first launch.
   - [3. Put the SDK tools on your PATH](#3-put-the-sdk-tools-on-your-path)
   - [4. Create the emulator](#4-create-the-emulator)
 - [Everyday: run & test on the emulator](#everyday-run--test-on-the-emulator)
+  - [If the emulator refuses to close](#if-the-emulator-refuses-to-close)
 - [Using the app on a phone](#using-the-app-on-a-phone)
 - [Release signing — generate your own key](#release-signing--generate-your-own-key)
 - [Import / export](#import--export-settings-)
@@ -117,11 +118,16 @@ It builds only what changed since last time, so use the same block after every c
 change (there is **no separate build step** — `installDebug` compiles + installs):
 
 ```bash
-emulator -avd testphone -gpu swiftshader_indirect >/dev/null 2>&1 &
+~/Android/Sdk/emulator/emulator -avd testphone -gpu swiftshader_indirect >/dev/null 2>&1 &
 adb wait-for-device shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
 ./gradlew installDebug
 adb shell monkey -p dev.allan.workoutapp 1
 ```
+
+> The full path matters: `emulator` is **not** on PATH by default (only
+> `platform-tools` with `adb` is). A bare `emulator ...` fails with
+> "command not found", the `>/dev/null 2>&1` hides that error, and
+> `adb wait-for-device` then waits forever.
 
 Line by line: starts the emulator in the background (so your terminal stays usable —
 don't close it, that kills the emulator), waits until Android has fully booted,
@@ -135,6 +141,36 @@ builds + installs the debug APK, opens the app.
   to `swiftshader_indirect`.
 - Unit tests need no emulator: `./gradlew test`.
 - Done testing? `adb emu kill` shuts the emulator down.
+
+### If the emulator refuses to close
+
+Sometimes the emulator window won't die: the ✕ button does nothing, and holding the
+side-panel power button just opens the Android AI-assistant overlay instead of the
+shutdown menu. Escalate in this order:
+
+```bash
+# 1. Graceful shutdown (same as "Done testing?" above)
+adb emu kill
+# more than one emulator running? target it explicitly:
+adb devices                       # note the id, e.g. emulator-5554
+adb -s emulator-5554 emu kill
+```
+
+Give it ~15 s — it may be saving the quick-boot snapshot before exiting. Still there?
+
+```bash
+# 2. Terminate the emulator process
+pkill -f 'qemu-system.*testphone'
+# 3. Last resort — force kill (skips snapshot save; next boot is a cold boot)
+pkill -9 -f 'qemu-system.*testphone'
+```
+
+(Windows: `taskkill /IM qemu-system-x86_64.exe /F` in a terminal, or end the
+`qemu-system-x86_64` process in Task Manager.)
+
+If `adb` itself stopped responding (`adb devices` hangs or shows nothing while the
+window is clearly open), restart the adb server first and retry step 1:
+`adb kill-server && adb start-server`.
 
 Suggested manual smoke test: create a plan → start a session → lock the screen 2 min
 → log some sets → end session → check the stats page → export a CSV. If you touched
