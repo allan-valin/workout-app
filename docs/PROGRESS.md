@@ -317,10 +317,12 @@ In-progress session:
       the end of the last pause and the next logged set — but if that gap exceeds 3 min, book
       only 40 s (assume they forgot and chatted). Logging a set (tick or button) while the
       stopwatch runs books the time and starts the pause.
-- [ ] Auto-advance bug: unreliable. Repro sketch: skip exercise 1 (machine busy), log a set
-      on another exercise → pager swipes BACK to exercise 1 even though the logged exercise
-      isn't finished. Also after mixing timer actions + completing/uncompleting sets,
-      auto-advance stopped entirely. Exact repro unknown — needs instrumentation.
+- [ ] Auto-advance bug A (wrong target): logging a set jumps the pager to the FIRST
+      not-fully-completed exercise (e.g. exercise 1 skipped because the machine was busy —
+      or exercise 2 if 1 is fully done), instead of staying on / advancing from the exercise
+      just logged, which itself still has open sets. Reproducible.
+- [ ] Auto-advance bug B (dead): after mixing timer actions + completing/uncompleting sets,
+      auto-advance stops firing entirely. Exact repro unknown — needs instrumentation.
 - [ ] "Story" progress lines: slightly bigger, and tappable to jump straight to that
       exercise.
 - [ ] End workout: if not all sets are complete, show a clear choice with colorful buttons
