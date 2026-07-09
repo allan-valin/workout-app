@@ -34,8 +34,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.HideSource
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -371,7 +369,6 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
     val current = state.exercises.getOrNull(state.currentIndex)
     val ctx = LocalContext.current
     val showClock by dev.allan.workoutapp.data.Settings.showClock(ctx).collectAsState(initial = true)
-    val clockScope = androidx.compose.runtime.rememberCoroutineScope()
 
     TopAppBar(
         title = {
@@ -383,15 +380,6 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
             }
         },
         actions = {
-            // Clock show/hide (default shown).
-            IconButton(onClick = {
-                clockScope.launch { dev.allan.workoutapp.data.Settings.setShowClock(ctx, !showClock) }
-            }) {
-                Icon(
-                    if (showClock) Icons.Default.Schedule else Icons.Default.HideSource,
-                    contentDescription = stringResource(R.string.tempo_show_clock),
-                )
-            }
             // Info sheet hosts description + persistent note + video, so one button covers all.
             TextButton(onClick = { current?.let { vm.openDescription(it.exerciseId) } }) {
                 Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -587,11 +575,11 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         WeightMode.PER_DUMBBELL -> stringResource(R.string.weight_per_dumbbell)
                         WeightMode.PER_SIDE -> stringResource(R.string.weight_per_side)
                     }.lowercase(),
-                    Modifier.weight(1.5f),
+                    Modifier.weight(1f),
                 )
-                SessionHeader(doneHeader, Modifier.weight(1f))
+                SessionHeader(doneHeader, Modifier.width(52.dp))
                 SessionHeader(stringResource(R.string.header_target), Modifier.width(52.dp))
-                SessionHeader("", Modifier.width(48.dp))
+                SessionHeader("", Modifier.width(80.dp))
             }
             ex.sets.forEach { set ->
                 val isCurrent = state.currentStep == page to set.templateId
@@ -631,7 +619,19 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         DropdownMenu(expanded = typeMenuFor == set.templateId, onDismissRequest = { typeMenuFor = null }) {
                             listOf(SetType.WARMUP, SetType.NORMAL, SetType.FAILURE, SetType.DROP).forEach { ty ->
                                 DropdownMenuItem(
-                                    text = { Text(ty.name) },
+                                    text = {
+                                        Text(
+                                            when (ty) {
+                                                SetType.WARMUP -> stringResource(R.string.set_warmup)
+                                                SetType.NORMAL -> stringResource(R.string.set_normal)
+                                                SetType.FAILURE -> stringResource(R.string.set_failure)
+                                                SetType.DROP -> stringResource(R.string.set_drop)
+                                                SetType.SUPERSET -> stringResource(R.string.set_superset)
+                                            },
+                                            color = setTypeColor(ty),
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    },
                                     onClick = { typeMenuFor = null; vm.setSetType(set, ty) },
                                 )
                             }
@@ -640,7 +640,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     // − weight + quick-steppers around the tap-to-edit weight button.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1.5f),
+                        modifier = Modifier.weight(1f),
                     ) {
                         IconButton(
                             onClick = { vm.updateWeight(page, set, (set.weightKg - 1.0).coerceAtLeast(0.0)) },
@@ -675,7 +675,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     OutlinedButton(
                         onClick = { editTarget = set to "value" },
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.width(52.dp),
                     ) {
                         Text("${set.value}")
                     }
@@ -702,6 +702,18 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                             // the primaryContainer current-set highlight (gray vanished there).
                             tint = if (set.done) DoneGreen
                             else MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    // Explicit per-row delete (mirrors the editor); long-press still works too.
+                    IconButton(
+                        onClick = { removeSetTarget = set },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.delete),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -815,10 +827,10 @@ internal val DoneGreen = androidx.compose.ui.graphics.Color(0xFF43A047)
 /** Color code per set type so the single letters scan at a glance. */
 @Composable
 private fun setTypeColor(type: SetType): androidx.compose.ui.graphics.Color = when (type) {
-    SetType.WARMUP -> androidx.compose.ui.graphics.Color(0xFFFF9800)   // orange
+    SetType.WARMUP -> androidx.compose.ui.graphics.Color(0xFFEF6C00)   // deep orange
     SetType.NORMAL -> MaterialTheme.colorScheme.onSurface
     SetType.FAILURE -> MaterialTheme.colorScheme.error
-    SetType.DROP -> androidx.compose.ui.graphics.Color(0xFFAB47BC)     // purple
+    SetType.DROP -> androidx.compose.ui.graphics.Color(0xFF8E24AA)     // deep purple
     SetType.SUPERSET -> MaterialTheme.colorScheme.tertiary
 }
 

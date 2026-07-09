@@ -17,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,6 +64,7 @@ fun ExerciseLibraryScreen(
     val state by vm.state.collectAsState()
     val muscles by vm.muscles.collectAsState()
     val detail by vm.detail.collectAsState()
+    val favoriteIds by vm.favoriteIds.collectAsState()
     var showFilters by remember { mutableStateOf(false) }
     var showCustomDialog by remember { mutableStateOf(false) }
     var showCustomsSheet by remember { mutableStateOf(false) }
@@ -139,6 +142,8 @@ fun ExerciseLibraryScreen(
                             },
                             onClick = { vm.openDetail(hit) },
                             onAdd = onAdd,
+                            isFavorite = hit.id in favoriteIds,
+                            onToggleFavorite = { vm.toggleFavorite(hit.id) },
                         )
                     }
                 }
@@ -406,6 +411,8 @@ private fun ExerciseRow(
     muscleName: (Int) -> String,
     onClick: () -> Unit,
     onAdd: ((String) -> Unit)? = null,
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
 ) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
@@ -427,6 +434,14 @@ private fun ExerciseRow(
                 Text(hit.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 if (hit.lang != appLang) {
                     Text("(${hit.lang})", style = MaterialTheme.typography.labelSmall)
+                }
+                IconButton(onClick = onToggleFavorite) {
+                    Icon(
+                        if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        contentDescription = stringResource(R.string.favorite),
+                        tint = if (isFavorite) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 if (onAdd != null) {
                     IconButton(onClick = { onAdd(hit.id) }) {

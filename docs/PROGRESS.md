@@ -137,7 +137,12 @@ workout_exercise.supersetWithPrev, set_template.targetValueMax — additive, his
 - [x] Commit + push (c6bb546, 2026-07-07)
 - [ ] Allan: real-device pass on the Redmi (`winstall`), incl. session superset flow + PDF export
 
-## Status: Phases 0-9 complete. Phase 10 (second QA feedback batch) captured 2026-07-08, not started. Pending real-device test on the Redmi.
+## Status: Phases 0-9 complete; Phase 10 (second QA batch) mostly done through SESSION
+2026-07-09e (DB v6, versionCode 4 / 0.4.0 — favorites + demo import/export). Remaining
+Phase-10 open items: global bottom-nav on drill-in screens (pending Allan's call, see 09e),
+and any leftover sub-items in the Active/plan-management block. Real-device test on the Redmi
+intentionally deferred until a trusted 1.0 (Allan). Everything post-emulator is unit-test +
+build green, NOT emulator-verified.
 
 Phase 7 EMULATOR-VERIFIED 2026-07-07 (AVD testphone, debug build, pt-BR; screenshots in session scratchpad):
 - pt batch: search "testa" → 5 "Tríceps Testa …" generated names; still present after wger sync (re-merge works)
@@ -239,9 +244,11 @@ Exercise search / library:
 - [x] Search results show the exercise image above the title (local file first, wger URL
       fallback; ExerciseHit gained imagePath).
 - [x] Editor: ℹ icon per exercise opens a localized description dialog.
-- [~] Library icon moved off the Home tab; now an OutlinedButton at the bottom of the
-      Active/Archive tabs (MainActivity.LibraryButton). ADDING exercises to a workout from
-      there still open — needs the workout-selection page from the deferred Active rework.
+- [x] Library icon moved off the Home tab; now an OutlinedButton at the bottom of the
+      Active/Archive tabs (MainActivity.LibraryButton). Adding-to-workout from the browse
+      library was REPLACED by favorites (Allan 2026-07-09e): star an exercise instead —
+      favorites float to the top of library search and are picked first by the suggestion
+      engine. No workout-selection page needed. See SESSION 2026-07-09e.
 - [x] YouTube link editing moved to the library detail sheet with an explicit Save/Delete
       link button (blank clears); the in-session sheet is view-only (watch/open).
 - [x] YouTube link bugs: save is now a full-width filled Button below the field (contrast
@@ -309,6 +316,35 @@ Statistics rework (point graphs):
 - [x] "Averages" renamed "Progression"; card opens ProgressionScreen: total-volume
       PointAreaChart + one chart per muscle group (primary-muscle attribution), same range
       chips. Old inline volume LineChart removed.
+
+SESSION 2026-07-09e (favorites + demo import/export; DB v6, versionCode 4 / 0.4.0):
+- Favorite/star exercises (DB v6, MIGRATION_5_6 adds `exercise_favorite` — own table like
+  exercise_link/exercise_note so wger snapshot refreshes never touch it). Chosen over
+  "add to workout from the browse library" (that needed a workout-selection page; favorite
+  is the lighter path Allan preferred anyway). Star button per row in ExerciseLibraryScreen
+  (browse AND picker mode); favorites sort to the top of search (stable) and are picked
+  first by SuggestionEngine.fillWorkoutByMuscles (favorites → illustrated → compound/iso,
+  favorites taken before the shuffled head so they aren't shuffled away). Backup gains a
+  `favorites` list (absent in pre-v6 backups). Strings favorite/en-pt-de.
+- Nav-bar visibility: Allan's rule "4 nav buttons always visible except editing, search,
+  during a workout" — current behavior ALREADY matches for the tabbed surface: the bottom
+  NavigationBar shows on all 4 main tabs and is absent only in the workout editor (editing),
+  library/picker (search), and session (workout). NOT changed. DECISION/OPEN: drill-in
+  screens (WorkoutView, Archive sub-screens, Bodyweight/Progression, Summary) also have no
+  bottom nav (back-arrow only) — a strict reading of the rule would add nav there, but every
+  such screen owns its own Scaffold so a shared/global bottom bar is a nested-scaffold
+  refactor; deferred pending Allan's confirmation that he wants nav on those too.
+- demo.html: real JSON import/export (was an alert stub). Workout-view ⬇️ downloads that one
+  workout (app transfer shape: name + exercises + sets). Settings sheet gained Export data
+  (full in-memory state → workout-app-demo.json) + Import data (file picker → full backup
+  restore, or a single workout/plan file, unknown exercise ids skipped). Still in-memory only
+  (refresh resets). Node DOM-stub smoke test green (5 flows: workout export, full export,
+  full re-import, single-workout import w/ unknown-id skip, bad-payload guard).
+- Compile + unit tests green (testDebug + testRelease); release APK built. NOT emulator-
+  verified (favorite star, search reorder, suggestion prioritization are logic/UI-only) —
+  Allan is intentionally staying off-device until a trusted 1.0.
+- STILL DEMO DEBT (unchanged from 09d): demo.html lacks note-in-info-sheet, tempo, clock
+  toggle, in-session set editing, AND now the favorite star.
 
 SESSION 2026-07-09d (note-persistence bug + tempo + in-session set editing; DB v5):
 - Note bug FIXED (headline): the in-session note dialog always opened empty and inserted a

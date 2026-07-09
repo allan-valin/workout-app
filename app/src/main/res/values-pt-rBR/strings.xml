@@ -51,6 +51,7 @@
     <string name="split_arms">Braços</string>
     <string name="split_cardio_core">Cardio e Core</string>
     <string name="add_exercise">Adicionar exercício</string>
+    <string name="favorite">Favorito</string>
     <string name="add_set">Adicionar série</string>
     <string name="rest_apply_all">Descanso para todas as séries</string>
     <string name="rest_secs">Descanso (segundos)</string>
@@ -60,7 +61,7 @@
     <string name="secs">Seg</string>
     <string name="set_warmup">Aquecimento</string>
     <string name="set_normal">Normal</string>
-    <string name="set_failure">Até a falha</string>
+    <string name="set_failure">Falha</string>
     <string name="set_drop">Drop</string>
     <string name="set_superset">Superset</string>
     <string name="weight_total">Total</string>
@@ -217,9 +218,11 @@
     <string name="mode_isolation">Isolados</string>
     <string name="approx_duration">≈ %1$d min</string>
     <string name="tempo_label">Cadência (ex. 4-0-2-0)</string>
+    <string name="tempo_info_title">Cadência</string>
+    <string name="tempo_info_body">Os quatro números são segundos por fase: excêntrica (descida) – pausa – concêntrica (subida) – pausa. Ex.: 4-0-2-0 = 4s descendo, sem pausa, 2s subindo, sem pausa.</string>
     <string name="keep_plan_changes_title">Manter alterações no plano?</string>
     <string name="keep_plan_changes_msg">Você mudou séries durante o treino. Manter no plano ou aplicar só desta vez?</string>
-    <string name="one_time_only">Só desta vez</string>
+    <string name="one_time_only">Descartar</string>
     <string name="tempo_show_clock">Mostrar relógio</string>
     <string name="suggest_duration">Duração desejada</string>
     <string name="minutes_suffix">min</string>

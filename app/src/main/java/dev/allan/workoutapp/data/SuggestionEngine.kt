@@ -96,6 +96,7 @@ object SuggestionEngine {
         compound: Boolean? = null,
     ): Int {
         val already = db.planDao().workoutExercisesList(workoutId).map { it.exerciseId }.toMutableSet()
+        val favorites = db.exerciseDao().favoriteIds().toSet()
         var added = 0
         for ((muscleId, count) in counts) {
             if (muscleId in injured) continue
@@ -110,10 +111,11 @@ object SuggestionEngine {
                     hit.primaryMuscles.none(injured::contains) &&
                     hit.secondaryMuscles.none(injured::contains)
             }
-            // Prefer illustrated exercises; compound/isolation preference second;
-            // shuffle a small head pool for variety per tap.
+            // Prefer starred exercises first, then illustrated ones; compound/isolation
+            // preference last; shuffle a small head pool for variety per tap.
             val ranked = safe.sortedWith(
-                compareByDescending<dev.allan.workoutapp.data.db.ExerciseHit> { it.imageUrl != null }
+                compareByDescending<dev.allan.workoutapp.data.db.ExerciseHit> { it.id in favorites }
+                    .thenByDescending { it.imageUrl != null }
                     .thenByDescending { hit ->
                         val muscles = (hit.primaryMuscles + hit.secondaryMuscles).distinct().size
                         when (compound) {
@@ -123,7 +125,9 @@ object SuggestionEngine {
                         }
                     }
             )
-            val picks = ranked.take(12).shuffled().take(count)
+            // Favorites are picked first (order kept), then a shuffled head of the rest.
+            val (favHits, rest) = ranked.partition { it.id in favorites }
+            val picks = (favHits + rest.take(12).shuffled()).take(count)
             for (hit in picks) {
                 PlanRepo.addExerciseToWorkout(db, workoutId, hit.id)
                 already += hit.id

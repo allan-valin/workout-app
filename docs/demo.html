@@ -137,6 +137,7 @@ const STR = {
     download:"Download",edit:"Edit",undo:"Undo",redo:"Redo",save:"Save",keepQ:"Keep changes?",keep:"Keep",discard:"Discard",
     videoLink:"Video link (YouTube)",watch:"▶ Watch video",openExt:"Open externally",saveLink:"Save link",deleteLink:"Delete link",
     description:"Description",noDesc:"No description available.",suggest:"Suggest exercises",focus:"Focus",howMany:"How many?",confirm:"Confirm",next:"Next",eta:"est.",
+    exportData:"Export data (JSON)",importData:"Import data (JSON)",importBad:"Could not read that file.",importOk:"Imported.",dataTransfer:"Data",
     demoNote:"This demo keeps everything in memory only. The real app stores data on-device (Room DB), syncs the wger exercise catalog, exports PDF/JSON and more."},
   pt:{banner:"DEMO — nada é salvo, recarregar apaga tudo",home:"Início",active:"Ativos",inactive:"Arquivo",
     stats:"Estatísticas",todays:"Treino de hoje",noPlan:"Nenhum plano ativo. Crie um em Ativos.",plans:"Ciclos",
@@ -156,6 +157,7 @@ const STR = {
     download:"Baixar",edit:"Editar",undo:"Desfazer",redo:"Refazer",save:"Salvar",keepQ:"Manter alterações?",keep:"Manter",discard:"Descartar",
     videoLink:"Link de vídeo (YouTube)",watch:"▶ Assistir vídeo",openExt:"Abrir externamente",saveLink:"Salvar link",deleteLink:"Excluir link",
     description:"Descrição",noDesc:"Sem descrição.",suggest:"Sugerir exercícios",focus:"Foco",howMany:"Quantos?",confirm:"Confirmar",next:"Próximo",eta:"est.",
+    exportData:"Exportar dados (JSON)",importData:"Importar dados (JSON)",importBad:"Não foi possível ler o arquivo.",importOk:"Importado.",dataTransfer:"Dados",
     demoNote:"Esta demo mantém tudo apenas na memória. O app real salva no aparelho (Room DB), sincroniza o catálogo wger, exporta PDF/JSON e mais."},
   de:{banner:"DEMO — nichts wird gespeichert, Neuladen setzt alles zurück",home:"Start",active:"Aktiv",inactive:"Archiv",
     stats:"Statistik",todays:"Heutiges Training",noPlan:"Kein aktiver Plan. Erstelle einen unter Aktiv.",plans:"Zyklen",
@@ -175,6 +177,7 @@ const STR = {
     download:"Herunterladen",edit:"Bearbeiten",undo:"Rückgängig",redo:"Wiederherstellen",save:"Speichern",keepQ:"Änderungen behalten?",keep:"Behalten",discard:"Verwerfen",
     videoLink:"Video-Link (YouTube)",watch:"▶ Video ansehen",openExt:"Extern öffnen",saveLink:"Link speichern",deleteLink:"Link löschen",
     description:"Beschreibung",noDesc:"Keine Beschreibung.",suggest:"Übungen vorschlagen",focus:"Fokus",howMany:"Wie viele?",confirm:"Bestätigen",next:"Weiter",eta:"gesch.",
+    exportData:"Daten exportieren (JSON)",importData:"Daten importieren (JSON)",importBad:"Datei konnte nicht gelesen werden.",importOk:"Importiert.",dataTransfer:"Daten",
     demoNote:"Diese Demo hält alles nur im Speicher. Die echte App speichert auf dem Gerät (Room DB), synct den wger-Katalog, exportiert PDF/JSON u.v.m."}
 };
 const t = k => STR[state.lang][k] || STR.en[k] || k;
@@ -429,7 +432,7 @@ function renderWorkoutView(w){
   let h=`<div class="row" style="margin-bottom:10px">
     <button class="btn tonal" onclick="state.view=null;render()">←</button><div class="grow"></div>
     <button class="iconBtn" onclick="openEditor(${w.id})" title="edit">✎</button>
-    <button class="iconBtn" onclick="alert('${t("download")} → workout.json (demo)')" title="download">⬇️</button>
+    <button class="iconBtn" onclick="exportWorkout(${w.id})" title="download">⬇️</button>
     <button class="iconBtn" onclick="archiveWorkout(${w.id})" title="archive">🗄️</button>
     <button class="iconBtn" onclick="deleteWorkout(${w.id})" title="delete">🗑️</button></div>
     <button class="btn green" style="width:100%;margin-bottom:10px" onclick="startSession(workoutById(${w.id}))">▶ ${t("start")}</button>`;
@@ -598,6 +601,10 @@ function openSheet(kind,arg){
       <label>${t("injured")}</label>
       ${[...new Set(CATALOG.map(e=>e.muscle))].map(m=>`<button class="chip ${state.injured.includes(m)?"sel":""}"
         onclick="toggleInjured('${m}')">${m}</button>`).join("")}
+      <label>${t("dataTransfer")}</label>
+      <div class="row" style="gap:8px">
+        <button class="btn tonal grow" onclick="exportData()">⬇️ ${t("exportData")}</button>
+        <button class="btn tonal grow" onclick="importData()">⬆️ ${t("importData")}</button></div>
       <div class="sub" style="margin-top:14px;line-height:1.5">${t("demoNote")}</div>`;
   }
   if(kind==="newPlan"){
@@ -672,6 +679,52 @@ function createPlan(){const n=$("npName").value.trim();if(!n)return;
 function createWorkout(pId){const n=$("nwName").value.trim();if(!n)return;
   const w=mkWorkout(n,[]);state.workouts.push(w);state.links.push({planId:pId,workoutId:w.id});closeSheet();render();}
 function closeSheet(){$("scrim").style.display="none";$("sheet").style.display="none";}
+
+/* ---------- import / export (real JSON files; still in-memory) ---------- */
+function downloadJSON(filename,obj){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+// One workout, matching the app's plan/workout transfer shape (name + exercises + sets).
+function serializeWorkout(w){return{name:w.name,daysOfWeek:[],exercises:w.exercises.map(we=>({
+  exerciseId:we.exerciseId,supersetWithPrev:we.supersetWithPrev,
+  sets:we.sets.map(s=>({type:s.type,weightKg:s.weightKg,value:s.value,unit:s.unit,restSecs:s.restSecs}))}))};}
+function exportWorkout(id){const w=workoutById(id);if(!w)return;
+  downloadJSON((w.name||"workout").replace(/\s+/g,"_")+".json",{schema:1,workout:serializeWorkout(w)});}
+// Full in-memory state, so a file can carry the whole demo across a refresh.
+function exportData(){downloadJSON("workout-app-demo.json",{schema:1,
+  plans:state.plans,workouts:JSON.parse(JSON.stringify(state.workouts)),links:state.links,
+  customExercises:state.customExercises,injured:state.injured,
+  bodyweight:state.bodyweight,finished:state.finished,videoLinks:state.videoLinks});}
+function importData(){
+  const inp=document.createElement("input");inp.type="file";inp.accept="application/json,.json,text/plain";
+  inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();
+    r.onload=()=>{try{applyImport(JSON.parse(r.result));}catch(e){alert(t("importBad"));}};r.readAsText(f);};
+  inp.click();
+}
+// Build a fresh workout from a serialized one, skipping exercises this demo can't resolve.
+function workoutFromSerialized(src){return mkWorkout(src.name||"Workout",
+  (src.exercises||[]).filter(we=>exById(we.exerciseId)).map(we=>mkWe(we.exerciseId,
+    (we.sets||[]).map(s=>mkSet(s.weightKg,s.value,s.restSecs,s.type)),we.supersetWithPrev)));}
+function applyImport(d){
+  if(Array.isArray(d.workouts)&&Array.isArray(d.plans)){ // full backup
+    state.plans=d.plans;state.workouts=d.workouts;state.links=d.links||[];
+    if(d.customExercises)state.customExercises=d.customExercises;
+    if(d.injured)state.injured=d.injured;
+    if(d.bodyweight)state.bodyweight=d.bodyweight;
+    if(d.finished)state.finished=d.finished;
+    if(d.videoLinks)state.videoLinks=d.videoLinks;
+  } else if(d.workout){ // single-workout file → add + link to the active plan
+    const w=workoutFromSerialized(d.workout);state.workouts.push(w);
+    const p=activePlan();if(p)state.links.push({planId:p.id,workoutId:w.id});
+  } else if(d.plan){ // plan file with embedded workouts
+    const plan={id:nextId++,name:d.plan.name||"Plan",active:false};state.plans.push(plan);
+    (d.plan.workouts||[]).forEach(src=>{const w=workoutFromSerialized(src);
+      state.workouts.push(w);state.links.push({planId:plan.id,workoutId:w.id});});
+  } else {alert(t("importBad"));return;}
+  closeSheet();state.view=null;render();
+}
 
 /* ---------- header buttons ---------- */
 $("themeBtn").onclick=()=>{state.dark=!state.dark;render();};

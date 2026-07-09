@@ -194,6 +194,17 @@ data class ExerciseLink(
     val url: String,
 )
 
+/**
+ * Starred/favorite exercises. Own table so wger snapshot refreshes (which replace the
+ * exercise tables) never touch it. Favorites sort to the top of library search and are
+ * preferred by the suggestion engine.
+ */
+@Serializable
+@Entity(tableName = "exercise_favorite")
+data class ExerciseFavorite(
+    @PrimaryKey val exerciseId: String,
+)
+
 @Serializable
 @Entity(tableName = "exercise_note", indices = [Index("exerciseId")])
 data class ExerciseNote(

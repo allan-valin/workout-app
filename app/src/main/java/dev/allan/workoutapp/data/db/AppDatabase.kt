@@ -13,9 +13,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Exercise::class, ExerciseTranslation::class, Muscle::class, Equipment::class,
         Plan::class, Workout::class, PlanWorkout::class, WorkoutExercise::class, SetTemplate::class,
         Session::class, SetLog::class, ExerciseNote::class, BodyMetric::class,
-        SessionSetDraft::class, ExerciseLink::class,
+        SessionSetDraft::class, ExerciseLink::class, ExerciseFavorite::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -111,13 +111,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v6: starred/favorite exercises (own table, survives wger refresh). */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS exercise_favorite (
+                        exerciseId TEXT NOT NULL PRIMARY KEY
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "workout.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                ).addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+                )
                     .build().also { instance = it }
             }
     }

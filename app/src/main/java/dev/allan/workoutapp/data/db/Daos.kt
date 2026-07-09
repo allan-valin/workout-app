@@ -90,6 +90,25 @@ interface ExerciseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun restoreVideoLinks(items: List<ExerciseLink>)
 
+    // ---- favorites (own table; survives wger refresh) ----
+    @Query("SELECT exerciseId FROM exercise_favorite")
+    fun favoriteIdsFlow(): Flow<List<String>>
+
+    @Query("SELECT exerciseId FROM exercise_favorite")
+    suspend fun favoriteIds(): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addFavorite(fav: ExerciseFavorite)
+
+    @Query("DELETE FROM exercise_favorite WHERE exerciseId = :exerciseId")
+    suspend fun removeFavorite(exerciseId: String)
+
+    @Query("SELECT * FROM exercise_favorite")
+    suspend fun allFavorites(): List<ExerciseFavorite>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreFavorites(items: List<ExerciseFavorite>)
+
     /**
      * Deferred search. lang = null searches all languages; muscleId filters primary OR
      * secondary; query matches name or aliases, case-insensitive.

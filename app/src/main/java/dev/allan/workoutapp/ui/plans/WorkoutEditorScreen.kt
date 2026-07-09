@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Deselect
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Link
@@ -1089,18 +1090,39 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
         }
     }
     // Per-set cadence/tempo reminder (e.g. 4-0-2-0), below the set details.
+    // Commit on every change (not just blur): tapping Save/back could dispose the field
+    // before onFocusChanged fired, silently dropping the cadence.
     var tempo by remember(set.id, set.tempo) { mutableStateOf(set.tempo) }
-    OutlinedTextField(
-        value = tempo,
-        onValueChange = { tempo = it.filter { c -> c.isDigit() || c == '-' }.take(11) },
-        label = { Text(stringResource(R.string.tempo_label)) },
-        placeholder = { Text("4-0-2-0") },
-        singleLine = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 2.dp, bottom = 2.dp)
-            .onFocusChanged { if (!it.isFocused && tempo != set.tempo) onUpdate(set.copy(tempo = tempo.trim())) },
-    )
+    var showTempoInfo by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = tempo,
+            onValueChange = {
+                tempo = it.filter { c -> c.isDigit() || c == '-' }.take(11)
+                onUpdate(set.copy(tempo = tempo.trim()))
+            },
+            label = { Text(stringResource(R.string.tempo_label)) },
+            placeholder = { Text("4-0-2-0") },
+            singleLine = true,
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 2.dp, bottom = 2.dp),
+        )
+        // Dedicated cadence legend — separate from the exercise info button.
+        IconButton(onClick = { showTempoInfo = true }) {
+            Icon(Icons.Default.Info, contentDescription = stringResource(R.string.tempo_info_title))
+        }
+    }
+    if (showTempoInfo) {
+        AlertDialog(
+            onDismissRequest = { showTempoInfo = false },
+            title = { Text(stringResource(R.string.tempo_info_title)) },
+            text = { Text(stringResource(R.string.tempo_info_body)) },
+            confirmButton = {
+                TextButton(onClick = { showTempoInfo = false }) { Text(stringResource(R.string.ok)) }
+            },
+        )
+    }
   }
 }
 

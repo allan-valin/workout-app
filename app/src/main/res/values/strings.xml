@@ -51,6 +51,7 @@
     <string name="split_arms">Arms</string>
     <string name="split_cardio_core">Cardio &amp; Core</string>
     <string name="add_exercise">Add exercise</string>
+    <string name="favorite">Favorite</string>
     <string name="add_set">Add set</string>
     <string name="rest_apply_all">Rest for all sets</string>
     <string name="rest_secs">Rest (seconds)</string>
@@ -217,6 +218,8 @@
     <string name="mode_isolation">Isolation</string>
     <string name="approx_duration">≈ %1$d min</string>
     <string name="tempo_label">Tempo (e.g. 4-0-2-0)</string>
+    <string name="tempo_info_title">Cadence</string>
+    <string name="tempo_info_body">The four numbers are seconds per phase: eccentric (lowering) – pause – concentric (lifting) – pause. E.g. 4-0-2-0 = 4s down, no pause, 2s up, no pause.</string>
     <string name="keep_plan_changes_title">Keep plan changes?</string>
     <string name="keep_plan_changes_msg">You changed sets during this workout. Keep them in the plan, or apply just this once?</string>
     <string name="one_time_only">Just this time</string>

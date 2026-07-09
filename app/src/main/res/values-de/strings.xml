@@ -51,6 +51,7 @@
     <string name="split_arms">Arme</string>
     <string name="split_cardio_core">Cardio &amp; Core</string>
     <string name="add_exercise">Übung hinzufügen</string>
+    <string name="favorite">Favorit</string>
     <string name="add_set">Satz hinzufügen</string>
     <string name="rest_apply_all">Pause für alle Sätze</string>
     <string name="rest_secs">Pause (Sekunden)</string>
@@ -217,6 +218,8 @@
     <string name="mode_isolation">Isolationsübungen</string>
     <string name="approx_duration">≈ %1$d Min</string>
     <string name="tempo_label">Tempo (z.B. 4-0-2-0)</string>
+    <string name="tempo_info_title">Kadenz</string>
+    <string name="tempo_info_body">Die vier Zahlen sind Sekunden pro Phase: exzentrisch (Absenken) – Pause – konzentrisch (Anheben) – Pause. Z.B. 4-0-2-0 = 4s runter, keine Pause, 2s hoch, keine Pause.</string>
     <string name="keep_plan_changes_title">Planänderungen behalten?</string>
     <string name="keep_plan_changes_msg">Du hast Sätze während des Trainings geändert. Im Plan behalten oder nur diesmal anwenden?</string>
     <string name="one_time_only">Nur diesmal</string>

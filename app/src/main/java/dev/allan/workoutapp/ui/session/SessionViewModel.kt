@@ -72,7 +72,7 @@ data class SessionUiState(
     val stopwatchRunning: Boolean = false,
     /** Live active-time total: booked seconds + the current stopwatch reading. */
     val activeSecs: Int = 0,
-    val timerPanelVisible: Boolean = false,
+    val timerPanelVisible: Boolean = true,
     /** True once the user edits the plan mid-session (drives the keep/one-time prompt). */
     val templatesChanged: Boolean = false,
     /** One-shot: pager should animate to this exercise index (superset/auto-advance). */

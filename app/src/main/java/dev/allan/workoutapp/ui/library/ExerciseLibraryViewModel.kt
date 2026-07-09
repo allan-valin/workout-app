@@ -10,6 +10,7 @@ import dev.allan.workoutapp.data.db.Muscle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,6 +57,20 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
     val injuredMuscles: StateFlow<Set<Int>> =
         dev.allan.workoutapp.data.Settings.injuredMuscles(app)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** Starred exercise ids — drive the star icon and sort favorites to the top. */
+    val favoriteIds: StateFlow<Set<String>> = db.exerciseDao().favoriteIdsFlow()
+        .map { it.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun toggleFavorite(exerciseId: String) {
+        viewModelScope.launch {
+            if (exerciseId in favoriteIds.value) db.exerciseDao().removeFavorite(exerciseId)
+            else db.exerciseDao().addFavorite(
+                dev.allan.workoutapp.data.db.ExerciseFavorite(exerciseId)
+            )
+        }
+    }
 
     /** Existing custom exercises — browsed, selected, and deleted from the customs sheet. */
     val customs: StateFlow<List<ExerciseHit>> = db.exerciseDao().customHits()
@@ -135,9 +150,12 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }
-            val alt = if (_state.value.showAltNames) buildAltNames(hits) else emptyMap()
+            // Favorites float to the top (stable — name order kept within each group).
+            val favs = db.exerciseDao().favoriteIds().toSet()
+            val sorted = hits.sortedByDescending { it.id in favs }
+            val alt = if (_state.value.showAltNames) buildAltNames(sorted) else emptyMap()
             _state.value = _state.value.copy(
-                searching = false, searched = true, results = hits, altNames = alt,
+                searching = false, searched = true, results = sorted, altNames = alt,
             )
         }
     }
