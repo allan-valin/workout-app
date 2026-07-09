@@ -239,28 +239,23 @@ Exercise search / library:
       browser — verify on the Redmi before treating as a bug).
 
 Suggestion flow (workout editor ✨):
-- [ ] Muscle-focus buttons become multi-select (same interaction as the exercise filter),
-      not single-select.
-- [ ] Space freed by multi-select: add "desired workout duration" input. Estimation model:
-      per exercise = 1 min fixed buffer (walking/setup) + per set (40 s execution + configured
-      pause). Defaults: 3 sets, 60 s pause, 40 s active → ~6 min/exercise. If the exercise is
-      seconds-based (secs instead of reps), use its configured seconds as execution time. Any
-      change to sets/pauses/exercise count recalculates so the plan matches the requested
-      total.
-- [ ] During a session, show total estimated time to the right of the elapsed time.
+- [x] Suggestion wizard step 1: focus buttons are multi-select FilterChips; recipes of all
+      selected foci merge (SuggestionEngine.mergedRecipe).
+- [~] Duration estimation PARTIAL: wizard shows "≈ N min" next to the count (6 min/exercise
+      model). Still open: a dedicated duration input that back-computes the count, live
+      recalculation from actual sets/pauses/secs-based exercises, and…
+- [ ] During a session, show total estimated time to the right of the elapsed time
+      (estimate = Σ per exercise: 60 s buffer + Σ sets (40 s or set seconds + restSecs)).
 - [x] "How many exercises" row: "default" chip and fixed chips replaced by editable numeric
       field (min 1) with −/+ steppers.
-- [ ] Add "Next"/"Advance" button next to Cancel → second overlay: lists the muscles selected
-      in step 1, each with a number input = how many exercises of that muscle to add.
-      Buttons: "Go back" (returns to step 1 with selections intact) and "Confirm".
-      If sub-muscle granularity exists (see constraint above), show subcategories under each
-      parent.
-- [ ] Push/pull and full-body presets pre-select their muscles; spread exercises across
-      different sub-muscles of a parent if supported. Full body offers two modes: compound
-      focus (multi-muscle exercises) or isolation (each muscle group targeted separately).
-- [ ] Step-1 overlay: below the muscle icons add an "injuries" checkbox; when marked, the
-      next overlay shows the injured-muscles list (today only in gear/settings) with
-      go-back/advance, and those selections filter the suggestions.
+- [x] Wizard step 3: per-muscle −/+ counts (derived from merged recipes scaled to the
+      requested total), Go back keeps all selections, Confirm fills via
+      fillWorkoutByMuscles. (No sub-muscle rows — wger list is flat, see constraint.)
+- [x] Presets pre-select their recipe muscles in step 3. Full body offers Compound vs
+      Isolation chips (ranking by distinct primary+secondary muscle count). Sub-muscle
+      spreading impossible (flat wger list).
+- [x] Step-1 "Consider injuries" checkbox → step 2 lists all muscles as chips; selections
+      are session-only extra injuries merged with the persisted Settings ones.
 
 Active screen / plan management rework:
 - [ ] Only ONE plan active at a time. Tapping the Active tab goes straight to the

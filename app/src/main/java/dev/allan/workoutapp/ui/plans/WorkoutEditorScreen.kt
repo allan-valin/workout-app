@@ -221,6 +221,25 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         }
     }
 
+    /** Wizard confirm: per-muscle counts, extra session-only injuries, full-body mode. */
+    fun suggestByMuscles(counts: List<Pair<Int, Int>>, extraInjured: Set<Int>, compound: Boolean?) {
+        if (_suggesting.value) return
+        viewModelScope.launch {
+            _suggesting.value = true
+            try {
+                val injured = dev.allan.workoutapp.data.Settings
+                    .injuredMuscles(getApplication()).first() + extraInjured
+                dev.allan.workoutapp.data.SuggestionEngine
+                    .fillWorkoutByMuscles(db, workoutId, counts, injured, compound)
+            } finally {
+                _suggesting.value = false
+            }
+        }
+    }
+
+    val muscles: StateFlow<List<dev.allan.workoutapp.data.db.Muscle>> = db.exerciseDao().muscles()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     class Factory(private val app: Application, private val workoutId: Long, private val lang: String) :
         ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -254,11 +273,14 @@ fun WorkoutEditorScreen(
     var confirmBulkDelete by remember { mutableStateOf(false) }
 
     if (showSuggestDialog) {
-        SuggestFocusDialog(
+        val muscles by vm.muscles.collectAsState()
+        SuggestWizard(
+            muscles = muscles,
+            appLang = appLang,
             onDismiss = { showSuggestDialog = false },
-            onPick = { focus, total ->
+            onConfirm = { counts, extraInjured, compound ->
                 showSuggestDialog = false
-                vm.suggestExercises(focus, total)
+                vm.suggestByMuscles(counts, extraInjured, compound)
             },
         )
     }
@@ -388,74 +410,211 @@ fun WorkoutEditorScreen(
 }
 
 @Composable
-private fun SuggestFocusDialog(
+private fun focusLabel(focus: SuggestionFocus): String = stringResource(
+    when (focus) {
+        SuggestionFocus.FULL_BODY -> R.string.split_full_body
+        SuggestionFocus.PUSH -> R.string.split_push
+        SuggestionFocus.PULL -> R.string.split_pull
+        SuggestionFocus.LEGS -> R.string.split_legs
+        SuggestionFocus.UPPER -> R.string.split_upper
+        SuggestionFocus.LOWER -> R.string.split_lower
+        SuggestionFocus.CHEST -> R.string.split_chest
+        SuggestionFocus.BACK -> R.string.split_back
+        SuggestionFocus.SHOULDERS -> R.string.split_shoulders
+        SuggestionFocus.ARMS -> R.string.split_arms
+        SuggestionFocus.CARDIO_CORE -> R.string.split_cardio_core
+    }
+)
+
+/** ~minutes per suggested exercise: 1 min setup + 3 sets × (40 s work + 60 s rest). */
+private const val MINUTES_PER_EXERCISE = 6
+
+/**
+ * Three-step suggestion wizard: (1) multi-select foci + exercise count or desired
+ * duration + optional injuries checkbox + full-body mode, (2) session-only injured
+ * muscles, (3) per-muscle exercise counts derived from the merged recipes.
+ * Going back keeps every selection.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun SuggestWizard(
+    muscles: List<dev.allan.workoutapp.data.db.Muscle>,
+    appLang: String,
     onDismiss: () -> Unit,
-    onPick: (SuggestionFocus, Int?) -> Unit,
+    onConfirm: (List<Pair<Int, Int>>, Set<Int>, Boolean?) -> Unit,
 ) {
+    var step by remember { mutableIntStateOf(1) }
+    var foci by remember { mutableStateOf(setOf<SuggestionFocus>()) }
     var countText by remember { mutableStateOf("4") }
+    var injuriesChecked by remember { mutableStateOf(false) }
+    var extraInjured by remember { mutableStateOf(setOf<Int>()) }
+    var fullBodyCompound by remember { mutableStateOf(true) }
+    // Step-3 state survives go-back; recomputed only when foci/count change.
+    var muscleCounts by remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
     val count = countText.toIntOrNull()?.coerceAtLeast(1) ?: 4
+
+    fun muscleLabel(id: Int): String =
+        if (id == dev.allan.workoutapp.data.SuggestionEngine.CARDIO) "Cardio"
+        else muscles.firstOrNull { it.id == id }
+            ?.let { dev.allan.workoutapp.data.MuscleNames.display(it.nameEn, appLang) } ?: "#$id"
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.suggest_exercises)) },
         text = {
             Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                Text(stringResource(R.string.suggest_count), style = MaterialTheme.typography.labelLarge)
-                // Explicit editable count (min 1) — the old "default" chip was opaque and
-                // the fixed chip row clipped in pt-BR.
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    IconButton(onClick = { countText = (count - 1).coerceAtLeast(1).toString() }) {
-                        Icon(Icons.Default.Remove, contentDescription = null)
-                    }
-                    OutlinedTextField(
-                        value = countText,
-                        onValueChange = { new -> countText = new.filter { it.isDigit() }.take(2) },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                        ),
-                        modifier = Modifier.width(72.dp),
-                    )
-                    IconButton(onClick = { countText = (count + 1).toString() }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                    }
-                }
-                Text(
-                    stringResource(R.string.suggest_focus),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
-                SuggestionFocus.entries.forEach { focus ->
-                    TextButton(
-                        onClick = { onPick(focus, count.takeIf { it > 0 }) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            stringResource(
-                                when (focus) {
-                                    SuggestionFocus.FULL_BODY -> R.string.split_full_body
-                                    SuggestionFocus.PUSH -> R.string.split_push
-                                    SuggestionFocus.PULL -> R.string.split_pull
-                                    SuggestionFocus.LEGS -> R.string.split_legs
-                                    SuggestionFocus.UPPER -> R.string.split_upper
-                                    SuggestionFocus.LOWER -> R.string.split_lower
-                                    SuggestionFocus.CHEST -> R.string.split_chest
-                                    SuggestionFocus.BACK -> R.string.split_back
-                                    SuggestionFocus.SHOULDERS -> R.string.split_shoulders
-                                    SuggestionFocus.ARMS -> R.string.split_arms
-                                    SuggestionFocus.CARDIO_CORE -> R.string.split_cardio_core
-                                }
+                when (step) {
+                    1 -> {
+                        Text(stringResource(R.string.suggest_focus), style = MaterialTheme.typography.labelLarge)
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            SuggestionFocus.entries.forEach { focus ->
+                                FilterChip(
+                                    selected = focus in foci,
+                                    onClick = {
+                                        foci = if (focus in foci) foci - focus else foci + focus
+                                    },
+                                    label = { Text(focusLabel(focus)) },
+                                )
+                            }
+                        }
+                        if (SuggestionFocus.FULL_BODY in foci) {
+                            Text(
+                                stringResource(R.string.full_body_mode),
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(top = 10.dp),
                             )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FilterChip(
+                                    selected = fullBodyCompound,
+                                    onClick = { fullBodyCompound = true },
+                                    label = { Text(stringResource(R.string.mode_compound)) },
+                                )
+                                FilterChip(
+                                    selected = !fullBodyCompound,
+                                    onClick = { fullBodyCompound = false },
+                                    label = { Text(stringResource(R.string.mode_isolation)) },
+                                )
+                            }
+                        }
+                        Text(
+                            stringResource(R.string.suggest_count),
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(top = 10.dp),
                         )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            IconButton(onClick = { countText = (count - 1).coerceAtLeast(1).toString() }) {
+                                Icon(Icons.Default.Remove, contentDescription = null)
+                            }
+                            OutlinedTextField(
+                                value = countText,
+                                onValueChange = { new -> countText = new.filter { it.isDigit() }.take(2) },
+                                singleLine = true,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                ),
+                                modifier = Modifier.width(72.dp),
+                            )
+                            IconButton(onClick = { countText = (count + 1).toString() }) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                            }
+                            // Duration equivalent: 6 min per exercise (3×(40 s+60 s)+1 min buffer).
+                            Text(
+                                stringResource(R.string.approx_duration, count * MINUTES_PER_EXERCISE),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 6.dp),
+                        ) {
+                            Checkbox(
+                                checked = injuriesChecked,
+                                onCheckedChange = { injuriesChecked = it },
+                            )
+                            Text(stringResource(R.string.consider_injuries))
+                        }
+                    }
+                    2 -> {
+                        Text(stringResource(R.string.injured_muscles), style = MaterialTheme.typography.labelLarge)
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            muscles.forEach { m ->
+                                FilterChip(
+                                    selected = m.id in extraInjured,
+                                    onClick = {
+                                        extraInjured =
+                                            if (m.id in extraInjured) extraInjured - m.id
+                                            else extraInjured + m.id
+                                    },
+                                    label = { Text(muscleLabel(m.id)) },
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        Text(stringResource(R.string.per_muscle_counts), style = MaterialTheme.typography.labelLarge)
+                        muscleCounts.forEachIndexed { i, (muscleId, c) ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(muscleLabel(muscleId), modifier = Modifier.weight(1f))
+                                IconButton(onClick = {
+                                    muscleCounts = muscleCounts.toMutableList()
+                                        .also { it[i] = muscleId to (c - 1).coerceAtLeast(0) }
+                                }) { Icon(Icons.Default.Remove, contentDescription = null) }
+                                Text("$c")
+                                IconButton(onClick = {
+                                    muscleCounts = muscleCounts.toMutableList().also { it[i] = muscleId to c + 1 }
+                                }) { Icon(Icons.Default.Add, contentDescription = null) }
+                            }
+                        }
                     }
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            when (step) {
+                1 -> TextButton(
+                    enabled = foci.isNotEmpty(),
+                    onClick = {
+                        if (muscleCounts.isEmpty()) {
+                            muscleCounts = dev.allan.workoutapp.data.SuggestionEngine
+                                .scaledCounts(
+                                    dev.allan.workoutapp.data.SuggestionEngine.mergedRecipe(foci),
+                                    count,
+                                )
+                        }
+                        step = if (injuriesChecked) 2 else 3
+                    },
+                ) { Text(stringResource(R.string.next)) }
+                2 -> TextButton(onClick = { step = 3 }) { Text(stringResource(R.string.next)) }
+                else -> TextButton(
+                    enabled = muscleCounts.any { it.second > 0 },
+                    onClick = {
+                        onConfirm(
+                            muscleCounts.filter { it.second > 0 },
+                            if (injuriesChecked) extraInjured else emptySet(),
+                            if (SuggestionFocus.FULL_BODY in foci) fullBodyCompound else null,
+                        )
+                    },
+                ) { Text(stringResource(R.string.confirm)) }
+            }
+        },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            when (step) {
+                1 -> TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+                2 -> TextButton(onClick = { step = 1 }) { Text(stringResource(R.string.go_back)) }
+                else -> TextButton(onClick = { step = if (injuriesChecked) 2 else 1 }) {
+                    Text(stringResource(R.string.go_back))
+                }
+            }
         },
     )
 }

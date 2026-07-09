@@ -208,4 +208,14 @@
     <string name="last_entries">Last entries</string>
     <string name="edit_weight">Edit entry</string>
     <string name="tap_for_details">Tap for details</string>
+    <string name="next">Next</string>
+    <string name="confirm">Confirm</string>
+    <string name="go_back">Go back</string>
+    <string name="injured_muscles">Injured muscles</string>
+    <string name="full_body_mode">Full-body style</string>
+    <string name="mode_compound">Compound</string>
+    <string name="mode_isolation">Isolation</string>
+    <string name="approx_duration">≈ %1$d min</string>
+    <string name="consider_injuries">Consider injuries</string>
+    <string name="per_muscle_counts">Exercises per muscle</string>
 </resources>

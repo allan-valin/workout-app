@@ -34,14 +34,13 @@ object SuggestionEngine {
     )
 
     /**
-     * Scales a focus recipe to exactly [total] exercises by cycling its muscles
-     * round-robin (e.g. PUSH recipe chest/chest/shoulders/shoulders/triceps at
-     * total=3 → chest, shoulders, triceps).
+     * Scales a muscle order to exactly [total] exercises by cycling round-robin
+     * (e.g. PUSH recipe chest/chest/shoulders/shoulders/triceps at total=3 →
+     * chest, shoulders, triceps).
      */
-    fun scaledRecipe(focus: SuggestionFocus, total: Int): List<Pair<Int, Int>> {
-        val order = recipes.getValue(focus)
+    fun scaledCounts(order: List<Pair<Int, Int>>, total: Int): List<Pair<Int, Int>> {
         val counts = LinkedHashMap<Int, Int>()
-        var remaining = total.coerceIn(1, 15)
+        var remaining = total.coerceIn(1, 30)
         while (remaining > 0) {
             for ((muscleId, cap) in order) {
                 if (remaining == 0) break
@@ -57,6 +56,18 @@ object SuggestionEngine {
         return counts.toList()
     }
 
+    fun scaledRecipe(focus: SuggestionFocus, total: Int): List<Pair<Int, Int>> =
+        scaledCounts(recipes.getValue(focus), total)
+
+    /** Union of several focus recipes (muscle caps summed, first-seen order kept). */
+    fun mergedRecipe(foci: Collection<SuggestionFocus>): List<Pair<Int, Int>> {
+        val merged = LinkedHashMap<Int, Int>()
+        foci.forEach { focus ->
+            recipes.getValue(focus).forEach { (id, cap) -> merged[id] = (merged[id] ?: 0) + cap }
+        }
+        return merged.toList()
+    }
+
     /**
      * Appends suggested exercises to the workout. Returns how many were added.
      * [total] = exact number of exercises to add; null uses the recipe's default counts.
@@ -69,9 +80,24 @@ object SuggestionEngine {
         total: Int? = null,
     ): Int {
         val recipe = if (total == null) recipes.getValue(focus) else scaledRecipe(focus, total)
+        return fillWorkoutByMuscles(db, workoutId, recipe, injured)
+    }
+
+    /**
+     * Appends [counts] (muscleId → how many) exercises to the workout.
+     * [compound] steers full-body picks: true prefers multi-muscle exercises,
+     * false prefers isolation (no secondary muscles), null doesn't care.
+     */
+    suspend fun fillWorkoutByMuscles(
+        db: AppDatabase,
+        workoutId: Long,
+        counts: List<Pair<Int, Int>>,
+        injured: Set<Int>,
+        compound: Boolean? = null,
+    ): Int {
         val already = db.planDao().workoutExercisesList(workoutId).map { it.exerciseId }.toMutableSet()
         var added = 0
-        for ((muscleId, count) in recipe) {
+        for ((muscleId, count) in counts) {
             if (muscleId in injured) continue
             val pool = if (muscleId == CARDIO) {
                 db.exerciseDao().cardioHits()
@@ -84,8 +110,19 @@ object SuggestionEngine {
                     hit.primaryMuscles.none(injured::contains) &&
                     hit.secondaryMuscles.none(injured::contains)
             }
-            // Prefer illustrated exercises; shuffle a small head pool for variety per tap.
-            val ranked = safe.sortedByDescending { it.imageUrl != null }
+            // Prefer illustrated exercises; compound/isolation preference second;
+            // shuffle a small head pool for variety per tap.
+            val ranked = safe.sortedWith(
+                compareByDescending<dev.allan.workoutapp.data.db.ExerciseHit> { it.imageUrl != null }
+                    .thenByDescending { hit ->
+                        val muscles = (hit.primaryMuscles + hit.secondaryMuscles).distinct().size
+                        when (compound) {
+                            true -> muscles          // more muscle groups first
+                            false -> -muscles        // isolation first
+                            null -> 0
+                        }
+                    }
+            )
             val picks = ranked.take(12).shuffled().take(count)
             for (hit in picks) {
                 PlanRepo.addExerciseToWorkout(db, workoutId, hit.id)
