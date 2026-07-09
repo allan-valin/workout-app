@@ -205,6 +205,14 @@ the suggestion wizard, stats point-graph pages, editor multi-select and the sing
 panel details. Sync it (MAINTENANCE.md rule) in the next session. Everything implemented
 below is compile+unit-test green but NOT emulator-verified yet.
 
+UPDATE (2026-07-09c): docs/demo.html synced to the many-to-many rework and this session's
+changes — flat workouts + plan_workout links; Active tab shows the active plan's workouts
+with ▶; Archive hub (Plans/Workouts) + Archive→Workouts link; add-workout screen with
+link-vs-base; read-only workout view with download/archive/delete; editor undo/redo + Save;
+shared info sheet with editable video link; multi-focus suggest; session elapsed/≈ETA. Still
+simplified vs app: stats shows a list (no point-graphs), no per-plan day assignment. Node
+DOM-stub smoke test green (12 flows).
+
 ## Phase 10 — Allan's second-emulator-QA feedback batch (2026-07-08; IN PROGRESS —
 first implementation pass 2026-07-08, emulator-unverified)
 

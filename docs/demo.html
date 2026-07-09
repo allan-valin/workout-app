@@ -132,6 +132,11 @@ const STR = {
     totalVol:"total volume lifted",noSessions:"No finished sessions yet — start a workout!",
     confirmDel:"Delete permanently?",suggested:"Suggestion",apply:"Apply",dismiss:"Dismiss",
     exList:"Exercise list",kg:"kg",secs:"secs",backToList:"☰ list",set:"Set",empty:"Nothing here yet.",
+    archivePlans:"Plans",archiveWorkouts:"Workouts",inActivePlan:"In active plan",addToPlan:"Add to plan",
+    linkShared:"Link (shared)",useAsBase:"Use as base",noActivePlan:"No active plan. Activate one in Archive → Plans, or create a new one.",
+    download:"Download",edit:"Edit",undo:"Undo",redo:"Redo",save:"Save",keepQ:"Keep changes?",keep:"Keep",discard:"Discard",
+    videoLink:"Video link (YouTube)",watch:"▶ Watch video",openExt:"Open externally",saveLink:"Save link",deleteLink:"Delete link",
+    description:"Description",noDesc:"No description available.",suggest:"Suggest exercises",focus:"Focus",howMany:"How many?",confirm:"Confirm",next:"Next",eta:"est.",
     demoNote:"This demo keeps everything in memory only. The real app stores data on-device (Room DB), syncs the wger exercise catalog, exports PDF/JSON and more."},
   pt:{banner:"DEMO — nada é salvo, recarregar apaga tudo",home:"Início",active:"Ativos",inactive:"Arquivo",
     stats:"Estatísticas",todays:"Treino de hoje",noPlan:"Nenhum plano ativo. Crie um em Ativos.",plans:"Ciclos",
@@ -146,6 +151,11 @@ const STR = {
     totalVol:"volume total levantado",noSessions:"Nenhuma sessão concluída — inicie um treino!",
     confirmDel:"Excluir permanentemente?",suggested:"Sugestão",apply:"Aplicar",dismiss:"Dispensar",
     exList:"Lista de exercícios",kg:"kg",secs:"seg",backToList:"☰ lista",set:"Série",empty:"Nada aqui ainda.",
+    archivePlans:"Planos",archiveWorkouts:"Treinos",inActivePlan:"No plano ativo",addToPlan:"Adicionar ao plano",
+    linkShared:"Vincular (compart.)",useAsBase:"Usar como base",noActivePlan:"Nenhum plano ativo. Ative um em Arquivo → Planos, ou crie um novo.",
+    download:"Baixar",edit:"Editar",undo:"Desfazer",redo:"Refazer",save:"Salvar",keepQ:"Manter alterações?",keep:"Manter",discard:"Descartar",
+    videoLink:"Link de vídeo (YouTube)",watch:"▶ Assistir vídeo",openExt:"Abrir externamente",saveLink:"Salvar link",deleteLink:"Excluir link",
+    description:"Descrição",noDesc:"Sem descrição.",suggest:"Sugerir exercícios",focus:"Foco",howMany:"Quantos?",confirm:"Confirmar",next:"Próximo",eta:"est.",
     demoNote:"Esta demo mantém tudo apenas na memória. O app real salva no aparelho (Room DB), sincroniza o catálogo wger, exporta PDF/JSON e mais."},
   de:{banner:"DEMO — nichts wird gespeichert, Neuladen setzt alles zurück",home:"Start",active:"Aktiv",inactive:"Archiv",
     stats:"Statistik",todays:"Heutiges Training",noPlan:"Kein aktiver Plan. Erstelle einen unter Aktiv.",plans:"Zyklen",
@@ -160,6 +170,11 @@ const STR = {
     totalVol:"Gesamtvolumen gehoben",noSessions:"Noch keine Session — starte ein Training!",
     confirmDel:"Endgültig löschen?",suggested:"Vorschlag",apply:"Anwenden",dismiss:"Verwerfen",
     exList:"Übungsliste",kg:"kg",secs:"Sek",backToList:"☰ Liste",set:"Satz",empty:"Noch nichts hier.",
+    archivePlans:"Pläne",archiveWorkouts:"Trainings",inActivePlan:"Im aktiven Plan",addToPlan:"Zum Plan hinzufügen",
+    linkShared:"Verknüpfen (geteilt)",useAsBase:"Als Basis nutzen",noActivePlan:"Kein aktiver Plan. Aktiviere einen unter Archiv → Pläne, oder erstelle einen neuen.",
+    download:"Herunterladen",edit:"Bearbeiten",undo:"Rückgängig",redo:"Wiederherstellen",save:"Speichern",keepQ:"Änderungen behalten?",keep:"Behalten",discard:"Verwerfen",
+    videoLink:"Video-Link (YouTube)",watch:"▶ Video ansehen",openExt:"Extern öffnen",saveLink:"Link speichern",deleteLink:"Link löschen",
+    description:"Beschreibung",noDesc:"Keine Beschreibung.",suggest:"Übungen vorschlagen",focus:"Fokus",howMany:"Wie viele?",confirm:"Bestätigen",next:"Weiter",eta:"gesch.",
     demoNote:"Diese Demo hält alles nur im Speicher. Die echte App speichert auf dem Gerät (Room DB), synct den wger-Katalog, exportiert PDF/JSON u.v.m."}
 };
 const t = k => STR[state.lang][k] || STR.en[k] || k;
@@ -185,37 +200,44 @@ const exName = ex => ex.custom ? ex.en : (ex[state.lang] || ex.en);
 let nextId = 1000;
 const mkSet = (w,v,rest,type)=>({id:nextId++,type:type||"N",weightKg:w,value:v,unit:"reps",restSecs:rest??90,done:false});
 const mkWe  = (exId,sets,ss)=>({id:nextId++,exerciseId:exId,supersetWithPrev:!!ss,sets});
-function seedPlan(){
-  return {id:nextId++,name:"Push / Pull / Legs",active:true,workouts:[
-    {id:nextId++,name:"Push",exercises:[
-      mkWe(1,[mkSet(20,12,60,"W"),mkSet(50,10),mkSet(50,10),mkSet(50,8,90,"F")]),
-      mkWe(5,[mkSet(30,10),mkSet(30,10),mkSet(30,8)]),
-      mkWe(6,[mkSet(8,12,60),mkSet(8,12,60)]),
-      mkWe(7,[mkSet(25,12,60),mkSet(25,12,60)],true),
-    ]},
-    {id:nextId++,name:"Pull",exercises:[
-      mkWe(10,[mkSet(55,10),mkSet(55,10),mkSet(55,8)]),
-      mkWe(11,[mkSet(40,10),mkSet(40,10),mkSet(40,10)]),
-      mkWe(13,[mkSet(12,12,60),mkSet(12,10,60),mkSet(12,10,60)]),
-    ]},
-    {id:nextId++,name:"Legs",exercises:[
-      mkWe(15,[mkSet(60,10),mkSet(60,8),mkSet(60,8,120)]),
-      mkWe(18,[mkSet(50,10),mkSet(50,10)]),
-      mkWe(21,[mkSet(40,15,45),mkSet(40,15,45),mkSet(40,15,45)]),
-    ]},
-  ]};
+const mkWorkout = (name,exercises)=>({id:nextId++,name,exercises,archived:false});
+// Many-to-many: workouts are standalone; plans reference them via links (planId↔workoutId).
+function seed(){
+  const push=mkWorkout("Push",[
+    mkWe(1,[mkSet(20,12,60,"W"),mkSet(50,10),mkSet(50,10),mkSet(50,8,90,"F")]),
+    mkWe(5,[mkSet(30,10),mkSet(30,10),mkSet(30,8)]),
+    mkWe(6,[mkSet(8,12,60),mkSet(8,12,60)]),
+    mkWe(7,[mkSet(25,12,60),mkSet(25,12,60)],true)]);
+  const pull=mkWorkout("Pull",[
+    mkWe(10,[mkSet(55,10),mkSet(55,10),mkSet(55,8)]),
+    mkWe(11,[mkSet(40,10),mkSet(40,10),mkSet(40,10)]),
+    mkWe(13,[mkSet(12,12,60),mkSet(12,10,60),mkSet(12,10,60)])]);
+  const legs=mkWorkout("Legs",[
+    mkWe(15,[mkSet(60,10),mkSet(60,8),mkSet(60,8,120)]),
+    mkWe(18,[mkSet(50,10),mkSet(50,10)]),
+    mkWe(21,[mkSet(40,15,45),mkSet(40,15,45),mkSet(40,15,45)])]);
+  const plan={id:nextId++,name:"Push / Pull / Legs",active:true};
+  state.workouts=[push,pull,legs];
+  state.plans=[plan];
+  state.links=[{planId:plan.id,workoutId:push.id},{planId:plan.id,workoutId:pull.id},{planId:plan.id,workoutId:legs.id}];
 }
 const state = {
   lang:"en", dark:true, tab:"home",
-  plans:[seedPlan()], customExercises:[], injured:[],
+  plans:[], workouts:[], links:[], customExercises:[], injured:[],
   bodyweight:[{d:"–7 d",kg:79.4},{d:"–3 d",kg:79.0},{d:"today",kg:78.6}],
   finished:[],           // {name,durSecs,activeSecs,volume,sets}
   session:null,          // live session
-  view:null,             // {kind:'workout'|'session'|'summary', ...}
+  view:null, videoLinks:{},  // {kind:...}, exerciseId->url
 };
 const allExercises = () => CATALOG.concat(state.customExercises);
 const exById = id => allExercises().find(e=>e.id===id);
 const activePlan = () => state.plans.find(p=>p.active);
+const workoutById = id => state.workouts.find(w=>w.id===id);
+const workoutsOfPlan = pid => state.links.filter(l=>l.planId===pid).map(l=>workoutById(l.workoutId)).filter(Boolean);
+const activePlanWorkouts = () => { const p=activePlan(); return p?workoutsOfPlan(p.id).filter(w=>!w.archived):[]; };
+const workoutInActivePlan = wid => { const p=activePlan(); return !!p && state.links.some(l=>l.planId===p.id&&l.workoutId===wid); };
+const linkCount = pid => state.links.filter(l=>l.planId===pid).length;
+seed();
 
 /* ---------- superset-aware order (port of SupersetOrder.kt, incl. bug-A fix) ---------- */
 function chain(exs,i){let f=i;while(f>0&&exs[f].supersetWithPrev)f--;let l=i;while(l+1<exs.length&&exs[l+1].supersetWithPrev)l++;
@@ -257,6 +279,8 @@ function logSet(ei,set){
   render();
 }
 const swSecs=()=>{const S=state.session;return S.swAccum+(S.swStart?Math.floor((Date.now()-S.swStart)/1000):0);};
+// Rough workout time budget (mirror of estimateWorkoutSecs): 60s/exercise + per set work+rest.
+const estimateSecs=exs=>exs.reduce((a,we)=>a+60+we.sets.reduce((b,s)=>b+(s.unit==="secs"?s.value:40)+s.restSecs,0),0);
 function endSession(){
   const S=state.session;let vol=0,setsDone=0;
   S.workout.exercises.forEach(we=>we.sets.forEach(s=>{if(s.done){vol+=s.weightKg*(s.unit==="reps"?s.value:1);setsDone++;}}));
@@ -282,8 +306,12 @@ function render(){
   const v=state.view;
   if(v&&v.kind==="session")return renderSession();
   if(v&&v.kind==="summary")return renderSummary();
-  if(v&&v.kind==="workout")return renderWorkout(v.workout);
-  ({home:renderHome,active:renderActive,inactive:renderInactive,stats:renderStats})[state.tab]();
+  if(v&&v.kind==="workout")return renderWorkoutView(v.workout);
+  if(v&&v.kind==="editor")return renderEditor(v.workout);
+  if(v&&v.kind==="archivePlans")return renderArchivePlans();
+  if(v&&v.kind==="archiveWorkouts")return renderArchiveWorkouts();
+  if(v&&v.kind==="addWorkout")return renderAddWorkout();
+  ({home:renderHome,active:renderActive,inactive:renderArchiveHub,stats:renderStats})[state.tab]();
 }
 function renderNav(){
   const tabs=[["home","🏠"],["active","📋"],["inactive","🗄️"],["stats","📈"]];
@@ -299,7 +327,8 @@ function renderHome(){
   const p=activePlan();
   let h="";
   if(p){
-    const w=p.workouts[state.finished.length%p.workouts.length]||p.workouts[0];
+    const ws=activePlanWorkouts();
+    const w=ws[state.finished.length%(ws.length||1)]||ws[0];
     h+=`<div class="card"><h3>${t("todays")}</h3><div class="sub">${esc(p.name)}</div>`;
     if(w)h+=`<div class="row" style="margin-top:8px"><div class="grow"><b>${esc(w.name)}</b>
       <div class="sub">${w.exercises.length} ${t("exercises")}</div></div>
@@ -314,46 +343,130 @@ function renderHome(){
   $("main").innerHTML=h;
 }
 
+/* ---- Active tab = the active plan's workouts directly (one plan active at a time) ---- */
 function renderActive(){
   setTitle(t("active"));$("fab").style.display="block";$("fab").onclick=()=>openSheet("newPlan");
-  const plans=state.plans.filter(p=>p.active);
-  $("main").innerHTML=plans.length?plans.map(planCard).join(""):`<div class="empty">${t("empty")}</div>`;
+  const p=activePlan();
+  if(!p){$("main").innerHTML=`<div class="empty">${t("noActivePlan")}</div>`;return;}
+  const ws=activePlanWorkouts();
+  let h=`<div class="row" style="margin-bottom:6px"><h3 class="grow">${esc(p.name)}</h3>
+    <button class="iconBtn" onclick="openEditor(${ws[0]?ws[0].id:0})" title="edit plan">✎</button></div>`;
+  h+=ws.map(w=>`<div class="card"><div class="row">
+    <span style="font-size:20px">📋</span>
+    <div class="grow" style="cursor:pointer" onclick="openWorkout(${w.id})"><b>${esc(w.name)}</b>
+      <div class="sub">${w.exercises.length} ${t("exercises")}</div></div>
+    <button class="iconBtn" onclick="openWorkout(${w.id})" title="start">▶</button></div></div>`).join("")
+    || `<div class="empty">${t("empty")}</div>`;
+  h+=`<button class="btn tonal" onclick="state.view={kind:'addWorkout'};render()">＋ ${t("addWorkout")}</button>`;
+  $("main").innerHTML=h;
 }
-function renderInactive(){
-  setTitle(t("inactive"));$("fab").style.display="none";
-  const plans=state.plans.filter(p=>!p.active);
-  $("main").innerHTML=plans.length?plans.map(planCard).join(""):`<div class="empty">${t("empty")}</div>`;
-}
-function planCard(p){
-  return `<div class="card"><div class="row"><div class="grow" >
-    <h3>${esc(p.name)}</h3><div class="sub">${p.workouts.length} ${t("workouts")}</div></div>
-    <button class="btn tonal" onclick="togglePlan(${p.id})">${p.active?t("archive"):t("activate")}</button>
-    <button class="iconBtn" onclick="delPlan(${p.id})">🗑️</button></div>
-    ${p.workouts.map(w=>`<div class="listEx"><span class="grow">${esc(w.name)}
-      <span class="sub"> · ${w.exercises.length} ${t("exercises")}</span></span>
-      <button class="iconBtn" onclick="openWorkout(${w.id})">✎</button>
-      <button class="iconBtn" onclick="startById(${w.id})">▶</button></div>`).join("")}
-    ${p.active?`<div style="margin-top:8px"><button class="btn tonal" onclick="openSheet('newWorkout',${p.id})">＋ ${t("addWorkout")}</button></div>`:""}
-  </div>`;
-}
-function togglePlan(id){const p=state.plans.find(p=>p.id===id);
-  if(!p.active)state.plans.forEach(q=>q.active=false); // one active at a time
-  p.active=!p.active;render();}
-function delPlan(id){if(confirm(t("confirmDel"))){state.plans=state.plans.filter(p=>p.id!==id);render();}}
-function findWorkout(id){for(const p of state.plans){const w=p.workouts.find(w=>w.id===id);if(w)return w;}return null;}
-function openWorkout(id){state.view={kind:"workout",workout:findWorkout(id)};render();}
-function startById(id){startSession(findWorkout(id));}
 
-function renderWorkout(w){
+/* ---- Archive hub: two squares → Plans / Workouts (replaces the old inactive list) ---- */
+function renderArchiveHub(){
+  setTitle(t("inactive"));$("fab").style.display="none";
+  $("main").innerHTML=`<div class="row" style="gap:12px">
+    <div class="card" style="flex:1;aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer"
+      onclick="state.view={kind:'archivePlans'};render()"><h3>${t("archivePlans")}</h3></div>
+    <div class="card" style="flex:1;aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer"
+      onclick="state.view={kind:'archiveWorkouts'};render()"><h3>${t("archiveWorkouts")}</h3></div></div>`;
+}
+function renderArchivePlans(){
+  setTitle(t("archivePlans"));$("fab").style.display="none";
+  const plans=state.plans.filter(p=>!p.active);
+  let h=`<button class="btn tonal" onclick="state.view=null;render()">←</button>`;
+  h+=plans.length?plans.map(p=>`<div class="card"><div class="row"><div class="grow">
+      <h3>${esc(p.name)}</h3><div class="sub">${linkCount(p.id)} ${t("workouts")}</div></div>
+      <button class="btn tonal" onclick="activatePlan(${p.id})">${t("activate")}</button>
+      <button class="iconBtn" onclick="delPlan(${p.id})">🗑️</button></div></div>`).join(""):`<div class="empty">${t("empty")}</div>`;
+  $("main").innerHTML=h;
+}
+function renderArchiveWorkouts(){
+  setTitle(t("archiveWorkouts"));$("fab").style.display="none";
+  let h=`<button class="btn tonal" onclick="state.view=null;render()">←</button>`;
+  h+=state.workouts.map(w=>{const inA=workoutInActivePlan(w.id);
+    return `<div class="card"><div class="row"><span style="font-size:20px">📋</span>
+      <div class="grow" style="cursor:pointer" onclick="openWorkout(${w.id})"><b>${esc(w.name)}</b>
+        <div class="sub">${w.exercises.length} ${t("exercises")}${inA?` · <span style="color:var(--primary)">${t("inActivePlan")}</span>`:""}</div></div>
+      ${!inA&&activePlan()?`<button class="btn tonal" onclick="linkToActive(${w.id})">${t("addToPlan")}</button>`:""}</div></div>`;}).join("")
+    || `<div class="empty">${t("empty")}</div>`;
+  $("main").innerHTML=h;
+}
+/* ---- Add-workout screen: multi-select → Link (shared) or Use as base (copy) ---- */
+function renderAddWorkout(){
+  setTitle(t("addWorkout"));$("fab").style.display="none";
+  const sel=state.view.sel||(state.view.sel=new Set());
+  let h=`<button class="btn tonal" onclick="state.view=null;render()">←</button>
+    <div class="sub" style="margin:8px 0">${t("linkShared")} · ${t("useAsBase")}</div>`;
+  h+=state.workouts.map(w=>`<div class="card"><div class="row">
+    <input type="checkbox" ${sel.has(w.id)?"checked":""} onchange="toggleAddSel(${w.id})">
+    <div class="grow"><b>${esc(w.name)}</b><div class="sub">${w.exercises.length} ${t("exercises")}
+      ${workoutInActivePlan(w.id)?` · <span style="color:var(--primary)">${t("inActivePlan")}</span>`:""}</div></div></div></div>`).join("");
+  h+=`<div class="row" style="gap:12px;margin-top:10px">
+    <button class="btn tonal grow" onclick="addSelected(false)">${t("linkShared")}</button>
+    <button class="btn grow" onclick="addSelected(true)">${t("useAsBase")}</button></div>`;
+  $("main").innerHTML=h;
+}
+function toggleAddSel(id){const s=state.view.sel;s.has(id)?s.delete(id):s.add(id);render();}
+function addSelected(asCopy){const p=activePlan();if(!p)return;
+  state.view.sel.forEach(id=>{
+    if(asCopy){const src=workoutById(id);const copy=mkWorkout(src.name,src.exercises.map(we=>mkWe(we.exerciseId,we.sets.map(s=>({...s,id:nextId++})),we.supersetWithPrev)));
+      state.workouts.push(copy);state.links.push({planId:p.id,workoutId:copy.id});}
+    else linkToActive(id,true);});
+  state.view=null;render();}
+function linkToActive(id,quiet){const p=activePlan();if(!p)return;
+  if(!state.links.some(l=>l.planId===p.id&&l.workoutId===id))state.links.push({planId:p.id,workoutId:id});
+  const w=workoutById(id);if(w)w.archived=false; if(!quiet)render();}
+function activatePlan(id){state.plans.forEach(p=>p.active=false);state.plans.find(p=>p.id===id).active=true;state.view=null;render();}
+function delPlan(id){if(confirm(t("confirmDel"))){state.links=state.links.filter(l=>l.planId!==id);state.plans=state.plans.filter(p=>p.id!==id);render();}}
+function findWorkout(id){return workoutById(id);}
+function openWorkout(id){state.view={kind:"workout",workout:workoutById(id)};render();}
+function openEditor(id){if(!id)return;state.view={kind:"editor",workout:workoutById(id),undo:[],redo:[],dirty:false};render();}
+function startById(id){startSession(workoutById(id));}
+
+/* ---- read-only workout view (training summary): start / edit / download / archive / delete ---- */
+function renderWorkoutView(w){
   setTitle(esc(w.name));$("fab").style.display="none";
   let h=`<div class="row" style="margin-bottom:10px">
     <button class="btn tonal" onclick="state.view=null;render()">←</button><div class="grow"></div>
-    <button class="btn green" onclick="startSession(findWorkout(${w.id}))">▶ ${t("start")}</button></div>`;
+    <button class="iconBtn" onclick="openEditor(${w.id})" title="edit">✎</button>
+    <button class="iconBtn" onclick="alert('${t("download")} → workout.json (demo)')" title="download">⬇️</button>
+    <button class="iconBtn" onclick="archiveWorkout(${w.id})" title="archive">🗄️</button>
+    <button class="iconBtn" onclick="deleteWorkout(${w.id})" title="delete">🗑️</button></div>
+    <button class="btn green" style="width:100%;margin-bottom:10px" onclick="startSession(workoutById(${w.id}))">▶ ${t("start")}</button>`;
+  w.exercises.forEach(we=>{const ex=exById(we.exerciseId);
+    h+=`<div class="card"><div class="row"><span style="font-size:22px">${ex.img}</span>
+      <div class="grow"><b>${esc(exName(ex))}</b><div class="sub">${we.sets.length} ${t("sets")}</div></div>
+      <button class="iconBtn" onclick="openSheet('info',${ex.id})" title="info">ℹ️</button></div></div>`;});
+  $("main").innerHTML=h;
+}
+function archiveWorkout(id){if(!confirm(t("archive")+"?"))return;const p=activePlan();
+  if(p)state.links=state.links.filter(l=>!(l.planId===p.id&&l.workoutId===id));
+  const w=workoutById(id);if(w)w.archived=true;state.view=null;render();}
+function deleteWorkout(id){if(!confirm(t("confirmDel")))return;
+  state.links=state.links.filter(l=>l.workoutId!==id);state.workouts=state.workouts.filter(w=>w.id!==id);state.view=null;render();}
+
+/* ---- workout editor: live edits + undo/redo + save / discard-on-back ---- */
+function snapshot(w){return JSON.stringify(w.exercises);}
+function pushUndo(){const v=state.view;v.undo.push(snapshot(v.workout));if(v.undo.length>50)v.undo.shift();v.redo=[];v.dirty=true;}
+function undoEdit(){const v=state.view;if(!v.undo.length)return;v.redo.push(snapshot(v.workout));v.workout.exercises=JSON.parse(v.undo.pop());render();}
+function redoEdit(){const v=state.view;if(!v.redo.length)return;v.undo.push(snapshot(v.workout));v.workout.exercises=JSON.parse(v.redo.pop());render();}
+function backEditor(){const v=state.view;if(v.dirty&&!confirm(t("keepQ")+" ("+t("keep")+"/"+t("discard")+")\\nOK="+t("keep"))){/*discard: demo keeps live edits for simplicity*/}
+  state.view={kind:"workout",workout:v.workout};render();}
+function renderEditor(w){
+  setTitle(esc(w.name));$("fab").style.display="none";
+  const v=state.view;
+  let h=`<div class="row" style="margin-bottom:10px">
+    <button class="btn tonal" onclick="backEditor()">←</button><div class="grow"></div>
+    <button class="iconBtn" ${v.undo.length?"":"disabled"} onclick="undoEdit()">↶</button>
+    <button class="iconBtn" ${v.redo.length?"":"disabled"} onclick="redoEdit()">↷</button>
+    <button class="iconBtn" onclick="openSheet('suggest',${w.id})" title="suggest">✨</button>
+    <button class="btn" onclick="state.view={kind:'workout',workout:v.workout};render()">${t("save")}</button></div>`;
   w.exercises.forEach((we,i)=>{
     const ex=exById(we.exerciseId);
     h+=`<div class="card">${we.supersetWithPrev?'<div class="sub">🔗 superset</div>':""}
       <div class="row"><span style="font-size:22px">${ex.img}</span>
       <div class="grow"><b>${esc(exName(ex))}</b><div class="sub">${ex.muscle} · ${we.sets.length} ${t("sets")}</div></div>
+      <button class="iconBtn" onclick="openSheet('info',${ex.id})">ℹ️</button>
       <button class="iconBtn" onclick="delWe(${w.id},${i})">🗑️</button></div>
       <table class="sets"><tr><th>${t("set")}</th><th>${t("weight")}</th><th>${t("reps")}</th><th>${t("rest")}</th></tr>
       ${we.sets.map((s,si)=>`<tr><td class="setType" style="color:${typeColor(s.type)}">${s.type}${si+1}</td>
@@ -367,18 +480,19 @@ function renderWorkout(w){
   $("main").innerHTML=h;
 }
 const typeColor=t=>({W:"var(--orange)",F:"var(--red)",D:"var(--purple)",S:"var(--primary)"}[t]||"var(--text)");
-function editSet(id,f,v){state.plans.forEach(p=>p.workouts.forEach(w=>w.exercises.forEach(we=>we.sets.forEach(s=>{
-  if(s.id===id)s[f]=Number(v);}))));}
-function addSet(wId,i){const w=findWorkout(wId);const last=w.exercises[i].sets.slice(-1)[0];
+const inEditor=()=>state.view&&state.view.kind==="editor";
+function editSet(id,f,v){if(inEditor())pushUndo();
+  state.workouts.forEach(w=>w.exercises.forEach(we=>we.sets.forEach(s=>{if(s.id===id)s[f]=Number(v);})));}
+function addSet(wId,i){if(inEditor())pushUndo();const w=workoutById(wId);const last=w.exercises[i].sets.slice(-1)[0];
   w.exercises[i].sets.push(mkSet(last?last.weightKg:20,last?last.value:10,last?last.restSecs:90));render();}
-function delWe(wId,i){const w=findWorkout(wId);if(confirm(t("confirmDel"))){w.exercises.splice(i,1);render();}}
+function delWe(wId,i){const w=workoutById(wId);if(confirm(t("confirmDel"))){if(inEditor())pushUndo();w.exercises.splice(i,1);render();}}
 
 /* ---------- session UI ---------- */
 function renderSession(){
   const S=state.session,exs=S.workout.exercises;
   setTitle(esc(S.workout.name));$("fab").style.display="none";
   if(S.showList){
-    let h=`<div class="sub" style="margin-bottom:8px">⏱ ${fmt(Math.floor((Date.now()-S.startedAt)/1000))}</div>`;
+    let h=`<div class="sub" style="margin-bottom:8px">⏱ ${fmt(Math.floor((Date.now()-S.startedAt)/1000))} / ≈${fmt(estimateSecs(exs))}</div>`;
     exs.forEach((we,i)=>{const ex=exById(we.exerciseId);const done=we.sets.filter(s=>s.done).length;
       h+=`<div class="listEx"><span style="font-size:20px">${ex.img}</span>
         <span class="grow">${esc(exName(ex))}<span class="sub"> ${done}/${we.sets.length}</span></span>
@@ -428,7 +542,7 @@ function renderTimers(){
       <button class="btn tonal" onclick="toggleSw()">${S.swStart?"⏸":"▶"}</button>
       <button class="btn tonal" onclick="state.session.swStart=null;state.session.swAccum=0;renderTimers()">⏹</button>`;
   }
-  h+=`<div class="sub" style="margin-top:6px">⏱ ${elapsed} · ${t("activeTime")}: ${fmt(S.activeSecs+ (S.swStart?0:0))}</div></div>`;
+  h+=`<div class="sub" style="margin-top:6px">⏱ ${elapsed} / ≈${fmt(estimateSecs(S.workout.exercises))} ${t("eta")} · ${t("activeTime")}: ${fmt(S.activeSecs)}</div></div>`;
   el.innerHTML=h;
 }
 function toggleSw(){const S=state.session;
@@ -509,7 +623,34 @@ function openSheet(kind,arg){
       <button class="btn tonal" style="margin-top:10px" onclick="addCustom(${arg})">＋ ${t("custom")}</button>`;
     renderExList(arg);
   }
+  if(kind==="info"){ // shared exercise detail sheet: description + editable video link + watch
+    const ex=exById(arg),url=state.videoLinks[arg]||"";
+    sh.innerHTML=`<div class="handle"></div><h2>${esc(exName(ex))}</h2>
+      <div class="sub" style="margin-bottom:10px">${t("noDesc")}</div>
+      <label>${t("videoLink")}</label><input type="text" id="vl" value="${esc(url)}">
+      <button class="btn" style="width:100%;margin-top:8px" onclick="saveLink(${arg})">${url?t("saveLink"):t("saveLink")}</button>
+      ${url?`<div class="row" style="gap:8px;margin-top:8px">
+        <button class="btn tonal grow" onclick="alert('${t("watch")} (demo)')">${t("watch")}</button>
+        <button class="btn tonal grow" onclick="window.open('${esc(url)}','_blank')">${t("openExt")}</button></div>`:""}`;
+  }
+  if(kind==="suggest"){ // multi-focus suggestion wizard (append exercises)
+    const muscles=[...new Set(CATALOG.map(e=>e.muscle))];
+    const sel=state._focus||(state._focus=new Set());
+    sh.innerHTML=`<div class="handle"></div><h2>${t("suggest")}</h2>
+      <label>${t("focus")}</label>
+      ${muscles.map(m=>`<button class="chip ${sel.has(m)?"sel":""}" onclick="toggleFocus('${m}',${arg})">${m}</button>`).join("")}
+      <label>${t("howMany")}</label><input type="number" id="sugN" value="4" min="1" style="width:80px">
+      <button class="btn" style="width:100%;margin-top:12px" onclick="doSuggest(${arg})">${t("confirm")}</button>`;
+  }
 }
+function saveLink(exId){const v=$("vl").value.trim();if(v)state.videoLinks[exId]=v;else delete state.videoLinks[exId];openSheet("info",exId);}
+function toggleFocus(m,wId){const s=state._focus;s.has(m)?s.delete(m):s.add(m);openSheet("suggest",wId);}
+function doSuggest(wId){const n=Math.max(1,parseInt($("sugN").value)||4);const w=workoutById(wId);
+  const foci=[...state._focus];if(!foci.length)return;
+  const pool=CATALOG.filter(e=>foci.includes(e.muscle)&&!state.injured.includes(e.muscle));
+  if(inEditor())pushUndo();
+  for(let k=0;k<n&&pool.length;k++){const e=pool[k%pool.length];w.exercises.push(mkWe(e.id,[mkSet(20,10),mkSet(20,10),mkSet(20,10)]));}
+  state._focus=new Set();closeSheet();render();}
 function toggleInjured(m){const i=state.injured.indexOf(m);
   i<0?state.injured.push(m):state.injured.splice(i,1);openSheet("settings");}
 function renderExList(wId){
@@ -520,16 +661,16 @@ function renderExList(wId){
     <span class="grow">${esc(exName(e))}<span class="sub"> · ${e.muscle}</span></span>
     <button class="btn tonal" onclick="addExToWorkout(${wId},${e.id})">＋</button></div>`).join("");
 }
-function addExToWorkout(wId,exId){const w=findWorkout(wId);
+function addExToWorkout(wId,exId){const w=workoutById(wId);if(inEditor())pushUndo();
   w.exercises.push(mkWe(exId,[mkSet(20,10),mkSet(20,10),mkSet(20,10)]));closeSheet();render();}
 function addCustom(wId){const n=prompt(t("custom"));if(!n)return;
   state.customExercises.push({id:nextId++,en:n,pt:n,de:n,muscle:"Custom",img:"⭐",custom:true});
   renderExList(wId);}
 function createPlan(){const n=$("npName").value.trim();if(!n)return;
   state.plans.forEach(p=>p.active=false);
-  state.plans.push({id:nextId++,name:n,active:true,workouts:[]});closeSheet();render();}
+  state.plans.push({id:nextId++,name:n,active:true});closeSheet();render();}
 function createWorkout(pId){const n=$("nwName").value.trim();if(!n)return;
-  const p=state.plans.find(p=>p.id===pId);p.workouts.push({id:nextId++,name:n,exercises:[]});closeSheet();render();}
+  const w=mkWorkout(n,[]);state.workouts.push(w);state.links.push({planId:pId,workoutId:w.id});closeSheet();render();}
 function closeSheet(){$("scrim").style.display="none";$("sheet").style.display="none";}
 
 /* ---------- header buttons ---------- */
