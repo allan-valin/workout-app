@@ -200,6 +200,11 @@ now has hw.keyboard=yes (host keyboard typing works). Android nav keyevents veri
 quick-boot snapshot restoring the whole OS, not app behavior; cold-boot with `-no-snapshot-load`
 to test a fresh start.
 
+NOTE (2026-07-09, end of timed dev block): docs/demo.html is BEHIND the app — it still lacks
+the suggestion wizard, stats point-graph pages, editor multi-select and the single-timer
+panel details. Sync it (MAINTENANCE.md rule) in the next session. Everything implemented
+below is compile+unit-test green but NOT emulator-verified yet.
+
 ## Phase 10 — Allan's second-emulator-QA feedback batch (2026-07-08; IN PROGRESS —
 first implementation pass 2026-07-08, emulator-unverified)
 
