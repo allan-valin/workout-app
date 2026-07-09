@@ -120,15 +120,34 @@ Setup done. Everything from here on is repeatable.
 
 ## Everyday: run & test on the emulator
 
-One block — copy, paste, and ~60 s later the app is open on a running emulator.
-It builds only what changed since last time, so use the same block after every code
-change (there is **no separate build step** — `installDebug` compiles + installs):
+One button — run it after every code change and ~60 s later the freshly-built app is
+open on the emulator:
+
+```bash
+./run.sh
+```
+
+It: starts the emulator (only if none is running), waits for boot, `./gradlew
+installDebug` (compiles + installs — **no separate build step**), **force-stops the old
+process**, cold-launches the app, and saves a screenshot to `/tmp`.
+
+> **Why the force-stop matters.** The old copy-paste block ended with
+> `adb shell monkey -p dev.allan.workoutapp 1`, which only *resumes* the existing task.
+> After a quick-boot snapshot the app is already running, so `monkey` brought the **old
+> Activity** to the front and you saw the previous version even though the new APK was
+> installed. `run.sh` runs `am force-stop` first, so the launch always starts the code
+> you just installed.
+
+Overrides via env vars: `AVD=other ./run.sh`, `SHOT=/path/shot.png ./run.sh`.
+
+Prefer to run the steps by hand? The equivalent block:
 
 ```bash
 ~/Android/Sdk/emulator/emulator -avd testphone -gpu swiftshader_indirect >/dev/null 2>&1 &
 adb wait-for-device shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
 ./gradlew installDebug
-adb shell monkey -p dev.allan.workoutapp 1
+adb shell am force-stop dev.allan.workoutapp          # <-- the missing step
+adb shell monkey -p dev.allan.workoutapp -c android.intent.category.LAUNCHER 1
 ```
 
 > The full path matters: `emulator` is **not** on PATH by default (only
@@ -136,12 +155,7 @@ adb shell monkey -p dev.allan.workoutapp 1
 > "command not found", the `>/dev/null 2>&1` hides that error, and
 > `adb wait-for-device` then waits forever.
 
-Line by line: starts the emulator in the background (so your terminal stays usable —
-don't close it, that kills the emulator), waits until Android has fully booted,
-builds + installs the debug APK, opens the app.
-
-- If the emulator is already running, pasting the whole block again is harmless —
-  the first line errors quietly and the rest proceeds.
+- If the emulator is already running, `run.sh` skips the launch and reuses it.
 - `-gpu swiftshader_indirect` is the renderer that works reliably everywhere. If you
   want faster graphics, try `-gpu host`; but if the emulator vanishes seconds after
   boot ("No connected devices!" from Gradle), that's the host-GL segfault — go back
