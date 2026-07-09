@@ -82,6 +82,7 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
         val name: String,
         val description: String,
         val videoUrl: String?,
+        val note: String,
     )
 
     private val _detail = MutableStateFlow<Detail?>(null)
@@ -134,8 +135,15 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
                 name = best?.name ?: "",
                 description = best?.description.orEmpty(),
                 videoUrl = db.exerciseDao().videoLink(exerciseId),
+                note = db.sessionDao().noteText(exerciseId) ?: "",
             )
         }
+    }
+
+    fun saveNote(exerciseId: String, text: String) {
+        _detail.value = _detail.value?.takeIf { it.exerciseId == exerciseId }?.copy(note = text)
+            ?: _detail.value
+        viewModelScope.launch { dev.allan.workoutapp.data.PlanRepo.saveExerciseNote(db, exerciseId, text) }
     }
 
     fun saveVideoLink(exerciseId: String, url: String) {
@@ -279,6 +287,8 @@ fun WorkoutViewScreen(
             videoUrl = d.videoUrl,
             onSaveLink = { url -> vm.saveVideoLink(d.exerciseId, url) },
             onDismiss = vm::closeDetail,
+            note = d.note,
+            onSaveNote = { txt -> vm.saveNote(d.exerciseId, txt) },
         )
     }
 

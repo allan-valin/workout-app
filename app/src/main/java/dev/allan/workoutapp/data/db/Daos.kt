@@ -456,4 +456,11 @@ interface SessionDao {
 
     @Query("SELECT * FROM exercise_note WHERE exerciseId = :exerciseId ORDER BY updatedAt DESC")
     suspend fun notes(exerciseId: String): List<ExerciseNote>
+
+    /** Latest note text for an exercise (one persistent note per exercise). */
+    @Query("SELECT text FROM exercise_note WHERE exerciseId = :exerciseId ORDER BY updatedAt DESC LIMIT 1")
+    suspend fun noteText(exerciseId: String): String?
+
+    @Query("DELETE FROM exercise_note WHERE exerciseId = :exerciseId")
+    suspend fun deleteNotesFor(exerciseId: String)
 }

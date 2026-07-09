@@ -36,6 +36,8 @@ data class ExerciseDetail(
     val translations: List<ExerciseTranslation>,
     /** User-owned YouTube/video link (exercise_link table); edited here in the library. */
     val videoUrl: String? = null,
+    /** Persistent per-exercise note. */
+    val note: String = "",
 )
 
 class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
@@ -155,8 +157,16 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
                 hit,
                 db.exerciseDao().translations(hit.id),
                 db.exerciseDao().videoLink(hit.id),
+                db.sessionDao().noteText(hit.id) ?: "",
             )
         }
+    }
+
+    fun saveNote(exerciseId: String, text: String) {
+        _detail.value = _detail.value?.let {
+            if (it.hit.id == exerciseId) it.copy(note = text) else it
+        }
+        viewModelScope.launch { dev.allan.workoutapp.data.PlanRepo.saveExerciseNote(db, exerciseId, text) }
     }
 
     fun closeDetail() {

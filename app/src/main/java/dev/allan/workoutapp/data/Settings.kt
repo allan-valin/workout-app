@@ -43,6 +43,17 @@ object Settings {
         context.dataStore.edit { it[PREV_NEXT_BUTTONS] = value }
     }
 
+    private val SHOW_CLOCK =
+        androidx.datastore.preferences.core.booleanPreferencesKey("session_show_clock")
+
+    /** Show the elapsed/ETA clock during a session (default on). */
+    fun showClock(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[SHOW_CLOCK] ?: true }
+
+    suspend fun setShowClock(context: Context, value: Boolean) {
+        context.dataStore.edit { it[SHOW_CLOCK] = value }
+    }
+
     /** "system" | "light" | "dark" — home-screen toggle switches light/dark. */
     private val THEME_MODE =
         androidx.datastore.preferences.core.stringPreferencesKey("theme_mode")

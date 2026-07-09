@@ -216,6 +216,8 @@
     <string name="mode_compound">Compostos</string>
     <string name="mode_isolation">Isolados</string>
     <string name="approx_duration">≈ %1$d min</string>
+    <string name="tempo_label">Cadência (ex. 4-0-2-0)</string>
+    <string name="tempo_show_clock">Mostrar relógio</string>
     <string name="suggest_duration">Duração desejada</string>
     <string name="minutes_suffix">min</string>
     <string name="save">Salvar</string>

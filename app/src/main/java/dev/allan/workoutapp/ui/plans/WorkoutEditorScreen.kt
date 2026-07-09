@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -103,6 +104,7 @@ data class ExerciseDescription(
     val name: String,
     val description: String,
     val videoUrl: String?,
+    val note: String,
 )
 
 /** Full editable content of a workout, for undo/redo/discard. */
@@ -278,8 +280,15 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
                 name = item.name,
                 description = best?.description.orEmpty(),
                 videoUrl = db.exerciseDao().videoLink(item.we.exerciseId),
+                note = db.sessionDao().noteText(item.we.exerciseId) ?: "",
             )
         }
+    }
+
+    fun saveNote(exerciseId: String, text: String) {
+        _description.value = _description.value?.takeIf { it.exerciseId == exerciseId }?.copy(note = text)
+            ?: _description.value
+        viewModelScope.launch { PlanRepo.saveExerciseNote(db, exerciseId, text) }
     }
 
     /** Save (or clear when blank) the video link for the exercise the sheet is showing. */
@@ -569,6 +578,8 @@ fun WorkoutEditorScreen(
             videoUrl = info.videoUrl,
             onSaveLink = { url -> vm.saveVideoLink(info.exerciseId, url) },
             onDismiss = vm::closeDescription,
+            note = info.note,
+            onSaveNote = { txt -> vm.saveNote(info.exerciseId, txt) },
         )
     }
 
@@ -1012,6 +1023,7 @@ private fun HeaderText(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: () -> Unit) {
+  Column(Modifier.fillMaxWidth()) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1076,6 +1088,20 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
             )
         }
     }
+    // Per-set cadence/tempo reminder (e.g. 4-0-2-0), below the set details.
+    var tempo by remember(set.id, set.tempo) { mutableStateOf(set.tempo) }
+    OutlinedTextField(
+        value = tempo,
+        onValueChange = { tempo = it.filter { c -> c.isDigit() || c == '-' }.take(11) },
+        label = { Text(stringResource(R.string.tempo_label)) },
+        placeholder = { Text("4-0-2-0") },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 2.dp, bottom = 2.dp)
+            .onFocusChanged { if (!it.isFocused && tempo != set.tempo) onUpdate(set.copy(tempo = tempo.trim())) },
+    )
+  }
 }
 
 @Composable

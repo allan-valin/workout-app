@@ -32,6 +32,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.HideSource
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
@@ -284,6 +287,8 @@ fun SessionScreen(
             videoUrl = state.descriptionVideoUrl,
             onSaveLink = { url -> state.descriptionExerciseId?.let { vm.saveVideoLink(it, url) } },
             onDismiss = vm::closeDescription,
+            note = state.descriptionNote,
+            onSaveNote = { txt -> state.descriptionExerciseId?.let { vm.saveNote(it, txt) } },
         )
     }
 
@@ -339,23 +344,33 @@ fun SessionScreen(
 @Composable
 private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (Boolean) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
-    var noteOpen by remember { mutableStateOf(false) }
     val current = state.exercises.getOrNull(state.currentIndex)
+    val ctx = LocalContext.current
+    val showClock by dev.allan.workoutapp.data.Settings.showClock(ctx).collectAsState(initial = true)
+    val clockScope = androidx.compose.runtime.rememberCoroutineScope()
 
     TopAppBar(
-        title = { Text(fmt(state.elapsedSecs) + "  /  ≈" + fmt(state.estimatedTotalSecs)) },
+        title = {
+            if (showClock) Text(fmt(state.elapsedSecs) + "  /  ≈" + fmt(state.estimatedTotalSecs))
+        },
         navigationIcon = {
             IconButton(onClick = vm::showList) {
                 Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.back))
             }
         },
         actions = {
-            IconButton(onClick = { current?.let { vm.openDescription(it.exerciseId) } }) {
-                Icon(Icons.Default.Info, contentDescription = stringResource(R.string.description))
+            // Clock show/hide (default shown).
+            IconButton(onClick = {
+                clockScope.launch { dev.allan.workoutapp.data.Settings.setShowClock(ctx, !showClock) }
+            }) {
+                Icon(
+                    if (showClock) Icons.Default.Schedule else Icons.Default.HideSource,
+                    contentDescription = stringResource(R.string.tempo_show_clock),
+                )
             }
-            // Icon alone read as "edit exercise" — label it so it's clearly a note.
-            TextButton(onClick = { noteOpen = true }) {
-                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+            // Info sheet hosts description + persistent note + video, so one button covers all.
+            TextButton(onClick = { current?.let { vm.openDescription(it.exerciseId) } }) {
+                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.note), modifier = Modifier.padding(start = 4.dp))
             }
             IconButton(onClick = { menuOpen = true }) {
@@ -371,25 +386,6 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
         },
     )
 
-    if (noteOpen && current != null) {
-        var text by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { noteOpen = false },
-            title = { Text(stringResource(R.string.note)) },
-            text = {
-                OutlinedTextField(value = text, onValueChange = { text = it }, minLines = 3)
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (text.isNotBlank()) vm.saveNote(current.exerciseId, text.trim())
-                    noteOpen = false
-                }) { Text(stringResource(R.string.ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { noteOpen = false }) { Text(stringResource(R.string.cancel)) }
-            },
-        )
-    }
 }
 
 @Composable
@@ -523,6 +519,19 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             }
         }
 
+        // Cadence/tempo reminder for the current set — big, between the clock and the sets.
+        val curTempo = ex.sets.firstOrNull { state.currentStep == page to it.templateId }?.tempo?.takeIf { it.isNotBlank() }
+            ?: ex.sets.firstOrNull { it.tempo.isNotBlank() }?.tempo
+        if (curTempo != null) {
+            Text(
+                curTempo,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+            )
+        }
+
         // Sets table — the only scrollable part of the page.
         Column(
             Modifier
@@ -581,6 +590,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = setTypeColor(set.type),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.width(width = 28.dp),
                     )
                     // − weight + quick-steppers around the tap-to-edit weight button.
@@ -632,6 +642,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         else "${set.targetMin}s",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.width(52.dp),
                     )
                     if (set.valueUnit == ValueUnit.SECS) {

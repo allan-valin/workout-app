@@ -153,6 +153,20 @@ object PlanRepo {
         return id
     }
 
+    /** Saves the single persistent note for an exercise (blank clears it). */
+    suspend fun saveExerciseNote(db: AppDatabase, exerciseId: String, text: String) {
+        db.sessionDao().deleteNotesFor(exerciseId)
+        if (text.isNotBlank()) {
+            db.sessionDao().insertNote(
+                dev.allan.workoutapp.data.db.ExerciseNote(
+                    exerciseId = exerciseId,
+                    text = text,
+                    updatedAt = System.currentTimeMillis(),
+                )
+            )
+        }
+    }
+
     /** Resolves an exercise display name for a language, falling back to en, then any. */
     suspend fun displayName(db: AppDatabase, exerciseId: String, lang: String): String {
         val all = db.exerciseDao().translations(exerciseId)

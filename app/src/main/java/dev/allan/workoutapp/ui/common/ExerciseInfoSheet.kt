@@ -44,6 +44,9 @@ fun ExerciseInfoSheet(
     videoUrl: String?,
     onSaveLink: (String) -> Unit,
     onDismiss: () -> Unit,
+    /** Persistent per-exercise note (kept across sessions). null hides the note editor. */
+    note: String? = null,
+    onSaveNote: (String) -> Unit = {},
     /** Extra rows shown above the link field (muscles, aliases, attribution, image…). */
     extraContent: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -53,6 +56,24 @@ fun ExerciseInfoSheet(
             Text(name, style = MaterialTheme.typography.headlineSmall)
             Text(description.ifBlank { stringResource(R.string.no_description) })
             extraContent()
+
+            // Persistent note — pre-filled with what's saved so it survives reopen (Allan's
+            // "note comes back empty" bug). Blank + save clears it. Shown in every ℹ sheet.
+            if (note != null) {
+                var noteText by remember(note) { mutableStateOf(note) }
+                OutlinedTextField(
+                    value = noteText,
+                    onValueChange = { noteText = it },
+                    label = { Text(stringResource(R.string.note)) },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (noteText.trim() != note) {
+                    Button(onClick = { onSaveNote(noteText.trim()) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
 
             // Editable link. The save/delete action is a full-width filled Button (a tick
             // inside the field was invisible against the text — Allan's contrast report).

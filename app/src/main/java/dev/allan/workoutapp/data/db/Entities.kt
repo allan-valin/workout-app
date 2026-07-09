@@ -132,6 +132,11 @@ data class SetTemplate(
     val targetValueMax: Int? = null,
     val valueUnit: ValueUnit = ValueUnit.REPS,
     val restSecs: Int = 90,
+    /**
+     * Cadence/tempo reminder, e.g. "4-0-2-0" (eccentric–pause–concentric–pause seconds).
+     * Free text; blank = none. Shown big above the sets during a session.
+     */
+    val tempo: String = "",
 )
 
 @Serializable

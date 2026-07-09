@@ -35,6 +35,8 @@ data class SessionSet(
     /** Target rep range from the template (reference; [value] is what was really done). */
     val targetMin: Int,
     val targetMax: Int? = null,
+    /** Cadence reminder (e.g. "4-0-2-0"), shown big above the sets. */
+    val tempo: String = "",
     val done: Boolean = false,
 )
 
@@ -84,6 +86,7 @@ data class SessionUiState(
     /** Exercise the sheet belongs to + its user-saved video link. */
     val descriptionExerciseId: String? = null,
     val descriptionVideoUrl: String? = null,
+    val descriptionNote: String? = null,
     val finished: Boolean = false,
 )
 
@@ -224,6 +227,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     restSecs = t.restSecs,
                     targetMin = t.targetValue,
                     targetMax = t.targetValueMax,
+                    tempo = t.tempo,
                     done = already,
                 )
             }
@@ -489,6 +493,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 descriptionSheet = best?.description.orEmpty(),
                 descriptionExerciseId = exerciseId,
                 descriptionVideoUrl = db.exerciseDao().videoLink(exerciseId),
+                descriptionNote = db.sessionDao().noteText(exerciseId) ?: "",
             )
         }
     }
@@ -498,6 +503,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             descriptionSheet = null,
             descriptionExerciseId = null,
             descriptionVideoUrl = null,
+            descriptionNote = null,
         )
     }
 
@@ -543,17 +549,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     fun saveNote(exerciseId: String, text: String) {
-        val sessionId = _state.value.sessionId
-        viewModelScope.launch {
-            db.sessionDao().insertNote(
-                dev.allan.workoutapp.data.db.ExerciseNote(
-                    exerciseId = exerciseId,
-                    sessionId = sessionId,
-                    text = text,
-                    updatedAt = System.currentTimeMillis(),
-                )
-            )
-        }
+        _state.value = _state.value.copy(descriptionNote = text)
+        viewModelScope.launch { PlanRepo.saveExerciseNote(db, exerciseId, text) }
     }
 
     /** End the session. save=false discards logged sets. Returns via onDone(sessionId). */

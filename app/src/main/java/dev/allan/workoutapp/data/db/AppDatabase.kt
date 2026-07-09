@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Session::class, SetLog::class, ExerciseNote::class, BodyMetric::class,
         SessionSetDraft::class, ExerciseLink::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -104,13 +104,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v5: per-set cadence/tempo reminder (e.g. "4-0-2-0"). */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE set_template ADD COLUMN tempo TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "workout.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .build().also { instance = it }
             }
     }
 }

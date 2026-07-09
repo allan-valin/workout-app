@@ -216,6 +216,8 @@
     <string name="mode_compound">Compound</string>
     <string name="mode_isolation">Isolation</string>
     <string name="approx_duration">≈ %1$d min</string>
+    <string name="tempo_label">Tempo (e.g. 4-0-2-0)</string>
+    <string name="tempo_show_clock">Show clock</string>
     <string name="suggest_duration">Target duration</string>
     <string name="minutes_suffix">min</string>
     <string name="save">Save</string>

@@ -302,6 +302,8 @@ fun ExerciseLibraryScreen(
             videoUrl = d.videoUrl,
             onSaveLink = { url -> vm.saveVideoLink(d.hit.id, url) },
             onDismiss = vm::closeDetail,
+            note = d.note,
+            onSaveNote = { txt -> vm.saveNote(d.hit.id, txt) },
         ) {
             d.hit.category?.let { Text(it, style = MaterialTheme.typography.labelLarge) }
             val primary = d.hit.primaryMuscles.mapNotNull { id ->

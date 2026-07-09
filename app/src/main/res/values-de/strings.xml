@@ -216,6 +216,8 @@
     <string name="mode_compound">Verbundübungen</string>
     <string name="mode_isolation">Isolationsübungen</string>
     <string name="approx_duration">≈ %1$d Min</string>
+    <string name="tempo_label">Tempo (z.B. 4-0-2-0)</string>
+    <string name="tempo_show_clock">Uhr anzeigen</string>
     <string name="suggest_duration">Zieldauer</string>
     <string name="minutes_suffix">Min</string>
     <string name="save">Speichern</string>
