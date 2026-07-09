@@ -310,6 +310,28 @@ Statistics rework (point graphs):
       PointAreaChart + one chart per muscle group (primary-muscle attribution), same range
       chips. Old inline volume LineChart removed.
 
+SESSION 2026-07-09d (note-persistence bug + tempo + in-session set editing; DB v5):
+- Note bug FIXED (headline): the in-session note dialog always opened empty and inserted a
+  new row each save. Notes are now ONE persistent per-exercise note (PlanRepo.saveExerciseNote
+  upserts via delete+insert; noteText() reads latest), pre-filled and shown in EVERY ℹ sheet
+  (library/editor/session/workout-view) via the shared ExerciseInfoSheet. The separate broken
+  session note dialog was removed. Emulator-VERIFIED: info sheet opens with the saved note
+  pre-filled.
+- Cadence/tempo per set (DB v5, MIGRATION_4_5 adds set_template.tempo TEXT default ''):
+  editable in the workout editor below each set; shown big above the sets for the current set
+  during a session.
+- Session clock (elapsed/ETA) toggleable in the top bar (Settings.showClock, default on).
+- Centered the set-type letter + goal number in session rows.
+- In-session set editing (mirrors the editor): tap type letter → type dropdown; tap goal →
+  target dialog; long-press row → remove; row-wide "Add set" button. At session end, if the
+  plan was edited, a keep-vs-one-time prompt (one-time restores the templateSnapshot captured
+  at session-view load). endSession(save, keepPlanChanges).
+- Compile + unit tests green; v5 migration clean over existing data. NOT interactively driven
+  (classifier outage): tempo display, in-session type/target/add/remove, keep/one-time prompt —
+  logic-only, verify on Redmi.
+- DEMO DEBT: docs/demo.html not yet synced for note-in-info-sheet, tempo, clock toggle, and
+  in-session set editing.
+
 SESSION 2026-07-09c (Active/Archive many-to-many rework + 3 bug fixes, EMULATOR-VERIFIED):
 DB v4 (MIGRATION_3_4): workout↔plan is now MANY-TO-MANY via a `plan_workout(planId,
 workoutId, orderIndex)` join; the workout table lost planId/orderIndex (rebuilt, rows
