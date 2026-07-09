@@ -138,9 +138,9 @@ workout_exercise.supersetWithPrev, set_template.targetValueMax — additive, his
 - [ ] Allan: real-device pass on the Redmi (`winstall`), incl. session superset flow + PDF export
 
 ## Status: Phases 0-9 complete; Phase 10 (second QA batch) mostly done through SESSION
-2026-07-09e (DB v6, versionCode 4 / 0.4.0 — favorites + demo import/export). Remaining
-Phase-10 open items: global bottom-nav on drill-in screens (pending Allan's call, see 09e),
-and any leftover sub-items in the Active/plan-management block. Real-device test on the Redmi
+2026-07-09e (DB v6, versionCode 4 / 0.4.0 — favorites, global bottom nav, demo import/export
++ full demo sync). Remaining Phase-10 open items: any leftover sub-items in the Active/plan-
+management block (most done in 09c). Real-device test on the Redmi
 intentionally deferred until a trusted 1.0 (Allan). Everything post-emulator is unit-test +
 build green, NOT emulator-verified.
 
@@ -326,14 +326,14 @@ SESSION 2026-07-09e (favorites + demo import/export; DB v6, versionCode 4 / 0.4.
   first by SuggestionEngine.fillWorkoutByMuscles (favorites → illustrated → compound/iso,
   favorites taken before the shuffled head so they aren't shuffled away). Backup gains a
   `favorites` list (absent in pre-v6 backups). Strings favorite/en-pt-de.
-- Nav-bar visibility: Allan's rule "4 nav buttons always visible except editing, search,
-  during a workout" — current behavior ALREADY matches for the tabbed surface: the bottom
-  NavigationBar shows on all 4 main tabs and is absent only in the workout editor (editing),
-  library/picker (search), and session (workout). NOT changed. DECISION/OPEN: drill-in
-  screens (WorkoutView, Archive sub-screens, Bodyweight/Progression, Summary) also have no
-  bottom nav (back-arrow only) — a strict reading of the rule would add nav there, but every
-  such screen owns its own Scaffold so a shared/global bottom bar is a nested-scaffold
-  refactor; deferred pending Allan's confirmation that he wants nav on those too.
+- Global bottom nav (Allan 2026-07-09e, corrected): the 4-tab NavigationBar now shows on
+  EVERY screen except an in-progress workout (session). Hoisted into AppRoot: a single outer
+  Scaffold (contentWindowInsets 0 so only the bar adds bottom padding) wraps the NavHost;
+  `showBottomBar = route not startsWith "session/"`. Selected tab hoisted to AppRoot and
+  shared with MainScaffold (which lost its own bottomBar + `selected` state); AppBottomBar
+  extracted as the shared bar. A tab tap from a drill-in screen navigates back to "main"
+  (popUpTo main inclusive, launchSingleTop) and selects that tab. Back arrows on drill-in
+  screens are KEPT (both, as Allan asked). Only SessionScreen is full-height with no bar.
 - demo.html: real JSON import/export (was an alert stub). Workout-view ⬇️ downloads that one
   workout (app transfer shape: name + exercises + sets). Settings sheet gained Export data
   (full in-memory state → workout-app-demo.json) + Import data (file picker → full backup
@@ -343,8 +343,12 @@ SESSION 2026-07-09e (favorites + demo import/export; DB v6, versionCode 4 / 0.4.
 - Compile + unit tests green (testDebug + testRelease); release APK built. NOT emulator-
   verified (favorite star, search reorder, suggestion prioritization are logic/UI-only) —
   Allan is intentionally staying off-device until a trusted 1.0.
-- STILL DEMO DEBT (unchanged from 09d): demo.html lacks note-in-info-sheet, tempo, clock
-  toggle, in-session set editing, AND now the favorite star.
+- DEMO DEBT PAID (2026-07-09e): demo.html synced for favorite star (list + info sheet, sort
+  favorites first, suggestions prefer them), per-exercise note in the info sheet, per-set
+  tempo (editor column + big display of the current set's tempo in session), session clock
+  toggle (🕐 in the session header, hides elapsed/ETA), and in-session set editing (tap type
+  letter to cycle, tap reps to edit, add-set button, ✕ to remove). favorites/notes also in
+  the demo export/import. Node DOM-stub smoke test now 9 flows green. demo.html now current.
 
 SESSION 2026-07-09d (note-persistence bug + tempo + in-session set editing; DB v5):
 - Note bug FIXED (headline): the in-session note dialog always opened empty and inserted a

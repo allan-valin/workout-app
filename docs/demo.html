@@ -138,6 +138,7 @@ const STR = {
     videoLink:"Video link (YouTube)",watch:"▶ Watch video",openExt:"Open externally",saveLink:"Save link",deleteLink:"Delete link",
     description:"Description",noDesc:"No description available.",suggest:"Suggest exercises",focus:"Focus",howMany:"How many?",confirm:"Confirm",next:"Next",eta:"est.",
     exportData:"Export data (JSON)",importData:"Import data (JSON)",importBad:"Could not read that file.",importOk:"Imported.",dataTransfer:"Data",
+    favorite:"Favorite",note:"Note",tempo:"Tempo",tempoHint:"Eccentric–pause–concentric–pause (s)",clock:"Clock",addSetBtn:"Add set",remove:"Remove",saveNote:"Save note",
     demoNote:"This demo keeps everything in memory only. The real app stores data on-device (Room DB), syncs the wger exercise catalog, exports PDF/JSON and more."},
   pt:{banner:"DEMO — nada é salvo, recarregar apaga tudo",home:"Início",active:"Ativos",inactive:"Arquivo",
     stats:"Estatísticas",todays:"Treino de hoje",noPlan:"Nenhum plano ativo. Crie um em Ativos.",plans:"Ciclos",
@@ -158,6 +159,7 @@ const STR = {
     videoLink:"Link de vídeo (YouTube)",watch:"▶ Assistir vídeo",openExt:"Abrir externamente",saveLink:"Salvar link",deleteLink:"Excluir link",
     description:"Descrição",noDesc:"Sem descrição.",suggest:"Sugerir exercícios",focus:"Foco",howMany:"Quantos?",confirm:"Confirmar",next:"Próximo",eta:"est.",
     exportData:"Exportar dados (JSON)",importData:"Importar dados (JSON)",importBad:"Não foi possível ler o arquivo.",importOk:"Importado.",dataTransfer:"Dados",
+    favorite:"Favorito",note:"Nota",tempo:"Cadência",tempoHint:"Excêntrica–pausa–concêntrica–pausa (s)",clock:"Relógio",addSetBtn:"Add série",remove:"Remover",saveNote:"Salvar nota",
     demoNote:"Esta demo mantém tudo apenas na memória. O app real salva no aparelho (Room DB), sincroniza o catálogo wger, exporta PDF/JSON e mais."},
   de:{banner:"DEMO — nichts wird gespeichert, Neuladen setzt alles zurück",home:"Start",active:"Aktiv",inactive:"Archiv",
     stats:"Statistik",todays:"Heutiges Training",noPlan:"Kein aktiver Plan. Erstelle einen unter Aktiv.",plans:"Zyklen",
@@ -178,6 +180,7 @@ const STR = {
     videoLink:"Video-Link (YouTube)",watch:"▶ Video ansehen",openExt:"Extern öffnen",saveLink:"Link speichern",deleteLink:"Link löschen",
     description:"Beschreibung",noDesc:"Keine Beschreibung.",suggest:"Übungen vorschlagen",focus:"Fokus",howMany:"Wie viele?",confirm:"Bestätigen",next:"Weiter",eta:"gesch.",
     exportData:"Daten exportieren (JSON)",importData:"Daten importieren (JSON)",importBad:"Datei konnte nicht gelesen werden.",importOk:"Importiert.",dataTransfer:"Daten",
+    favorite:"Favorit",note:"Notiz",tempo:"Tempo",tempoHint:"Exzentrisch–Pause–Konzentrisch–Pause (s)",clock:"Uhr",addSetBtn:"Satz +",remove:"Entfernen",saveNote:"Notiz speichern",
     demoNote:"Diese Demo hält alles nur im Speicher. Die echte App speichert auf dem Gerät (Room DB), synct den wger-Katalog, exportiert PDF/JSON u.v.m."}
 };
 const t = k => STR[state.lang][k] || STR.en[k] || k;
@@ -201,7 +204,7 @@ const exName = ex => ex.custom ? ex.en : (ex[state.lang] || ex.en);
 
 /* ---------- state (in-memory only) ---------- */
 let nextId = 1000;
-const mkSet = (w,v,rest,type)=>({id:nextId++,type:type||"N",weightKg:w,value:v,unit:"reps",restSecs:rest??90,done:false});
+const mkSet = (w,v,rest,type)=>({id:nextId++,type:type||"N",weightKg:w,value:v,unit:"reps",restSecs:rest??90,tempo:"",done:false});
 const mkWe  = (exId,sets,ss)=>({id:nextId++,exerciseId:exId,supersetWithPrev:!!ss,sets});
 const mkWorkout = (name,exercises)=>({id:nextId++,name,exercises,archived:false});
 // Many-to-many: workouts are standalone; plans reference them via links (planId↔workoutId).
@@ -230,7 +233,9 @@ const state = {
   bodyweight:[{d:"–7 d",kg:79.4},{d:"–3 d",kg:79.0},{d:"today",kg:78.6}],
   finished:[],           // {name,durSecs,activeSecs,volume,sets}
   session:null,          // live session
-  view:null, videoLinks:{},  // {kind:...}, exerciseId->url
+  view:null, videoLinks:{}, notes:{},  // exerciseId->url, exerciseId->note text
+  favorites:new Set(),   // starred exercise ids (sort to top + preferred by suggestions)
+  showClock:true,        // session elapsed/ETA clock (Settings.showClock)
 };
 const allExercises = () => CATALOG.concat(state.customExercises);
 const exById = id => allExercises().find(e=>e.id===id);
@@ -471,11 +476,12 @@ function renderEditor(w){
       <div class="grow"><b>${esc(exName(ex))}</b><div class="sub">${ex.muscle} · ${we.sets.length} ${t("sets")}</div></div>
       <button class="iconBtn" onclick="openSheet('info',${ex.id})">ℹ️</button>
       <button class="iconBtn" onclick="delWe(${w.id},${i})">🗑️</button></div>
-      <table class="sets"><tr><th>${t("set")}</th><th>${t("weight")}</th><th>${t("reps")}</th><th>${t("rest")}</th></tr>
+      <table class="sets"><tr><th>${t("set")}</th><th>${t("weight")}</th><th>${t("reps")}</th><th>${t("rest")}</th><th>${t("tempo")}</th></tr>
       ${we.sets.map((s,si)=>`<tr><td class="setType" style="color:${typeColor(s.type)}">${s.type}${si+1}</td>
-        <td><input type="number" value="${s.weightKg}" style="width:64px" onchange="editSet(${s.id},'weightKg',this.value)"></td>
-        <td><input type="number" value="${s.value}" style="width:52px" onchange="editSet(${s.id},'value',this.value)"></td>
-        <td><input type="number" value="${s.restSecs}" style="width:56px" onchange="editSet(${s.id},'restSecs',this.value)"></td></tr>`).join("")}
+        <td><input type="number" value="${s.weightKg}" style="width:60px" onchange="editSet(${s.id},'weightKg',this.value)"></td>
+        <td><input type="number" value="${s.value}" style="width:48px" onchange="editSet(${s.id},'value',this.value)"></td>
+        <td><input type="number" value="${s.restSecs}" style="width:52px" onchange="editSet(${s.id},'restSecs',this.value)"></td>
+        <td><input type="text" value="${esc(s.tempo||"")}" placeholder="4-0-2-0" style="width:64px" onchange="editSetStr(${s.id},'tempo',this.value)"></td></tr>`).join("")}
       </table>
       <button class="chip" onclick="addSet(${w.id},${i})">＋ ${t("set")}</button></div>`;
   });
@@ -486,6 +492,8 @@ const typeColor=t=>({W:"var(--orange)",F:"var(--red)",D:"var(--purple)",S:"var(-
 const inEditor=()=>state.view&&state.view.kind==="editor";
 function editSet(id,f,v){if(inEditor())pushUndo();
   state.workouts.forEach(w=>w.exercises.forEach(we=>we.sets.forEach(s=>{if(s.id===id)s[f]=Number(v);})));}
+function editSetStr(id,f,v){if(inEditor())pushUndo();
+  state.workouts.forEach(w=>w.exercises.forEach(we=>we.sets.forEach(s=>{if(s.id===id)s[f]=v;})));}
 function addSet(wId,i){if(inEditor())pushUndo();const w=workoutById(wId);const last=w.exercises[i].sets.slice(-1)[0];
   w.exercises[i].sets.push(mkSet(last?last.weightKg:20,last?last.value:10,last?last.restSecs:90));render();}
 function delWe(wId,i){const w=workoutById(wId);if(confirm(t("confirmDel"))){if(inEditor())pushUndo();w.exercises.splice(i,1);render();}}
@@ -495,7 +503,7 @@ function renderSession(){
   const S=state.session,exs=S.workout.exercises;
   setTitle(esc(S.workout.name));$("fab").style.display="none";
   if(S.showList){
-    let h=`<div class="sub" style="margin-bottom:8px">⏱ ${fmt(Math.floor((Date.now()-S.startedAt)/1000))} / ≈${fmt(estimateSecs(exs))}</div>`;
+    let h=state.showClock?`<div class="sub" style="margin-bottom:8px">⏱ ${fmt(Math.floor((Date.now()-S.startedAt)/1000))} / ≈${fmt(estimateSecs(exs))}</div>`:"";
     exs.forEach((we,i)=>{const ex=exById(we.exerciseId);const done=we.sets.filter(s=>s.done).length;
       h+=`<div class="listEx"><span style="font-size:20px">${ex.img}</span>
         <span class="grow">${esc(exName(ex))}<span class="sub"> ${done}/${we.sets.length}</span></span>
@@ -509,18 +517,25 @@ function renderSession(){
     return `<div class="${all?"done":j===i?"cur":""}" onclick="state.session.page=${j};render()"></div>`;}).join("")}</div>`;
   h+=`<div class="row"><button class="btn tonal" onclick="state.session.showList=true;render()">${t("backToList")}</button>
     <div class="grow" style="text-align:center"><b>${esc(exName(ex))}</b>${we.supersetWithPrev?" 🔗":""}</div>
+    <button class="iconBtn" title="${t("clock")}" style="opacity:${state.showClock?1:.4}" onclick="state.showClock=!state.showClock;render()">🕐</button>
     <span class="sub">${i+1}/${exs.length}</span></div>`;
   h+=`<div class="exImg">${ex.img}</div>`;
-  h+=`<table class="sets"><tr><th></th><th>${t("weight")} (${t("kg")})</th><th>${t("reps")}</th><th>✓</th></tr>`;
+  // Tempo/cadence of the current set, big above the sets (mirrors the app).
+  const curSet=we.sets.find(s=>S.curStep&&S.curStep[0]===i&&S.curStep[1]===s.id)||we.sets.find(s=>!s.done)||we.sets[0];
+  if(curSet&&curSet.tempo)h+=`<div style="text-align:center;font-size:22px;font-weight:500;margin-bottom:6px">${t("tempo")}: ${esc(curSet.tempo)}</div>`;
+  h+=`<table class="sets"><tr><th></th><th>${t("weight")} (${t("kg")})</th><th>${t("reps")}</th><th>✓</th><th></th></tr>`;
   we.sets.forEach((s,si)=>{
     const cur=S.curStep&&S.curStep[0]===i&&S.curStep[1]===s.id;
-    h+=`<tr class="${cur?"curSet":""}"><td class="setType" style="color:${typeColor(s.type)}">${s.type}${si+1}</td>
+    h+=`<tr class="${cur?"curSet":""}"><td class="setType" style="color:${typeColor(s.type)};cursor:pointer" title="type" onclick="cycleType(${i},${s.id})">${s.type}${si+1}</td>
       <td><button class="stepBtn" onclick="bump(${i},${s.id},-1)">−</button>
         <span class="wVal">${s.weightKg}</span>
         <button class="stepBtn" onclick="bump(${i},${s.id},1)">＋</button></td>
-      <td>${s.value}${s.unit==="secs"?" "+t("secs"):""}</td>
-      <td><button class="tick ${s.done?"done":""}" onclick="logSet(${i},getSet(${i},${s.id}))">✓</button></td></tr>`;});
-  h+=`</table><div id="timers"></div>
+      <td style="cursor:pointer" title="reps" onclick="editReps(${i},${s.id})">${s.value}${s.unit==="secs"?" "+t("secs"):""}</td>
+      <td><button class="tick ${s.done?"done":""}" onclick="logSet(${i},getSet(${i},${s.id}))">✓</button></td>
+      <td><button class="iconBtn" title="${t("remove")}" onclick="removeSessionSet(${i},${s.id})">✕</button></td></tr>`;});
+  h+=`</table>
+    <button class="chip" style="margin-top:6px" onclick="addSessionSet(${i})">＋ ${t("addSetBtn")}</button>
+    <div id="timers"></div>
     <div class="pagerNav">
       <button class="btn tonal" ${i===0?"disabled":""} onclick="state.session.page=${i-1};render()">‹</button>
       <button class="btn tonal" ${i===exs.length-1?"disabled":""} onclick="state.session.page=${i+1};render()">›</button>
@@ -529,6 +544,16 @@ function renderSession(){
 }
 function getSet(i,id){return state.session.workout.exercises[i].sets.find(s=>s.id===id);}
 function bump(i,id,d){const s=getSet(i,id);s.weightKg=Math.max(0,Math.round((s.weightKg+d)*10)/10);render();}
+/* ---- in-session set editing (mirrors the editor: type / target / add / remove) ---- */
+const SESSION_TYPES=["N","W","F","D"];
+function cycleType(i,id){const s=getSet(i,id);s.type=SESSION_TYPES[(SESSION_TYPES.indexOf(s.type)+1)%SESSION_TYPES.length];render();}
+function editReps(i,id){const s=getSet(i,id);const v=prompt(t("reps"),s.value);if(v===null)return;
+  const n=parseInt(v);if(!isNaN(n)&&n>0){s.value=n;render();}}
+function addSessionSet(i){const S=state.session,we=S.workout.exercises[i],last=we.sets.slice(-1)[0];
+  we.sets.push(mkSet(last?last.weightKg:20,last?last.value:10,last?last.restSecs:90,last?last.type:"N"));
+  S.curStep=nextStepFrom(S.workout.exercises,i);render();}
+function removeSessionSet(i,id){const S=state.session,we=S.workout.exercises[i];
+  we.sets=we.sets.filter(s=>s.id!==id);S.curStep=nextStepFrom(S.workout.exercises,i);render();}
 function renderTimers(){
   const el=$("timers");if(!el||!state.session)return;
   const S=state.session;
@@ -545,7 +570,8 @@ function renderTimers(){
       <button class="btn tonal" onclick="toggleSw()">${S.swStart?"⏸":"▶"}</button>
       <button class="btn tonal" onclick="state.session.swStart=null;state.session.swAccum=0;renderTimers()">⏹</button>`;
   }
-  h+=`<div class="sub" style="margin-top:6px">⏱ ${elapsed} / ≈${fmt(estimateSecs(S.workout.exercises))} ${t("eta")} · ${t("activeTime")}: ${fmt(S.activeSecs)}</div></div>`;
+  const clockPart=state.showClock?`⏱ ${elapsed} / ≈${fmt(estimateSecs(S.workout.exercises))} ${t("eta")} · `:"";
+  h+=`<div class="sub" style="margin-top:6px">${clockPart}${t("activeTime")}: ${fmt(S.activeSecs)}</div></div>`;
   el.innerHTML=h;
 }
 function toggleSw(){const S=state.session;
@@ -630,12 +656,16 @@ function openSheet(kind,arg){
       <button class="btn tonal" style="margin-top:10px" onclick="addCustom(${arg})">＋ ${t("custom")}</button>`;
     renderExList(arg);
   }
-  if(kind==="info"){ // shared exercise detail sheet: description + editable video link + watch
-    const ex=exById(arg),url=state.videoLinks[arg]||"";
-    sh.innerHTML=`<div class="handle"></div><h2>${esc(exName(ex))}</h2>
+  if(kind==="info"){ // shared exercise detail sheet: fav + note + video link + watch
+    const ex=exById(arg),url=state.videoLinks[arg]||"",fav=state.favorites.has(arg);
+    sh.innerHTML=`<div class="handle"></div>
+      <div class="row"><h2 class="grow">${esc(exName(ex))}</h2>
+        <button class="iconBtn" title="${t("favorite")}" style="font-size:22px;color:${fav?"var(--primary)":"var(--text-dim)"}" onclick="toggleFavInfo(${arg})">${fav?"★":"☆"}</button></div>
       <div class="sub" style="margin-bottom:10px">${t("noDesc")}</div>
+      <label>${t("note")}</label><input type="text" id="exnote" value="${esc(state.notes[arg]||"")}" placeholder="${t("note")}">
+      <button class="btn tonal" style="width:100%;margin-top:8px" onclick="saveExNote(${arg})">${t("saveNote")}</button>
       <label>${t("videoLink")}</label><input type="text" id="vl" value="${esc(url)}">
-      <button class="btn" style="width:100%;margin-top:8px" onclick="saveLink(${arg})">${url?t("saveLink"):t("saveLink")}</button>
+      <button class="btn" style="width:100%;margin-top:8px" onclick="saveLink(${arg})">${t("saveLink")}</button>
       ${url?`<div class="row" style="gap:8px;margin-top:8px">
         <button class="btn tonal grow" onclick="alert('${t("watch")} (demo)')">${t("watch")}</button>
         <button class="btn tonal grow" onclick="window.open('${esc(url)}','_blank')">${t("openExt")}</button></div>`:""}`;
@@ -651,10 +681,13 @@ function openSheet(kind,arg){
   }
 }
 function saveLink(exId){const v=$("vl").value.trim();if(v)state.videoLinks[exId]=v;else delete state.videoLinks[exId];openSheet("info",exId);}
+function saveExNote(exId){const v=$("exnote").value.trim();if(v)state.notes[exId]=v;else delete state.notes[exId];openSheet("info",exId);}
+function toggleFavInfo(exId){state.favorites.has(exId)?state.favorites.delete(exId):state.favorites.add(exId);openSheet("info",exId);}
 function toggleFocus(m,wId){const s=state._focus;s.has(m)?s.delete(m):s.add(m);openSheet("suggest",wId);}
 function doSuggest(wId){const n=Math.max(1,parseInt($("sugN").value)||4);const w=workoutById(wId);
   const foci=[...state._focus];if(!foci.length)return;
-  const pool=CATALOG.filter(e=>foci.includes(e.muscle)&&!state.injured.includes(e.muscle));
+  const pool=CATALOG.filter(e=>foci.includes(e.muscle)&&!state.injured.includes(e.muscle))
+    .sort((a,b)=>(state.favorites.has(b.id)?1:0)-(state.favorites.has(a.id)?1:0)); // favorites preferred
   if(inEditor())pushUndo();
   for(let k=0;k<n&&pool.length;k++){const e=pool[k%pool.length];w.exercises.push(mkWe(e.id,[mkSet(20,10),mkSet(20,10),mkSet(20,10)]));}
   state._focus=new Set();closeSheet();render();}
@@ -663,11 +696,15 @@ function toggleInjured(m){const i=state.injured.indexOf(m);
 function renderExList(wId){
   const q=($("exSearch").value||"").toLowerCase();
   const list=allExercises().filter(e=>!state.injured.includes(e.muscle))
-    .filter(e=>exName(e).toLowerCase().includes(q)||e.muscle.toLowerCase().includes(q)).slice(0,30);
-  $("exList").innerHTML=list.map(e=>`<div class="listEx"><span style="font-size:20px">${e.img}</span>
+    .filter(e=>exName(e).toLowerCase().includes(q)||e.muscle.toLowerCase().includes(q))
+    .sort((a,b)=>(state.favorites.has(b.id)?1:0)-(state.favorites.has(a.id)?1:0)).slice(0,30); // favorites first
+  $("exList").innerHTML=list.map(e=>{const fav=state.favorites.has(e.id);
+    return `<div class="listEx"><span style="font-size:20px">${e.img}</span>
     <span class="grow">${esc(exName(e))}<span class="sub"> · ${e.muscle}</span></span>
-    <button class="btn tonal" onclick="addExToWorkout(${wId},${e.id})">＋</button></div>`).join("");
+    <button class="iconBtn" title="${t("favorite")}" style="color:${fav?"var(--primary)":"var(--text-dim)"}" onclick="toggleFav(${e.id},${wId})">${fav?"★":"☆"}</button>
+    <button class="btn tonal" onclick="addExToWorkout(${wId},${e.id})">＋</button></div>`;}).join("");
 }
+function toggleFav(id,wId){state.favorites.has(id)?state.favorites.delete(id):state.favorites.add(id);renderExList(wId);}
 function addExToWorkout(wId,exId){const w=workoutById(wId);if(inEditor())pushUndo();
   w.exercises.push(mkWe(exId,[mkSet(20,10),mkSet(20,10),mkSet(20,10)]));closeSheet();render();}
 function addCustom(wId){const n=prompt(t("custom"));if(!n)return;
@@ -696,7 +733,8 @@ function exportWorkout(id){const w=workoutById(id);if(!w)return;
 function exportData(){downloadJSON("workout-app-demo.json",{schema:1,
   plans:state.plans,workouts:JSON.parse(JSON.stringify(state.workouts)),links:state.links,
   customExercises:state.customExercises,injured:state.injured,
-  bodyweight:state.bodyweight,finished:state.finished,videoLinks:state.videoLinks});}
+  bodyweight:state.bodyweight,finished:state.finished,videoLinks:state.videoLinks,
+  notes:state.notes,favorites:[...state.favorites]});}
 function importData(){
   const inp=document.createElement("input");inp.type="file";inp.accept="application/json,.json,text/plain";
   inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();
@@ -715,6 +753,8 @@ function applyImport(d){
     if(d.bodyweight)state.bodyweight=d.bodyweight;
     if(d.finished)state.finished=d.finished;
     if(d.videoLinks)state.videoLinks=d.videoLinks;
+    if(d.notes)state.notes=d.notes;
+    if(d.favorites)state.favorites=new Set(d.favorites);
   } else if(d.workout){ // single-workout file → add + link to the active plan
     const w=workoutFromSerialized(d.workout);state.workouts.push(w);
     const p=activePlan();if(p)state.links.push({planId:p.id,workoutId:w.id});

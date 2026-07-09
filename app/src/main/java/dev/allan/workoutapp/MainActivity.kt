@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.background
@@ -76,6 +77,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.allan.workoutapp.data.db.Plan
@@ -166,12 +168,44 @@ private enum class Tab(val labelRes: Int) {
     Stats(R.string.nav_statistics),
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "main") {
+    // Selected bottom-nav tab is hoisted so the global bar (below) and MainScaffold share it.
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    // Global bottom nav on every screen EXCEPT an in-progress workout (session).
+    val showBottomBar = currentRoute?.startsWith("session/") != true
+
+    Scaffold(
+        // Only the bottom bar contributes padding; each screen owns its own top insets.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            if (showBottomBar) {
+                AppBottomBar(selected = selectedTab) { idx ->
+                    selectedTab = idx
+                    // From a drill-in screen, a tab tap returns to the tabbed surface.
+                    if (currentRoute != "main") {
+                        navController.navigate("main") {
+                            popUpTo("main") { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                }
+            }
+        },
+    ) { barPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = "main",
+            modifier = Modifier.padding(barPadding),
+        ) {
         composable("main") {
             MainScaffold(
+                selectedTab = selectedTab,
+                onSelectTab = { selectedTab = it },
                 onOpenLibrary = { navController.navigate("library") },
                 onOpenSettings = { navController.navigate("settings") },
                 onOpenPlan = { navController.navigate("plan/$it") },
@@ -299,12 +333,38 @@ fun AppRoot() {
                 pickerWorkoutId = entry.arguments!!.getLong("workoutId"),
             )
         }
+        }
+    }
+}
+
+/** The 4-tab bottom navigation, shared by the tabbed surface and every drill-in screen. */
+@Composable
+private fun AppBottomBar(selected: Int, onSelect: (Int) -> Unit) {
+    NavigationBar {
+        Tab.entries.forEachIndexed { index, tab ->
+            NavigationBarItem(
+                selected = selected == index,
+                onClick = { onSelect(index) },
+                icon = {
+                    val image = when (tab) {
+                        Tab.Home -> Icons.Default.Home
+                        Tab.Active -> Icons.Default.FitnessCenter
+                        Tab.Inactive -> Icons.Outlined.Inventory2
+                        Tab.Stats -> Icons.Default.BarChart
+                    }
+                    Icon(image, contentDescription = null)
+                },
+                label = { Text(stringResource(tab.labelRes)) },
+            )
+        }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScaffold(
+    selectedTab: Int,
+    onSelectTab: (Int) -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenPlan: (Long) -> Unit,
@@ -317,7 +377,7 @@ private fun MainScaffold(
     onOpenArchiveWorkouts: () -> Unit,
     vm: PlansViewModel = viewModel(),
 ) {
-    var selected by rememberSaveable { mutableIntStateOf(0) }
+    val selected = selectedTab
     var showNewPlan by remember { mutableStateOf(false) }
 
     val activePlan by vm.activePlan.collectAsState()
@@ -378,26 +438,6 @@ private fun MainScaffold(
                 }
             }
         },
-        bottomBar = {
-            NavigationBar {
-                Tab.entries.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        selected = selected == index,
-                        onClick = { selected = index },
-                        icon = {
-                            val image = when (tab) {
-                                Tab.Home -> Icons.Default.Home
-                                Tab.Active -> Icons.Default.FitnessCenter
-                                Tab.Inactive -> Icons.Outlined.Inventory2
-                                Tab.Stats -> Icons.Default.BarChart
-                            }
-                            Icon(image, contentDescription = null)
-                        },
-                        label = { Text(stringResource(tab.labelRes)) }
-                    )
-                }
-            }
-        }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
