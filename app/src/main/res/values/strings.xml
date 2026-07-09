@@ -217,6 +217,9 @@
     <string name="mode_isolation">Isolation</string>
     <string name="approx_duration">≈ %1$d min</string>
     <string name="tempo_label">Tempo (e.g. 4-0-2-0)</string>
+    <string name="keep_plan_changes_title">Keep plan changes?</string>
+    <string name="keep_plan_changes_msg">You changed sets during this workout. Keep them in the plan, or apply just this once?</string>
+    <string name="one_time_only">Just this time</string>
     <string name="tempo_show_clock">Show clock</string>
     <string name="suggest_duration">Target duration</string>
     <string name="minutes_suffix">min</string>

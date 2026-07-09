@@ -73,6 +73,8 @@ data class SessionUiState(
     /** Live active-time total: booked seconds + the current stopwatch reading. */
     val activeSecs: Int = 0,
     val timerPanelVisible: Boolean = false,
+    /** True once the user edits the plan mid-session (drives the keep/one-time prompt). */
+    val templatesChanged: Boolean = false,
     /** One-shot: pager should animate to this exercise index (superset/auto-advance). */
     val pendingSwipeTo: Int? = null,
     /**
@@ -179,6 +181,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     private val _state = MutableStateFlow(SessionUiState())
     val state: StateFlow<SessionUiState> = _state
 
+    // Set templates as they were when this session view loaded — restored if the user
+    // chooses "one-time" for mid-session edits (add/remove set, change type/target/tempo).
+    private var templateSnapshot: List<dev.allan.workoutapp.data.db.SetTemplate> = emptyList()
+
     init {
         viewModelScope.launch {
             startOrResume()
@@ -205,6 +211,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
 
         val wes = db.planDao().workoutExercises(workoutId).first()
         val templates = db.planDao().setTemplatesForWorkout(workoutId).first()
+        if (templateSnapshot.isEmpty()) templateSnapshot = templates
         val loggedSets = db.sessionDao().setLogs(session.id)
         val drafts = db.sessionDao().drafts(session.id).associateBy { it.templateId }
 
@@ -553,13 +560,58 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         viewModelScope.launch { PlanRepo.saveExerciseNote(db, exerciseId, text) }
     }
 
+    /** In-session plan edits — write to the set template, then refresh the SessionSet list.
+     *  Marks templatesChanged so the end flow can offer keep vs one-time. */
+    private fun editTemplate(templateId: Long, transform: (dev.allan.workoutapp.data.db.SetTemplate) -> dev.allan.workoutapp.data.db.SetTemplate) {
+        viewModelScope.launch {
+            val t = db.planDao().setTemplatesForWorkout(workoutId).first().firstOrNull { it.id == templateId } ?: return@launch
+            db.planDao().updateSetTemplate(transform(t))
+            _state.value = _state.value.copy(templatesChanged = true)
+            startOrResume()
+        }
+    }
+
+    fun setSetType(set: SessionSet, type: SetType) = editTemplate(set.templateId) { it.copy(type = type) }
+    fun setSetTarget(set: SessionSet, min: Int, max: Int?) =
+        editTemplate(set.templateId) { it.copy(targetValue = min, targetValueMax = max?.takeIf { m -> m > min }) }
+
+    fun addSessionSet(exerciseIndex: Int) {
+        val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
+        viewModelScope.launch {
+            val templates = db.planDao().setTemplatesForWorkout(workoutId).first()
+                .filter { it.workoutExerciseId == ex.workoutExerciseId }.sortedBy { it.setIndex }
+            val last = templates.lastOrNull()
+            db.planDao().insertSetTemplate(
+                (last ?: dev.allan.workoutapp.data.db.SetTemplate(workoutExerciseId = ex.workoutExerciseId, setIndex = -1))
+                    .copy(id = 0, setIndex = (last?.setIndex ?: -1) + 1)
+            )
+            _state.value = _state.value.copy(templatesChanged = true)
+            startOrResume()
+        }
+    }
+
+    fun removeSessionSet(set: SessionSet) {
+        viewModelScope.launch {
+            db.planDao().deleteSetTemplate(set.templateId)
+            _state.value = _state.value.copy(templatesChanged = true)
+            startOrResume()
+        }
+    }
+
+    /** Undo mid-session plan edits (the "one-time" choice) by restoring the entry snapshot. */
+    private suspend fun restorePlanTemplates() {
+        db.planDao().deleteSetTemplatesForWorkout(workoutId)
+        db.planDao().restoreSetTemplates(templateSnapshot)
+    }
+
     /** End the session. save=false discards logged sets. Returns via onDone(sessionId). */
-    fun endSession(save: Boolean, onDone: (Long) -> Unit) {
+    fun endSession(save: Boolean, keepPlanChanges: Boolean = true, onDone: (Long) -> Unit) {
         val sessionId = _state.value.sessionId ?: return
         SessionManager.stopRest()
         SessionManager.consumeStopwatch()?.let { SessionManager.addActiveSecs(it) }
         val timers = SessionManager.state.value
         viewModelScope.launch {
+            if (!keepPlanChanges && _state.value.templatesChanged) restorePlanTemplates()
             val session = db.sessionDao().session(sessionId) ?: return@launch
             db.sessionDao().updateSession(
                 session.copy(

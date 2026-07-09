@@ -3,7 +3,9 @@ package dev.allan.workoutapp.ui.session
 import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -102,6 +104,14 @@ fun SessionScreen(
     )
     val state by vm.state.collectAsState()
     var confirmEnd by remember { mutableStateOf<Boolean?>(null) } // null=hidden, true=save, false=discard
+    // After the session save/discard choice, if the plan was edited mid-session, ask whether
+    // to keep those edits or treat them as one-time. Holds the session-save choice meanwhile.
+    var askKeepPlan by remember { mutableStateOf<Boolean?>(null) }
+    val finishWith = { save: Boolean ->
+        confirmEnd = null
+        if (state.templatesChanged) askKeepPlan = save
+        else vm.endSession(save, keepPlanChanges = true) { onFinished(it) }
+    }
 
     // Countdown notification needs POST_NOTIFICATIONS (runtime since API 33).
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -309,10 +319,7 @@ fun SessionScreen(
                         )
                     }
                     Button(
-                        onClick = {
-                            confirmEnd = null
-                            vm.endSession(true) { onFinished(it) }
-                        },
+                        onClick = { finishWith(true) },
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                             containerColor = DoneGreen,
                             contentColor = androidx.compose.ui.graphics.Color.White,
@@ -320,10 +327,7 @@ fun SessionScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.end_save)) }
                     Button(
-                        onClick = {
-                            confirmEnd = null
-                            vm.endSession(false) { onFinished(it) }
-                        },
+                        onClick = { finishWith(false) },
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError,
@@ -335,6 +339,26 @@ fun SessionScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { confirmEnd = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    askKeepPlan?.let { save ->
+        AlertDialog(
+            onDismissRequest = { askKeepPlan = null },
+            title = { Text(stringResource(R.string.keep_plan_changes_title)) },
+            text = { Text(stringResource(R.string.keep_plan_changes_msg)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    askKeepPlan = null
+                    vm.endSession(save, keepPlanChanges = true) { onFinished(it) }
+                }) { Text(stringResource(R.string.keep_changes)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    askKeepPlan = null
+                    vm.endSession(save, keepPlanChanges = false) { onFinished(it) }
+                }) { Text(stringResource(R.string.one_time_only)) }
             },
         )
     }
@@ -388,10 +412,15 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
 
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState) {
     val ex = state.exercises.getOrNull(page) ?: return
     var editTarget by remember { mutableStateOf<Pair<SessionSet, String>?>(null) } // set + field
+    // In-session plan editing (mirrors the editor): type picker, target dialog, long-press remove.
+    var typeMenuFor by remember { mutableStateOf<Long?>(null) }   // templateId
+    var targetEditFor by remember { mutableStateOf<SessionSet?>(null) }
+    var removeSetTarget by remember { mutableStateOf<SessionSet?>(null) }
 
     // Image collapses when the sets table scrolls up and reappears on scroll-down at the top.
     val tableScroll = rememberScrollState()
@@ -577,22 +606,37 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                             else androidx.compose.ui.graphics.Color.Transparent,
                             RoundedCornerShape(10.dp),
                         )
+                        // Long-press a set to remove it (mirrors the editor's delete).
+                        .combinedClickable(onClick = {}, onLongClick = { removeSetTarget = set })
                         .padding(vertical = 3.dp, horizontal = 2.dp),
                 ) {
-                    Text(
-                        when (set.type) {
-                            SetType.WARMUP -> stringResource(R.string.set_warmup)
-                            SetType.NORMAL -> stringResource(R.string.set_normal)
-                            SetType.FAILURE -> stringResource(R.string.set_failure)
-                            SetType.DROP -> stringResource(R.string.set_drop)
-                            SetType.SUPERSET -> stringResource(R.string.set_superset)
-                        }.take(1),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = setTypeColor(set.type),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.width(width = 28.dp),
-                    )
+                    // Tap the type letter to change the set type in-session.
+                    Box(Modifier.width(28.dp)) {
+                        Text(
+                            when (set.type) {
+                                SetType.WARMUP -> stringResource(R.string.set_warmup)
+                                SetType.NORMAL -> stringResource(R.string.set_normal)
+                                SetType.FAILURE -> stringResource(R.string.set_failure)
+                                SetType.DROP -> stringResource(R.string.set_drop)
+                                SetType.SUPERSET -> stringResource(R.string.set_superset)
+                            }.take(1),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = setTypeColor(set.type),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { typeMenuFor = set.templateId },
+                        )
+                        DropdownMenu(expanded = typeMenuFor == set.templateId, onDismissRequest = { typeMenuFor = null }) {
+                            listOf(SetType.WARMUP, SetType.NORMAL, SetType.FAILURE, SetType.DROP).forEach { ty ->
+                                DropdownMenuItem(
+                                    text = { Text(ty.name) },
+                                    onClick = { typeMenuFor = null; vm.setSetType(set, ty) },
+                                )
+                            }
+                        }
+                    }
                     // − weight + quick-steppers around the tap-to-edit weight button.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -635,7 +679,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     ) {
                         Text("${set.value}")
                     }
-                    // Reference rep range from the plan (what you aim for, not what you log).
+                    // Reference goal from the plan (what you aim for, not what you log) — tap to edit.
                     Text(
                         if (set.valueUnit == ValueUnit.REPS)
                             set.targetMax?.let { "${set.targetMin}–$it" } ?: "${set.targetMin}"
@@ -643,7 +687,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.width(52.dp),
+                        modifier = Modifier.width(52.dp).clickable { targetEditFor = set },
                     )
                     if (set.valueUnit == ValueUnit.SECS) {
                         IconButton(onClick = { vm.startSetCountdown(set) }) {
@@ -661,6 +705,14 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         )
                     }
                 }
+            }
+            // Row-wide add-set button (mirrors the editor). Long-press a row to remove.
+            TextButton(
+                onClick = { vm.addSessionSet(page) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.add_set), modifier = Modifier.padding(start = 6.dp))
             }
         }
 
@@ -694,6 +746,53 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 else vm.updateSet(page, set.copy(value = newValue.toInt().coerceAtLeast(0)))
                 editTarget = null
             },
+        )
+    }
+
+    // Edit the plan goal (reps range / seconds) mid-session.
+    targetEditFor?.let { set ->
+        var minText by remember(set.templateId) { mutableStateOf(set.targetMin.toString()) }
+        var maxText by remember(set.templateId) { mutableStateOf(set.targetMax?.toString() ?: "") }
+        AlertDialog(
+            onDismissRequest = { targetEditFor = null },
+            title = { Text(stringResource(R.string.header_target)) },
+            text = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = minText, onValueChange = { minText = it.filter(Char::isDigit).take(3) },
+                        label = { Text(stringResource(R.string.reps)) }, singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (set.valueUnit == ValueUnit.REPS) {
+                        Text("–")
+                        OutlinedTextField(
+                            value = maxText, onValueChange = { maxText = it.filter(Char::isDigit).take(3) },
+                            label = { Text("max") }, singleLine = true, modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val min = minText.toIntOrNull()?.coerceAtLeast(1) ?: set.targetMin
+                    vm.setSetTarget(set, min, maxText.toIntOrNull())
+                    targetEditFor = null
+                }) { Text(stringResource(R.string.save)) }
+            },
+            dismissButton = { TextButton(onClick = { targetEditFor = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+
+    removeSetTarget?.let { set ->
+        AlertDialog(
+            onDismissRequest = { removeSetTarget = null },
+            title = { Text(stringResource(R.string.delete)) },
+            confirmButton = {
+                TextButton(onClick = { vm.removeSessionSet(set); removeSetTarget = null }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = { TextButton(onClick = { removeSetTarget = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

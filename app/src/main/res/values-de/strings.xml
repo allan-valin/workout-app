@@ -217,6 +217,9 @@
     <string name="mode_isolation">Isolationsübungen</string>
     <string name="approx_duration">≈ %1$d Min</string>
     <string name="tempo_label">Tempo (z.B. 4-0-2-0)</string>
+    <string name="keep_plan_changes_title">Planänderungen behalten?</string>
+    <string name="keep_plan_changes_msg">Du hast Sätze während des Trainings geändert. Im Plan behalten oder nur diesmal anwenden?</string>
+    <string name="one_time_only">Nur diesmal</string>
     <string name="tempo_show_clock">Uhr anzeigen</string>
     <string name="suggest_duration">Zieldauer</string>
     <string name="minutes_suffix">Min</string>
