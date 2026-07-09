@@ -449,12 +449,6 @@ private fun MainScaffold(
                             }
                         }
                     }
-                    item {
-                        Button(onClick = onOpenLibrary) {
-                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
-                            Text(stringResource(R.string.exercise_library), modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
                 }
                 Tab.Active -> {
                     if (activePlans.isEmpty()) {
@@ -474,6 +468,7 @@ private fun MainScaffold(
                             onToggle = { vm.setPlanActive(plan, false) },
                         )
                     }
+                    item { LibraryButton(onOpenLibrary) }
                 }
                 Tab.Inactive -> {
                     if (inactivePlans.isEmpty()) {
@@ -493,6 +488,7 @@ private fun MainScaffold(
                             onToggle = { vm.setPlanActive(plan, true) },
                         )
                     }
+                    item { LibraryButton(onOpenLibrary) }
                 }
                 Tab.Stats -> item {
                     dev.allan.workoutapp.ui.stats.StatsTab(
@@ -587,6 +583,15 @@ private fun WeekRow(completedDays: Set<Int>) {
                 }
             }
         }
+    }
+}
+
+/** Entry to the exercise library, shown at the bottom of the Active/Archive tabs. */
+@Composable
+private fun LibraryButton(onOpenLibrary: () -> Unit) {
+    OutlinedButton(onClick = onOpenLibrary, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
+        Text(stringResource(R.string.exercise_library), modifier = Modifier.padding(start = 8.dp))
     }
 }
 

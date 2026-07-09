@@ -144,7 +144,9 @@ fun SessionScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(state.workoutName + "  ·  " + fmt(state.elapsedSecs)) },
+                    title = {
+                        Text(state.workoutName + "  ·  " + fmt(state.elapsedSecs) + "  /  ≈" + fmt(state.estimatedTotalSecs))
+                    },
                     navigationIcon = {
                         IconButton(onClick = onExit) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -206,7 +208,9 @@ fun SessionScreen(
         )
         LaunchedEffect(pagerState.currentPage) { vm.setCurrentIndex(pagerState.currentPage) }
         // Auto-advance after logging: superset partner, next exercise, or back here.
-        LaunchedEffect(state.pendingSwipeTo) {
+        // Keyed on swipeToken (not the target index) so two advances to the same page
+        // still fire — see SessionUiState.swipeToken (bug B).
+        LaunchedEffect(state.swipeToken) {
             state.pendingSwipeTo?.let { target ->
                 if (target in state.exercises.indices) pagerState.animateScrollToPage(target)
                 vm.clearPendingSwipe()
@@ -368,7 +372,7 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
     val current = state.exercises.getOrNull(state.currentIndex)
 
     TopAppBar(
-        title = { Text(fmt(state.elapsedSecs)) },
+        title = { Text(fmt(state.elapsedSecs) + "  /  ≈" + fmt(state.estimatedTotalSecs)) },
         navigationIcon = {
             IconButton(onClick = vm::showList) {
                 Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.back))
@@ -875,7 +879,11 @@ private fun VideoOverlayDialog(url: String, onDismiss: () -> Unit) {
                 factory = { ctx ->
                     android.webkit.WebView(ctx).apply {
                         settings.javaScriptEnabled = true
+                        // YouTube's iframe player is blank without DOM storage.
+                        settings.domStorageEnabled = true
                         settings.mediaPlaybackRequiresUserGesture = false
+                        // Keep navigation inside the WebView instead of firing an external intent.
+                        webViewClient = android.webkit.WebViewClient()
                         webChromeClient = android.webkit.WebChromeClient()
                         loadUrl(embedUrl)
                     }

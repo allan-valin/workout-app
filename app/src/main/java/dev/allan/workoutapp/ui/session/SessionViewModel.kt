@@ -62,6 +62,8 @@ data class SessionUiState(
     /** exerciseIndex to templateId of the next expected set (superset-interleaved order). */
     val currentStep: Pair<Int, Long>? = null,
     val elapsedSecs: Int = 0,
+    /** Rough time budget for the whole workout, shown next to the elapsed clock. */
+    val estimatedTotalSecs: Int = 0,
     val restRemainingSecs: Int? = null,
     val setCountdownRemainingSecs: Int? = null,
     val stopwatchSecs: Int = 0,
@@ -71,6 +73,12 @@ data class SessionUiState(
     val timerPanelVisible: Boolean = false,
     /** One-shot: pager should animate to this exercise index (superset/auto-advance). */
     val pendingSwipeTo: Int? = null,
+    /**
+     * Bumped on every swipe request so the pager's LaunchedEffect re-fires even when two
+     * successive auto-advances target the same page index (bug B: value-keyed effect
+     * silently skipped identical targets, killing auto-advance).
+     */
+    val swipeToken: Int = 0,
     /** Exercise description shown in the bottom sheet, null = hidden. */
     val descriptionSheet: String? = null,
     /** Exercise the sheet belongs to + its user-saved video link. */
@@ -147,6 +155,18 @@ object SupersetOrder {
         return after.any { i -> exercises[i].sets.getOrNull(round)?.done == false }
     }
 }
+
+/**
+ * Rough workout time budget: per exercise a 60 s setup buffer, plus per set the work time
+ * (set seconds for timed sets, else 40 s) and its rest. Reference only — not exact.
+ */
+fun estimateWorkoutSecs(exercises: List<SessionExercise>): Int =
+    exercises.sumOf { ex ->
+        60 + ex.sets.sumOf { set ->
+            val work = if (set.valueUnit == ValueUnit.SECS) set.value else 40
+            work + set.restSecs
+        }
+    }
 
 class SessionViewModel(app: Application, private val workoutId: Long, private val lang: String) :
     AndroidViewModel(app) {
@@ -230,6 +250,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             workoutName = workout.name,
             exercises = exercises,
             currentStep = SupersetOrder.nextStep(exercises),
+            estimatedTotalSecs = estimateWorkoutSecs(exercises),
         )
         // Backfill any missing images (e.g. exercise added before the media pipeline existed).
         exercises.filter { it.imagePath == null }.forEach { ex ->
@@ -424,8 +445,11 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         val next = SupersetOrder.nextStepFrom(_state.value.exercises, exerciseIndex)
         _state.value = when {
             next == null -> _state.value.copy(timerPanelVisible = true, showList = true)
-            next.first != exerciseIndex ->
-                _state.value.copy(timerPanelVisible = true, pendingSwipeTo = next.first)
+            next.first != exerciseIndex -> _state.value.copy(
+                timerPanelVisible = true,
+                pendingSwipeTo = next.first,
+                swipeToken = _state.value.swipeToken + 1,
+            )
             else -> _state.value.copy(timerPanelVisible = true)
         }
     }
@@ -449,7 +473,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
 
     /** Jump the pager to an exercise (story-bar segment tap). */
     fun requestSwipe(index: Int) {
-        _state.value = _state.value.copy(pendingSwipeTo = index)
+        _state.value = _state.value.copy(
+            pendingSwipeTo = index,
+            swipeToken = _state.value.swipeToken + 1,
+        )
     }
 
     /** Show the current exercise's description (localized, en fallback) in a sheet. */

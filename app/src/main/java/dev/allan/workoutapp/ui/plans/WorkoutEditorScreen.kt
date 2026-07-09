@@ -522,10 +522,36 @@ private fun SuggestWizard(
                             IconButton(onClick = { countText = (count + 1).toString() }) {
                                 Icon(Icons.Default.Add, contentDescription = null)
                             }
-                            // Duration equivalent: 6 min per exercise (3×(40 s+60 s)+1 min buffer).
+                        }
+                        // Editable duration that back-computes the count (6 min/exercise).
+                        // Kept in sync with the count field above (either drives the other).
+                        Text(
+                            stringResource(R.string.suggest_duration),
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            OutlinedTextField(
+                                value = (count * MINUTES_PER_EXERCISE).toString(),
+                                onValueChange = { new ->
+                                    val mins = new.filter { it.isDigit() }.take(3).toIntOrNull()
+                                    if (mins != null) {
+                                        countText = (Math.round(mins / MINUTES_PER_EXERCISE.toDouble())
+                                            .toInt().coerceAtLeast(1)).toString()
+                                    }
+                                },
+                                singleLine = true,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                ),
+                                modifier = Modifier.width(88.dp),
+                            )
                             Text(
-                                stringResource(R.string.approx_duration, count * MINUTES_PER_EXERCISE),
-                                style = MaterialTheme.typography.bodySmall,
+                                stringResource(R.string.minutes_suffix),
+                                style = MaterialTheme.typography.bodyMedium,
                             )
                         }
                         Row(

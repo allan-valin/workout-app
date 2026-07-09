@@ -216,6 +216,8 @@
     <string name="mode_compound">Verbundübungen</string>
     <string name="mode_isolation">Isolationsübungen</string>
     <string name="approx_duration">≈ %1$d Min</string>
+    <string name="suggest_duration">Zieldauer</string>
+    <string name="minutes_suffix">Min</string>
     <string name="consider_injuries">Verletzungen berücksichtigen</string>
     <string name="per_muscle_counts">Übungen pro Muskel</string>
 </resources>

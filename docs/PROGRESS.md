@@ -231,26 +231,27 @@ Exercise search / library:
 - [x] Search results show the exercise image above the title (local file first, wger URL
       fallback; ExerciseHit gained imagePath).
 - [x] Editor: ℹ icon per exercise opens a localized description dialog.
-- [ ] Library icon moves off the main screen; show it at the bottom of the Active/Archive
-      pages instead, and allow ADDING exercises to a workout from there (today it is
-      view-only).
+- [~] Library icon moved off the Home tab; now an OutlinedButton at the bottom of the
+      Active/Archive tabs (MainActivity.LibraryButton). ADDING exercises to a workout from
+      there still open — needs the workout-selection page from the deferred Active rework.
 - [x] YouTube link editing moved to the library detail sheet with an explicit Save/Delete
       link button (blank clears); the in-session sheet is view-only (watch/open).
-- [ ] YouTube link bugs (2026-07-09 correction from Allan: "edits don't stick" was the save
-      tick being invisible against the field text — a CONTRAST bug, saving works): make the
-      save action clearly visible; cannot delete a saved link (empty text must clear it);
-      "watch video" overlay never loads; "open on YouTube" opens inside the app instead of
-      the YouTube app (emulator lacks the YouTube app, so ACTION_VIEW falls back to a
-      browser — verify on the Redmi before treating as a bug).
+- [x] YouTube link bugs: save is now a full-width filled Button below the field (contrast
+      fixed); blank + save deletes the link (saveVideoLink → deleteVideoLink, already worked);
+      "watch video" overlay fixed — YouTube's iframe player was blank without
+      settings.domStorageEnabled + a WebViewClient (added). "Open on YouTube" uses ACTION_VIEW;
+      on the emulator (no YouTube app) it falls back to a browser — treat as correct, verify
+      on the Redmi. Emulator-UNVERIFIED (overlay).
 
 Suggestion flow (workout editor ✨):
 - [x] Suggestion wizard step 1: focus buttons are multi-select FilterChips; recipes of all
       selected foci merge (SuggestionEngine.mergedRecipe).
-- [~] Duration estimation PARTIAL: wizard shows "≈ N min" next to the count (6 min/exercise
-      model). Still open: a dedicated duration input that back-computes the count, live
-      recalculation from actual sets/pauses/secs-based exercises, and…
-- [ ] During a session, show total estimated time to the right of the elapsed time
-      (estimate = Σ per exercise: 60 s buffer + Σ sets (40 s or set seconds + restSecs)).
+- [x] Duration estimation: wizard now has an editable "Target duration" (min) field that
+      back-computes the count (round(mins / 6)); count and duration drive each other. Strings
+      suggest_duration / minutes_suffix in 3 langs.
+- [x] During a session, total estimate shown to the right of the elapsed clock in both top
+      bars (state.estimatedTotalSecs = Σ exercise: 60 s + Σ sets (set secs or 40 s + restSecs);
+      estimateWorkoutSecs in SessionViewModel). Emulator-UNVERIFIED.
 - [x] "How many exercises" row: "default" chip and fixed chips replaced by editable numeric
       field (min 1) with −/+ steppers.
 - [x] Wizard step 3: per-muscle −/+ counts (derived from merged recipes scaled to the
@@ -301,6 +302,16 @@ Statistics rework (point graphs):
       PointAreaChart + one chart per muscle group (primary-muscle attribution), same range
       chips. Old inline volume LineChart removed.
 
+SESSION 2026-07-09 (smaller-items pass; Allan chose to DEFER the Active/Archive plan-management
+rework — it needs a plan_workout many-to-many schema + migration for the "link workout across
+plans" mode, own session): done this pass = YouTube link overlay/contrast/delete, wizard target-
+duration input, in-session total-time estimate, library button moved to bottom of Active/Archive
+tabs, auto-advance bug B (swipeToken fix). All compile + unit-test green, NOT emulator-verified.
+STILL OPEN in Phase 10: the whole "Active screen / plan management rework" block (one-plan-active,
+Active tab → workout-selection page, per-row start/edit/archive/delete, archive-detach,
+add-workout full-screen link-vs-base, Archive two-button Plans/Workouts), plus adding exercises to
+a workout from the relocated library button.
+
 In-progress session:
 - [x] Weight − / + steppers: step 1 kg instead of 2.5.
 - [x] Set-complete ticks: incomplete = primary (visible on the highlight), completed =
@@ -318,8 +329,11 @@ In-progress session:
       first, then forward, wrapping so skipped exercises come last; used by
       logSet/updateSet/updateWeight (global `nextStep` kept for session start). Unit
       tests cover stay/forward/wrap/superset cases. Not yet emulator-verified.
-- [ ] Auto-advance bug B (dead): after mixing timer actions + completing/uncompleting sets,
-      auto-advance stops firing entirely. Exact repro unknown — needs instrumentation.
+- [x] Auto-advance bug B (dead): root cause = the pager's LaunchedEffect was keyed on
+      state.pendingSwipeTo (the target index), so two successive advances to the SAME page
+      index left the key unchanged and the effect never re-fired → auto-advance appeared to
+      die. Fixed with a monotonic SessionUiState.swipeToken bumped on every requestSwipe /
+      auto-advance; the effect now keys on the token. Emulator-UNVERIFIED.
 - [x] Story bar: segments 4→8 dp tall and tappable (pager jumps via pendingSwipeTo).
 - [x] End workout: unified dialog with green Save / red Discard buttons and an "N of M sets
       not completed" warning when sets are open.

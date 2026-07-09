@@ -216,6 +216,8 @@
     <string name="mode_compound">Compostos</string>
     <string name="mode_isolation">Isolados</string>
     <string name="approx_duration">≈ %1$d min</string>
+    <string name="suggest_duration">Duração desejada</string>
+    <string name="minutes_suffix">min</string>
     <string name="consider_injuries">Considerar lesões</string>
     <string name="per_muscle_counts">Exercícios por músculo</string>
 </resources>
