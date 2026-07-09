@@ -302,6 +302,27 @@ Statistics rework (point graphs):
       PointAreaChart + one chart per muscle group (primary-muscle attribution), same range
       chips. Old inline volume LineChart removed.
 
+SESSION 2026-07-09b (second feedback pass, EMULATOR-VERIFIED — screenshots this session):
+- Suggest wizard: per-muscle step (3) now shown ONLY when ≥2 foci or full-body-isolation;
+  single focus / full-body-compound skip it. Confirm button dynamically reads "Confirm" vs
+  "Next" (steps 1 & 2) based on whether a further step follows. Verified: Push→"Bestätigen",
+  Push+Pull→"Weiter". needsMuscleStep + finish()/recompute in SuggestWizard.
+- ℹ detail unified into ONE slide-up sheet everywhere (ui/common/ExerciseInfoSheet): library,
+  workout editor (was a popup), in-session. All three now have an EDITABLE video link (visible
+  filled "save/delete" button — contrast fix) + Watch/Open, so a link is added straight from the
+  exercise (no more library-search hassle). VideoOverlayDialog moved to common (domStorage +
+  WebViewClient kept). Verified in editor: add link → save button → Watch/Open appear.
+- Session ⋯ menu reduced to a single "End workout" item (both old items opened the same
+  save/discard dialog anyway).
+- Workout editor undo/redo/save/discard (NEW, Allan request): snapshot the workout's full
+  content (name+exercises+templates) before each mutation; undo/redo restore via REPLACE inserts
+  (ids preserved). Top bar gained undo/redo icons + "Save" (persist-and-exit); back arrow /
+  system back with unsaved edits → keep/discard dialog (discard restores the open-state snapshot).
+  All editor mutations routed through edit{}/recordChange. Verified on device: add-set enabled
+  undo, undo reverted + enabled redo, back→"Änderungen behalten?" dialog, discard restored.
+- STILL OPEN from this feedback: undo granularity is per-keystroke on rename (noisy but correct);
+  picker-added exercises don't push an undo entry (discard still reverts them via initial snapshot).
+
 SESSION 2026-07-09 (smaller-items pass; Allan chose to DEFER the Active/Archive plan-management
 rework — it needs a plan_workout many-to-many schema + migration for the "link workout across
 plans" mode, own session): done this pass = YouTube link overlay/contrast/delete, wizard target-

@@ -276,44 +276,15 @@ fun SessionScreen(
     }
 
     state.descriptionSheet?.let { desc ->
-        var videoOverlayUrl by remember { mutableStateOf<String?>(null) }
-        ModalBottomSheet(onDismissRequest = vm::closeDescription) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    state.exercises.getOrNull(state.currentIndex)?.name ?: "",
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Text(desc.ifBlank { stringResource(R.string.no_description) })
-
-                // Video link is view-only mid-session; editing lives in the exercise
-                // library detail sheet (invisible-tick save button confused people here).
-                state.descriptionVideoUrl?.let { url ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { videoOverlayUrl = url }, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Text(stringResource(R.string.watch_video), modifier = Modifier.padding(start = 4.dp))
-                        }
-                        val ctx = LocalContext.current
-                        OutlinedButton(
-                            onClick = {
-                                runCatching {
-                                    ctx.startActivity(
-                                        android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse(url),
-                                        )
-                                    )
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(R.string.open_externally), maxLines = 1) }
-                    }
-                }
-            }
-        }
-        videoOverlayUrl?.let { url ->
-            VideoOverlayDialog(url = url, onDismiss = { videoOverlayUrl = null })
-        }
+        // Same detail sheet as the library/editor: editable link + watch/open, so a video
+        // can be added straight from the exercise mid-session.
+        dev.allan.workoutapp.ui.common.ExerciseInfoSheet(
+            name = state.exercises.getOrNull(state.currentIndex)?.name ?: "",
+            description = desc,
+            videoUrl = state.descriptionVideoUrl,
+            onSaveLink = { url -> state.descriptionExerciseId?.let { vm.saveVideoLink(it, url) } },
+            onDismiss = vm::closeDescription,
+        )
     }
 
     if (confirmEnd != null) {
@@ -391,13 +362,10 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
                 Icon(Icons.Default.MoreVert, contentDescription = null)
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                // One action — the confirmation dialog is where save-vs-discard is chosen.
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.end_and_save)) },
+                    text = { Text(stringResource(R.string.end_workout)) },
                     onClick = { menuOpen = false; onEnd(true) },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.end_and_discard)) },
-                    onClick = { menuOpen = false; onEnd(false) },
                 )
             }
         },
@@ -858,44 +826,6 @@ private fun BatteryOnboardingDialog(onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) }
-        },
-    )
-}
-
-/**
- * Inline YouTube playback via a WebView embed. Needs network (user action only).
- * Non-YouTube or unparsable links fall back to loading the URL directly.
- */
-@Composable
-private fun VideoOverlayDialog(url: String, onDismiss: () -> Unit) {
-    val embedUrl = remember(url) {
-        val id = Regex("""(?:v=|youtu\.be/|shorts/|embed/)([\w-]{11})""").find(url)?.groupValues?.get(1)
-        if (id != null) "https://www.youtube.com/embed/$id?autoplay=1&playsinline=1" else url
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        text = {
-            androidx.compose.ui.viewinterop.AndroidView(
-                factory = { ctx ->
-                    android.webkit.WebView(ctx).apply {
-                        settings.javaScriptEnabled = true
-                        // YouTube's iframe player is blank without DOM storage.
-                        settings.domStorageEnabled = true
-                        settings.mediaPlaybackRequiresUserGesture = false
-                        // Keep navigation inside the WebView instead of firing an external intent.
-                        webViewClient = android.webkit.WebViewClient()
-                        webChromeClient = android.webkit.WebChromeClient()
-                        loadUrl(embedUrl)
-                    }
-                },
-                onRelease = { it.destroy() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         },
     )
 }

@@ -218,6 +218,13 @@
     <string name="approx_duration">≈ %1$d min</string>
     <string name="suggest_duration">Target duration</string>
     <string name="minutes_suffix">min</string>
+    <string name="save">Save</string>
+    <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
+    <string name="unsaved_title">Keep changes?</string>
+    <string name="unsaved_message">You have unsaved edits to this workout.</string>
+    <string name="keep_changes">Keep</string>
+    <string name="discard_changes">Discard</string>
     <string name="consider_injuries">Consider injuries</string>
     <string name="per_muscle_counts">Exercises per muscle</string>
 </resources>

@@ -292,64 +292,42 @@ fun ExerciseLibraryScreen(
     }
 
     detail?.let { d ->
-        ModalBottomSheet(onDismissRequest = vm::closeDetail) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(d.hit.name, style = MaterialTheme.typography.headlineSmall)
-                d.hit.category?.let { Text(it, style = MaterialTheme.typography.labelLarge) }
-                val primary = d.hit.primaryMuscles.mapNotNull { id ->
-                    muscles.firstOrNull { it.id == id }?.let { MuscleNames.display(it.nameEn, appLang) }
-                }
-                val secondary = d.hit.secondaryMuscles.mapNotNull { id ->
-                    muscles.firstOrNull { it.id == id }?.let { MuscleNames.display(it.nameEn, appLang) }
-                }
-                if (primary.isNotEmpty()) {
-                    Text("${stringResource(R.string.primary_muscles)}: ${primary.joinToString()}")
-                }
-                if (secondary.isNotEmpty()) {
-                    Text("${stringResource(R.string.secondary_muscles)}: ${secondary.joinToString()}")
-                }
-                HorizontalDivider()
-                val description = (d.translations.firstOrNull { it.lang == appLang }
-                    ?: d.translations.firstOrNull { it.lang == "en" })
-                    ?.description.orEmpty()
-                if (description.isNotBlank()) {
-                    Text(description, style = MaterialTheme.typography.bodyMedium)
-                }
-                val allNames = d.translations.flatMap { tr ->
-                    (listOf(tr.name) + tr.aliases).map { "$it (${tr.lang})" }
-                }.distinct()
-                Text(
-                    "${stringResource(R.string.also_known_as)}: ${allNames.joinToString(" · ")}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                // Video link is edited here (library), not mid-session; the session sheet
-                // only offers watch/open. Blank + save = delete the link.
-                var linkText by remember(d.hit.id, d.videoUrl) { mutableStateOf(d.videoUrl ?: "") }
-                OutlinedTextField(
-                    value = linkText,
-                    onValueChange = { linkText = it },
-                    label = { Text(stringResource(R.string.video_link)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (linkText.trim() != (d.videoUrl ?: "")) {
-                    Button(
-                        onClick = { vm.saveVideoLink(d.hit.id, linkText) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            stringResource(
-                                if (linkText.isBlank() && d.videoUrl != null) R.string.video_link_delete
-                                else R.string.video_link_save
-                            )
-                        )
-                    }
-                }
-                Text(
-                    stringResource(R.string.wger_attribution),
-                    style = MaterialTheme.typography.labelSmall,
-                )
+        val description = (d.translations.firstOrNull { it.lang == appLang }
+            ?: d.translations.firstOrNull { it.lang == "en" })
+            ?.description.orEmpty()
+        // Same shared detail sheet as the editor/session — editable link + watch/open.
+        dev.allan.workoutapp.ui.common.ExerciseInfoSheet(
+            name = d.hit.name,
+            description = description,
+            videoUrl = d.videoUrl,
+            onSaveLink = { url -> vm.saveVideoLink(d.hit.id, url) },
+            onDismiss = vm::closeDetail,
+        ) {
+            d.hit.category?.let { Text(it, style = MaterialTheme.typography.labelLarge) }
+            val primary = d.hit.primaryMuscles.mapNotNull { id ->
+                muscles.firstOrNull { it.id == id }?.let { MuscleNames.display(it.nameEn, appLang) }
             }
+            val secondary = d.hit.secondaryMuscles.mapNotNull { id ->
+                muscles.firstOrNull { it.id == id }?.let { MuscleNames.display(it.nameEn, appLang) }
+            }
+            if (primary.isNotEmpty()) {
+                Text("${stringResource(R.string.primary_muscles)}: ${primary.joinToString()}")
+            }
+            if (secondary.isNotEmpty()) {
+                Text("${stringResource(R.string.secondary_muscles)}: ${secondary.joinToString()}")
+            }
+            val allNames = d.translations.flatMap { tr ->
+                (listOf(tr.name) + tr.aliases).map { "$it (${tr.lang})" }
+            }.distinct()
+            Text(
+                "${stringResource(R.string.also_known_as)}: ${allNames.joinToString(" · ")}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                stringResource(R.string.wger_attribution),
+                style = MaterialTheme.typography.labelSmall,
+            )
+            HorizontalDivider()
         }
     }
 }

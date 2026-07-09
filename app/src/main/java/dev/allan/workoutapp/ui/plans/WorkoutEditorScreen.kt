@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -87,11 +89,27 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 
 data class EditorExercise(
     val we: WorkoutExercise,
     val name: String,
     val sets: List<SetTemplate>,
+)
+
+/** Data for the ℹ detail sheet in the editor. */
+data class ExerciseDescription(
+    val exerciseId: String,
+    val name: String,
+    val description: String,
+    val videoUrl: String?,
+)
+
+/** Full editable content of a workout, for undo/redo/discard. */
+data class EditorSnapshot(
+    val name: String,
+    val wes: List<WorkoutExercise>,
+    val templates: List<SetTemplate>,
 )
 
 class WorkoutEditorViewModel(app: Application, private val workoutId: Long, private val lang: String) :
@@ -127,19 +145,128 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        viewModelScope.launch { _workout.value = db.planDao().workout(workoutId) }
+        viewModelScope.launch {
+            _workout.value = db.planDao().workout(workoutId)
+            initialSnapshot = readSnapshot()
+        }
     }
 
-    /** (name, description) for the ℹ dialog — localized with en fallback. */
-    private val _description = MutableStateFlow<Pair<String, String>?>(null)
-    val description: StateFlow<Pair<String, String>?> = _description
+    // ---- Undo / redo / discard --------------------------------------------------------
+    // The editor writes changes to the DB live. To support undo/redo and "discard on exit"
+    // we snapshot the workout's full content (name + exercises + set templates) before every
+    // change; restore rewrites those rows (ids preserved via REPLACE inserts).
+    private val editMutex = kotlinx.coroutines.sync.Mutex()
+    private var initialSnapshot: EditorSnapshot? = null
+    private val undoStack = ArrayDeque<EditorSnapshot>()
+    private val redoStack = ArrayDeque<EditorSnapshot>()
+
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo: StateFlow<Boolean> = _canUndo
+    private val _canRedo = MutableStateFlow(false)
+    val canRedo: StateFlow<Boolean> = _canRedo
+    private val _dirty = MutableStateFlow(false)
+    val dirty: StateFlow<Boolean> = _dirty
+
+    private suspend fun readSnapshot(): EditorSnapshot {
+        val name = db.planDao().workout(workoutId)?.name ?: ""
+        val wes = db.planDao().workoutExercisesList(workoutId)
+        val templates = wes.flatMap { db.planDao().setTemplatesList(it.id) }
+        return EditorSnapshot(name, wes, templates)
+    }
+
+    private suspend fun restore(s: EditorSnapshot) {
+        db.planDao().deleteSetTemplatesForWorkout(workoutId)
+        db.planDao().deleteWorkoutExercisesForWorkout(workoutId)
+        db.planDao().restoreWorkoutExercises(s.wes)
+        db.planDao().restoreSetTemplates(s.templates)
+        db.planDao().workout(workoutId)?.let { db.planDao().updateWorkout(it.copy(name = s.name)) }
+        _workout.value = db.planDao().workout(workoutId)
+    }
+
+    private fun refreshFlags() {
+        _canUndo.value = undoStack.isNotEmpty()
+        _canRedo.value = redoStack.isNotEmpty()
+    }
+
+    private fun recordChange(before: EditorSnapshot) {
+        undoStack.addLast(before)
+        if (undoStack.size > 100) undoStack.removeFirst()
+        redoStack.clear()
+        _dirty.value = true
+        refreshFlags()
+    }
+
+    /** Run a mutation, capturing the pre-change snapshot onto the undo stack first. */
+    private fun edit(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            editMutex.withLock {
+                val before = readSnapshot()
+                block()
+                recordChange(before)
+            }
+        }
+    }
+
+    fun undo() {
+        viewModelScope.launch {
+            editMutex.withLock {
+                val prev = undoStack.removeLastOrNull() ?: return@withLock
+                redoStack.addLast(readSnapshot())
+                restore(prev)
+                _dirty.value = true
+                refreshFlags()
+            }
+        }
+    }
+
+    fun redo() {
+        viewModelScope.launch {
+            editMutex.withLock {
+                val next = redoStack.removeLastOrNull() ?: return@withLock
+                undoStack.addLast(readSnapshot())
+                restore(next)
+                _dirty.value = true
+                refreshFlags()
+            }
+        }
+    }
+
+    /** Exit path: revert everything to the state the editor opened with. */
+    fun discardChanges(onDone: () -> Unit) {
+        viewModelScope.launch {
+            editMutex.withLock { initialSnapshot?.let { restore(it) } }
+            onDone()
+        }
+    }
+
+    /** Backing state for the ℹ detail sheet — localized description + saved video link. */
+    private val _description = MutableStateFlow<ExerciseDescription?>(null)
+    val description: StateFlow<ExerciseDescription?> = _description
 
     fun openDescription(item: EditorExercise) {
         viewModelScope.launch {
             val translations = db.exerciseDao().translations(item.we.exerciseId)
             val best = translations.firstOrNull { it.lang == lang }
                 ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
-            _description.value = item.name to best?.description.orEmpty()
+            _description.value = ExerciseDescription(
+                exerciseId = item.we.exerciseId,
+                name = item.name,
+                description = best?.description.orEmpty(),
+                videoUrl = db.exerciseDao().videoLink(item.we.exerciseId),
+            )
+        }
+    }
+
+    /** Save (or clear when blank) the video link for the exercise the sheet is showing. */
+    fun saveVideoLink(exerciseId: String, url: String) {
+        val trimmed = url.trim()
+        _description.value = _description.value?.takeIf { it.exerciseId == exerciseId }
+            ?.copy(videoUrl = trimmed.ifBlank { null }) ?: _description.value
+        viewModelScope.launch {
+            if (trimmed.isBlank()) db.exerciseDao().deleteVideoLink(exerciseId)
+            else db.exerciseDao().upsertVideoLink(
+                dev.allan.workoutapp.data.db.ExerciseLink(exerciseId = exerciseId, url = trimmed)
+            )
         }
     }
 
@@ -150,11 +277,11 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
     fun renameWorkout(name: String) {
         val w = _workout.value ?: return
         _workout.value = w.copy(name = name)
-        viewModelScope.launch { db.planDao().updateWorkout(w.copy(name = name)) }
+        edit { db.planDao().updateWorkout(w.copy(name = name)) }
     }
 
     fun removeExercise(item: EditorExercise) {
-        viewModelScope.launch { db.planDao().deleteWorkoutExercise(item.we.id) }
+        edit { db.planDao().deleteWorkoutExercise(item.we.id) }
     }
 
     fun move(item: EditorExercise, up: Boolean) {
@@ -162,33 +289,33 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         val index = list.indexOfFirst { it.we.id == item.we.id }
         val other = if (up) index - 1 else index + 1
         if (index < 0 || other < 0 || other >= list.size) return
-        viewModelScope.launch {
+        edit {
             db.planDao().updateWorkoutExercise(item.we.copy(orderIndex = list[other].we.orderIndex))
             db.planDao().updateWorkoutExercise(list[other].we.copy(orderIndex = item.we.orderIndex))
         }
     }
 
     fun setWeightMode(item: EditorExercise, mode: WeightMode) {
-        viewModelScope.launch { db.planDao().updateWorkoutExercise(item.we.copy(weightMode = mode)) }
+        edit { db.planDao().updateWorkoutExercise(item.we.copy(weightMode = mode)) }
     }
 
     fun setBarWeight(item: EditorExercise, kg: Double) {
-        viewModelScope.launch { db.planDao().updateWorkoutExercise(item.we.copy(barWeightKg = kg)) }
+        edit { db.planDao().updateWorkoutExercise(item.we.copy(barWeightKg = kg)) }
     }
 
     fun toggleSuperset(item: EditorExercise) {
-        viewModelScope.launch {
+        edit {
             db.planDao().updateWorkoutExercise(item.we.copy(supersetWithPrev = !item.we.supersetWithPrev))
         }
     }
 
     fun updateSet(set: SetTemplate) {
-        viewModelScope.launch { db.planDao().updateSetTemplate(set) }
+        edit { db.planDao().updateSetTemplate(set) }
     }
 
     fun addSet(item: EditorExercise) {
         val last = item.sets.lastOrNull()
-        viewModelScope.launch {
+        edit {
             db.planDao().insertSetTemplate(
                 (last ?: SetTemplate(workoutExerciseId = item.we.id, setIndex = -1))
                     .copy(id = 0, setIndex = (last?.setIndex ?: -1) + 1)
@@ -197,11 +324,11 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
     }
 
     fun removeSet(set: SetTemplate) {
-        viewModelScope.launch { db.planDao().deleteSetTemplate(set.id) }
+        edit { db.planDao().deleteSetTemplate(set.id) }
     }
 
     fun applyRestToAll(item: EditorExercise, restSecs: Int) {
-        viewModelScope.launch {
+        edit {
             item.sets.forEach { db.planDao().updateSetTemplate(it.copy(restSecs = restSecs)) }
         }
     }
@@ -211,10 +338,14 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         viewModelScope.launch {
             _suggesting.value = true
             try {
-                val injured = dev.allan.workoutapp.data.Settings
-                    .injuredMuscles(getApplication()).first()
-                dev.allan.workoutapp.data.SuggestionEngine
-                    .fillWorkout(db, workoutId, focus, injured, total)
+                editMutex.withLock {
+                    val before = readSnapshot()
+                    val injured = dev.allan.workoutapp.data.Settings
+                        .injuredMuscles(getApplication()).first()
+                    dev.allan.workoutapp.data.SuggestionEngine
+                        .fillWorkout(db, workoutId, focus, injured, total)
+                    recordChange(before)
+                }
             } finally {
                 _suggesting.value = false
             }
@@ -227,10 +358,14 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         viewModelScope.launch {
             _suggesting.value = true
             try {
-                val injured = dev.allan.workoutapp.data.Settings
-                    .injuredMuscles(getApplication()).first() + extraInjured
-                dev.allan.workoutapp.data.SuggestionEngine
-                    .fillWorkoutByMuscles(db, workoutId, counts, injured, compound)
+                editMutex.withLock {
+                    val before = readSnapshot()
+                    val injured = dev.allan.workoutapp.data.Settings
+                        .injuredMuscles(getApplication()).first() + extraInjured
+                    dev.allan.workoutapp.data.SuggestionEngine
+                        .fillWorkoutByMuscles(db, workoutId, counts, injured, compound)
+                    recordChange(before)
+                }
             } finally {
                 _suggesting.value = false
             }
@@ -266,11 +401,18 @@ fun WorkoutEditorScreen(
     val workout by vm.workout.collectAsState()
     val exercises by vm.exercises.collectAsState()
     val suggesting by vm.suggesting.collectAsState()
+    val canUndo by vm.canUndo.collectAsState()
+    val canRedo by vm.canRedo.collectAsState()
+    val dirty by vm.dirty.collectAsState()
     var showSuggestDialog by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     // Multi-select for bulk exercise deletion: one confirmation instead of one per trash tap.
     var selectedExercises by remember { mutableStateOf(setOf<Long>()) }
     var confirmBulkDelete by remember { mutableStateOf(false) }
+    // Exit guard: unsaved edits → keep/discard prompt (back arrow or system back).
+    var confirmExit by remember { mutableStateOf(false) }
+    val attemptBack = { if (dirty) confirmExit = true else onBack() }
+    androidx.activity.compose.BackHandler(enabled = true) { attemptBack() }
 
     if (showSuggestDialog) {
         val muscles by vm.muscles.collectAsState()
@@ -290,7 +432,7 @@ fun WorkoutEditorScreen(
             TopAppBar(
                 title = { Text(workout?.name ?: "") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
@@ -307,6 +449,12 @@ fun WorkoutEditorScreen(
                         }
                         return@TopAppBar
                     }
+                    IconButton(onClick = { vm.undo() }, enabled = canUndo) {
+                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.undo))
+                    }
+                    IconButton(onClick = { vm.redo() }, enabled = canRedo) {
+                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.redo))
+                    }
                     if (suggesting) {
                         CircularProgressIndicator(Modifier.width(24.dp).height(24.dp), strokeWidth = 2.dp)
                     } else {
@@ -320,6 +468,9 @@ fun WorkoutEditorScreen(
                     IconButton(onClick = onPickExercise) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_exercise))
                     }
+                    // Save = persist-and-exit; the DB already holds the live edits, so this
+                    // just leaves the screen (and drops the undo history with it).
+                    TextButton(onClick = onBack) { Text(stringResource(R.string.save)) }
                 },
             )
         }
@@ -375,19 +526,14 @@ fun WorkoutEditorScreen(
     }
 
     val description by vm.description.collectAsState()
-    description?.let { (name, desc) ->
-        AlertDialog(
-            onDismissRequest = vm::closeDescription,
-            title = { Text(name) },
-            text = {
-                Text(
-                    desc.ifBlank { stringResource(R.string.no_description) },
-                    modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = vm::closeDescription) { Text(stringResource(R.string.ok)) }
-            },
+    description?.let { info ->
+        // Same slide-up detail sheet as the library/session (was a popup before).
+        dev.allan.workoutapp.ui.common.ExerciseInfoSheet(
+            name = info.name,
+            description = info.description,
+            videoUrl = info.videoUrl,
+            onSaveLink = { url -> vm.saveVideoLink(info.exerciseId, url) },
+            onDismiss = vm::closeDescription,
         )
     }
 
@@ -404,6 +550,24 @@ fun WorkoutEditorScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmBulkDelete = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    if (confirmExit) {
+        AlertDialog(
+            onDismissRequest = { confirmExit = false },
+            title = { Text(stringResource(R.string.unsaved_title)) },
+            text = { Text(stringResource(R.string.unsaved_message)) },
+            confirmButton = {
+                TextButton(onClick = { confirmExit = false; onBack() }) {
+                    Text(stringResource(R.string.keep_changes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmExit = false; vm.discardChanges(onBack) }) {
+                    Text(stringResource(R.string.discard_changes))
+                }
             },
         )
     }
@@ -452,6 +616,28 @@ private fun SuggestWizard(
     // Step-3 state survives go-back; recomputed only when foci/count change.
     var muscleCounts by remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
     val count = countText.toIntOrNull()?.coerceAtLeast(1) ?: 4
+
+    // Per-muscle count step only makes sense when the split spans several muscles:
+    // 2+ foci, or full-body in isolation mode. A single focus or full-body-compound
+    // needs no distribution — skip step 3 and let the button read "Confirm".
+    val needsMuscleStep = foci.size >= 2 ||
+        (SuggestionFocus.FULL_BODY in foci && !fullBodyCompound)
+    // Build the auto-distribution once foci/count are known; reused whether or not
+    // the user gets to tweak it in step 3.
+    fun recomputeCounts() {
+        muscleCounts = dev.allan.workoutapp.data.SuggestionEngine.scaledCounts(
+            dev.allan.workoutapp.data.SuggestionEngine.mergedRecipe(foci),
+            count,
+        )
+    }
+    fun finish() {
+        if (muscleCounts.isEmpty()) recomputeCounts()
+        onConfirm(
+            muscleCounts.filter { it.second > 0 },
+            if (injuriesChecked) extraInjured else emptySet(),
+            if (SuggestionFocus.FULL_BODY in foci) fullBodyCompound else null,
+        )
+    }
 
     fun muscleLabel(id: Int): String =
         if (id == dev.allan.workoutapp.data.SuggestionEngine.CARDIO) "Cardio"
@@ -607,29 +793,28 @@ private fun SuggestWizard(
         },
         confirmButton = {
             when (step) {
-                1 -> TextButton(
-                    enabled = foci.isNotEmpty(),
-                    onClick = {
-                        if (muscleCounts.isEmpty()) {
-                            muscleCounts = dev.allan.workoutapp.data.SuggestionEngine
-                                .scaledCounts(
-                                    dev.allan.workoutapp.data.SuggestionEngine.mergedRecipe(foci),
-                                    count,
-                                )
-                        }
-                        step = if (injuriesChecked) 2 else 3
-                    },
-                ) { Text(stringResource(R.string.next)) }
-                2 -> TextButton(onClick = { step = 3 }) { Text(stringResource(R.string.next)) }
+                1 -> {
+                    // "Next" only if a further step (injuries or per-muscle) will show;
+                    // otherwise the single-focus / full-body-compound case confirms here.
+                    val hasNext = injuriesChecked || needsMuscleStep
+                    TextButton(
+                        enabled = foci.isNotEmpty(),
+                        onClick = {
+                            recomputeCounts()
+                            when {
+                                injuriesChecked -> step = 2
+                                needsMuscleStep -> step = 3
+                                else -> finish()
+                            }
+                        },
+                    ) { Text(stringResource(if (hasNext) R.string.next else R.string.confirm)) }
+                }
+                2 -> TextButton(
+                    onClick = { if (needsMuscleStep) step = 3 else finish() },
+                ) { Text(stringResource(if (needsMuscleStep) R.string.next else R.string.confirm)) }
                 else -> TextButton(
                     enabled = muscleCounts.any { it.second > 0 },
-                    onClick = {
-                        onConfirm(
-                            muscleCounts.filter { it.second > 0 },
-                            if (injuriesChecked) extraInjured else emptySet(),
-                            if (SuggestionFocus.FULL_BODY in foci) fullBodyCompound else null,
-                        )
-                    },
+                    onClick = { finish() },
                 ) { Text(stringResource(R.string.confirm)) }
             }
         },
