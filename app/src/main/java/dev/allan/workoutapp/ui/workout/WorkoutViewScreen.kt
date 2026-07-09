@@ -71,8 +71,15 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
     private val _workout = MutableStateFlow<Workout?>(null)
     val workout: StateFlow<Workout?> = _workout
 
-    private val _detail = MutableStateFlow<List<ExerciseTranslation>?>(null)
-    val detail: StateFlow<List<ExerciseTranslation>?> = _detail
+    data class Detail(
+        val exerciseId: String,
+        val name: String,
+        val description: String,
+        val videoUrl: String?,
+    )
+
+    private val _detail = MutableStateFlow<Detail?>(null)
+    val detail: StateFlow<Detail?> = _detail
 
     /** True while a session for THIS workout is running — the start button becomes "resume". */
     val hasRunningSession: StateFlow<Boolean> =
@@ -112,7 +119,29 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
     }
 
     fun openDetail(exerciseId: String) {
-        viewModelScope.launch { _detail.value = db.exerciseDao().translations(exerciseId) }
+        viewModelScope.launch {
+            val translations = db.exerciseDao().translations(exerciseId)
+            val best = translations.firstOrNull { it.lang == lang }
+                ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
+            _detail.value = Detail(
+                exerciseId = exerciseId,
+                name = best?.name ?: "",
+                description = best?.description.orEmpty(),
+                videoUrl = db.exerciseDao().videoLink(exerciseId),
+            )
+        }
+    }
+
+    fun saveVideoLink(exerciseId: String, url: String) {
+        val trimmed = url.trim()
+        _detail.value = _detail.value?.takeIf { it.exerciseId == exerciseId }
+            ?.copy(videoUrl = trimmed.ifBlank { null }) ?: _detail.value
+        viewModelScope.launch {
+            if (trimmed.isBlank()) db.exerciseDao().deleteVideoLink(exerciseId)
+            else db.exerciseDao().upsertVideoLink(
+                dev.allan.workoutapp.data.db.ExerciseLink(exerciseId = exerciseId, url = trimmed)
+            )
+        }
     }
 
     fun closeDetail() {
@@ -192,15 +221,13 @@ fun WorkoutViewScreen(
         }
     }
 
-    detail?.let { translations ->
-        ModalBottomSheet(onDismissRequest = vm::closeDetail) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val best = translations.firstOrNull { it.lang == appLang }
-                    ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
-                Text(best?.name ?: "", style = MaterialTheme.typography.headlineSmall)
-                HorizontalDivider()
-                Text(best?.description.orEmpty().ifBlank { stringResource(R.string.no_description) })
-            }
-        }
+    detail?.let { d ->
+        dev.allan.workoutapp.ui.common.ExerciseInfoSheet(
+            name = d.name,
+            description = d.description,
+            videoUrl = d.videoUrl,
+            onSaveLink = { url -> vm.saveVideoLink(d.exerciseId, url) },
+            onDismiss = vm::closeDetail,
+        )
     }
 }

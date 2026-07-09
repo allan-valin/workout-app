@@ -148,6 +148,7 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         viewModelScope.launch {
             _workout.value = db.planDao().workout(workoutId)
             initialSnapshot = readSnapshot()
+            lastSnapshot = initialSnapshot
         }
     }
 
@@ -157,6 +158,9 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
     // change; restore rewrites those rows (ids preserved via REPLACE inserts).
     private val editMutex = kotlinx.coroutines.sync.Mutex()
     private var initialSnapshot: EditorSnapshot? = null
+    // Last content this VM knows about; lets us detect edits made OUTSIDE the editor
+    // (adding an exercise from the picker) and fold them into undo/dirty on resume.
+    private var lastSnapshot: EditorSnapshot? = null
     private val undoStack = ArrayDeque<EditorSnapshot>()
     private val redoStack = ArrayDeque<EditorSnapshot>()
 
@@ -203,6 +207,7 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
                 val before = readSnapshot()
                 block()
                 recordChange(before)
+                lastSnapshot = readSnapshot()
             }
         }
     }
@@ -213,6 +218,7 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
                 val prev = undoStack.removeLastOrNull() ?: return@withLock
                 redoStack.addLast(readSnapshot())
                 restore(prev)
+                lastSnapshot = prev
                 _dirty.value = true
                 refreshFlags()
             }
@@ -225,8 +231,27 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
                 val next = redoStack.removeLastOrNull() ?: return@withLock
                 undoStack.addLast(readSnapshot())
                 restore(next)
+                lastSnapshot = next
                 _dirty.value = true
                 refreshFlags()
+            }
+        }
+    }
+
+    /**
+     * Called when the editor regains focus. If the workout changed while we were away
+     * (an exercise added from the picker), fold that into the undo history and mark dirty
+     * so leaving prompts to keep/discard even for an add-then-leave on an empty workout.
+     */
+    fun checkExternalChange() {
+        viewModelScope.launch {
+            editMutex.withLock {
+                val ref = lastSnapshot ?: return@withLock
+                val current = readSnapshot()
+                if (current != ref) {
+                    recordChange(ref)
+                    lastSnapshot = current
+                }
             }
         }
     }
@@ -413,6 +438,16 @@ fun WorkoutEditorScreen(
     var confirmExit by remember { mutableStateOf(false) }
     val attemptBack = { if (dirty) confirmExit = true else onBack() }
     androidx.activity.compose.BackHandler(enabled = true) { attemptBack() }
+
+    // Detect exercises added from the picker (an out-of-editor mutation) on return.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.checkExternalChange()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     if (showSuggestDialog) {
         val muscles by vm.muscles.collectAsState()
@@ -625,10 +660,12 @@ private fun SuggestWizard(
     // Build the auto-distribution once foci/count are known; reused whether or not
     // the user gets to tweak it in step 3.
     fun recomputeCounts() {
-        muscleCounts = dev.allan.workoutapp.data.SuggestionEngine.scaledCounts(
-            dev.allan.workoutapp.data.SuggestionEngine.mergedRecipe(foci),
-            count,
-        )
+        // List EVERY muscle of the selected foci, even when the total is too small to give
+        // each one a pick (scaledCounts drops 0-count muscles). 0-filled rows let the user
+        // bump any muscle in step 3. (Allan: "legs+shoulders, 4 total showed only legs".)
+        val recipe = dev.allan.workoutapp.data.SuggestionEngine.mergedRecipe(foci)
+        val scaled = dev.allan.workoutapp.data.SuggestionEngine.scaledCounts(recipe, count).toMap()
+        muscleCounts = recipe.map { (id, _) -> id to (scaled[id] ?: 0) }
     }
     fun finish() {
         if (muscleCounts.isEmpty()) recomputeCounts()
