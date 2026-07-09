@@ -74,16 +74,31 @@ data class Plan(
 )
 
 @Serializable
-@Entity(tableName = "workout", indices = [Index("planId")])
+@Entity(tableName = "workout")
 data class Workout(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val planId: Long,
     val name: String,
-    val orderIndex: Int,
     /** ISO day numbers 1=Mon..7=Sun. */
     val daysOfWeek: List<Int>,
-    /** Archived workouts are hidden from Today and the main plan list but keep their history. */
+    /** Archived workouts are detached from every plan and live only in Archive → Workouts. */
     val archived: Boolean = false,
+)
+
+/**
+ * Plan ↔ workout membership (many-to-many). A workout can be LINKED into several plans
+ * (edits propagate, since the workout row is shared) or copied as an independent base.
+ * [orderIndex] is the workout's position within that plan.
+ */
+@Serializable
+@Entity(
+    tableName = "plan_workout",
+    primaryKeys = ["planId", "workoutId"],
+    indices = [Index("planId"), Index("workoutId")],
+)
+data class PlanWorkout(
+    val planId: Long,
+    val workoutId: Long,
+    val orderIndex: Int,
 )
 
 @Serializable

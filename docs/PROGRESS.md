@@ -302,6 +302,35 @@ Statistics rework (point graphs):
       PointAreaChart + one chart per muscle group (primary-muscle attribution), same range
       chips. Old inline volume LineChart removed.
 
+SESSION 2026-07-09c (Active/Archive many-to-many rework + 3 bug fixes, EMULATOR-VERIFIED):
+DB v4 (MIGRATION_3_4): workout↔plan is now MANY-TO-MANY via a `plan_workout(planId,
+workoutId, orderIndex)` join; the workout table lost planId/orderIndex (rebuilt, rows
+backfilled into the join). Verified the v3→v4 migration over Allan's existing "Teste" plan
+(3 workouts intact, correct badges, workoutsForDay still works).
+- One active plan at a time: setPlanActive/createPlan deactivate all others first
+  (deactivateAllPlans). PlansViewModel.activePlan / activePlanWorkouts flows.
+- Active tab = the active plan's workouts directly (no plan list): header + edit-plan pencil,
+  each workout row has a ▶ start (→ training-summary/view), "Add workout" + library at bottom.
+  Verified: Teste → Empurrar/Puxar/Pernas rows with ▶.
+- Archive tab = two square buttons "Plans"/"Workouts" (ArchiveHubContent). Plans →
+  ArchivePlansScreen (activate/delete inactive plans). Workouts → ArchiveWorkoutsScreen: ALL
+  workouts, those in the active plan labelled "In active plan", others get "Add to plan" (LINK).
+  Verified: link an orphan workout → it flips to "In active plan".
+- Add-workout full screen (AddWorkoutScreen): multi-select any workout, then LINK (shared,
+  PlanRepo.linkWorkout) or "Use as base" (independent copy, PlanRepo.copyWorkout).
+- WorkoutViewScreen top bar gained download (SAF export) / archive (detach from active plan +
+  archived=true) / delete (deleteWorkoutDeep) next to edit; both confirm.
+- PlanRepo: linkWorkout / detachWorkout / archiveWorkout / createWorkout added; deletePlanDeep
+  now removes joins + plan only (keeps shared/orphan workouts); copyWorkout builds an
+  independent workout + join. Backup gains planWorkouts (pre-v4 backups lose membership).
+- Also fixed: (1) suggestion wizard step 3 lists every selected-group muscle even at low totals
+  (0-filled); (2) editor marks dirty + undoable when an exercise is added from the picker
+  (checkExternalChange on ON_RESUME); (3) WorkoutViewScreen exercise detail now shows the
+  editable YouTube link (shared ExerciseInfoSheet).
+- Compile + unit tests green. Verified on emulator: migration, Active tab, Archive hub,
+  Archive→Workouts link. NOT yet driven: Add-workout link/base screen, WorkoutView
+  archive/delete, Archive→Plans (all use the same verified VM paths).
+
 SESSION 2026-07-09b (second feedback pass, EMULATOR-VERIFIED — screenshots this session):
 - Suggest wizard: per-muscle step (3) now shown ONLY when ≥2 foci or full-body-isolation;
   single focus / full-body-compound skip it. Confirm button dynamically reads "Confirm" vs

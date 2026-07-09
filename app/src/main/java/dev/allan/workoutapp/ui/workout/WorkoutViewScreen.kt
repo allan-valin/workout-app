@@ -11,10 +11,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,6 +57,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -148,6 +154,35 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
         _detail.value = null
     }
 
+    fun exportWorkout(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val text = dev.allan.workoutapp.data.transfer.PlanTransfer.exportWorkout(db, workoutId)
+                ?: return@launch
+            getApplication<Application>().contentResolver.openOutputStream(uri)
+                ?.use { it.write(text.toByteArray()) }
+        }
+    }
+
+    /** Archive: detach from the active plan (if any) and flag archived; else just flag. */
+    fun archive(onDone: () -> Unit) {
+        viewModelScope.launch {
+            val activePlanId = db.planDao().activePlanFlow().first()?.id
+            if (activePlanId != null) {
+                dev.allan.workoutapp.data.PlanRepo.archiveWorkout(db, workoutId, activePlanId)
+            } else {
+                db.planDao().workout(workoutId)?.let { db.planDao().updateWorkout(it.copy(archived = true)) }
+            }
+            onDone()
+        }
+    }
+
+    fun deleteForever(onDone: () -> Unit) {
+        viewModelScope.launch {
+            dev.allan.workoutapp.data.PlanRepo.deleteWorkoutDeep(db, workoutId)
+            onDone()
+        }
+    }
+
     class Factory(private val app: Application, private val workoutId: Long, private val lang: String) :
         ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -174,6 +209,8 @@ fun WorkoutViewScreen(
     val exercises by vm.exercises.collectAsState()
     val detail by vm.detail.collectAsState()
     val hasRunningSession by vm.hasRunningSession.collectAsState()
+    var showArchive by remember { mutableStateOf(false) }
+    var showDelete by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -187,6 +224,20 @@ fun WorkoutViewScreen(
                 actions = {
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_training))
+                    }
+                    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
+                    ) { uri -> uri?.let { vm.exportWorkout(it) } }
+                    IconButton(onClick = {
+                        exportLauncher.launch("${workout?.name ?: "workout"}.json")
+                    }) {
+                        Icon(Icons.Default.Download, contentDescription = stringResource(R.string.download_workout))
+                    }
+                    IconButton(onClick = { showArchive = true }) {
+                        Icon(Icons.Outlined.Inventory2, contentDescription = stringResource(R.string.archive))
+                    }
+                    IconButton(onClick = { showDelete = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
                     }
                 },
             )
@@ -228,6 +279,33 @@ fun WorkoutViewScreen(
             videoUrl = d.videoUrl,
             onSaveLink = { url -> vm.saveVideoLink(d.exerciseId, url) },
             onDismiss = vm::closeDetail,
+        )
+    }
+
+    if (showArchive) {
+        AlertDialog(
+            onDismissRequest = { showArchive = false },
+            title = { Text(stringResource(R.string.archive)) },
+            text = { Text(stringResource(R.string.archive_workout_confirm)) },
+            confirmButton = {
+                TextButton(onClick = { showArchive = false; vm.archive(onBack) }) {
+                    Text(stringResource(R.string.archive))
+                }
+            },
+            dismissButton = { TextButton(onClick = { showArchive = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    if (showDelete) {
+        AlertDialog(
+            onDismissRequest = { showDelete = false },
+            title = { Text(stringResource(R.string.delete)) },
+            text = { Text(stringResource(R.string.delete_workout_confirm)) },
+            confirmButton = {
+                TextButton(onClick = { showDelete = false; vm.deleteForever(onBack) }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = { TextButton(onClick = { showDelete = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

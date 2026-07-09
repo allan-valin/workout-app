@@ -209,10 +209,13 @@ object PlanTransfer {
         var exerciseCount = 0
         val workoutId = db.planDao().insertWorkout(
             Workout(
-                planId = planId,
                 name = w.name.ifBlank { fallbackName },
-                orderIndex = orderIndex,
                 daysOfWeek = w.daysOfWeek.mapNotNull { dayMap[it.uppercase()] }.distinct().sorted(),
+            )
+        )
+        db.planDao().insertPlanWorkout(
+            dev.allan.workoutapp.data.db.PlanWorkout(
+                planId = planId, workoutId = workoutId, orderIndex = orderIndex,
             )
         )
         w.exercises.forEachIndexed { eIndex, e ->

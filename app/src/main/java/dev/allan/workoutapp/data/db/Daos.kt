@@ -185,14 +185,65 @@ interface PlanDao {
     @Query("SELECT * FROM plan WHERE isActive = :active ORDER BY createdAt DESC")
     fun plans(active: Boolean): Flow<List<Plan>>
 
+    /** The single active plan (at most one — activating a plan deactivates the rest). */
+    @Query("SELECT * FROM plan WHERE isActive = 1 ORDER BY createdAt DESC LIMIT 1")
+    fun activePlanFlow(): Flow<Plan?>
+
+    /** Enforces the one-active-plan rule before activating a specific plan. */
+    @Query("UPDATE plan SET isActive = 0")
+    suspend fun deactivateAllPlans()
+
     @Query("SELECT * FROM plan WHERE id = :id")
     suspend fun plan(id: Long): Plan?
 
     @Query("SELECT * FROM plan ORDER BY createdAt")
     suspend fun allPlans(): List<Plan>
 
-    @Query("SELECT * FROM workout WHERE planId = :planId ORDER BY orderIndex")
+    @Query(
+        """
+        SELECT w.* FROM workout w
+        JOIN plan_workout pw ON pw.workoutId = w.id
+        WHERE pw.planId = :planId
+        ORDER BY pw.orderIndex
+        """
+    )
     suspend fun workoutsList(planId: Long): List<Workout>
+
+    // ---- plan_workout membership (many-to-many) ----
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPlanWorkout(link: PlanWorkout)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restorePlanWorkouts(items: List<PlanWorkout>)
+
+    @Query("DELETE FROM plan_workout WHERE planId = :planId AND workoutId = :workoutId")
+    suspend fun deletePlanWorkout(planId: Long, workoutId: Long)
+
+    @Query("DELETE FROM plan_workout WHERE planId = :planId")
+    suspend fun deletePlanWorkoutsForPlan(planId: Long)
+
+    @Query("DELETE FROM plan_workout WHERE workoutId = :workoutId")
+    suspend fun deletePlanWorkoutsForWorkout(workoutId: Long)
+
+    @Query("SELECT * FROM plan_workout")
+    suspend fun allPlanWorkouts(): List<PlanWorkout>
+
+    @Query("SELECT COALESCE(MAX(orderIndex) + 1, 0) FROM plan_workout WHERE planId = :planId")
+    suspend fun nextWorkoutOrder(planId: Long): Int
+
+    /** Workout ids that belong to the currently active plan — for labelling in Archive. */
+    @Query(
+        """
+        SELECT pw.workoutId FROM plan_workout pw
+        JOIN plan p ON p.id = pw.planId
+        WHERE p.isActive = 1
+        """
+    )
+    fun activePlanWorkoutIds(): Flow<List<Long>>
+
+    /** Every workout, for Archive → Workouts (includes archived + unassigned ones). */
+    @Query("SELECT * FROM workout ORDER BY name COLLATE NOCASE")
+    fun allWorkoutsFlow(): Flow<List<Workout>>
 
     @Query("SELECT * FROM workout_exercise WHERE workoutId = :workoutId ORDER BY orderIndex")
     suspend fun workoutExercisesList(workoutId: Long): List<WorkoutExercise>
@@ -206,7 +257,7 @@ interface PlanDao {
     @Query("SELECT * FROM plan WHERE name = :name COLLATE NOCASE LIMIT 1")
     suspend fun planByName(name: String): Plan?
 
-    @Query("SELECT * FROM workout ORDER BY planId, orderIndex")
+    @Query("SELECT * FROM workout ORDER BY id")
     suspend fun allWorkoutsList(): List<Workout>
 
     // No FK cascades in the schema — child rows must be removed explicitly.
@@ -230,7 +281,14 @@ interface PlanDao {
     @Query("DELETE FROM workout WHERE id = :id")
     suspend fun deleteWorkout(id: Long)
 
-    @Query("SELECT * FROM workout WHERE planId = :planId ORDER BY orderIndex")
+    @Query(
+        """
+        SELECT w.* FROM workout w
+        JOIN plan_workout pw ON pw.workoutId = w.id
+        WHERE pw.planId = :planId
+        ORDER BY pw.orderIndex
+        """
+    )
     fun workouts(planId: Long): Flow<List<Workout>>
 
     @Query("SELECT * FROM workout WHERE id = :id")
@@ -239,10 +297,11 @@ interface PlanDao {
     @Query(
         """
         SELECT w.* FROM workout w
-        JOIN plan p ON p.id = w.planId
+        JOIN plan_workout pw ON pw.workoutId = w.id
+        JOIN plan p ON p.id = pw.planId
         WHERE p.isActive = 1 AND w.archived = 0
           AND (',' || w.daysOfWeek || ',') LIKE '%,' || :isoDay || ',%'
-        ORDER BY w.orderIndex
+        ORDER BY pw.orderIndex
         """
     )
     fun workoutsForDay(isoDay: Int): Flow<List<Workout>>
@@ -252,7 +311,7 @@ interface PlanDao {
     fun exerciseCounts(): Flow<List<WorkoutExerciseCount>>
 
     /** Workout count per plan — the plan/workout distinction on plan cards. */
-    @Query("SELECT planId, COUNT(*) AS count FROM workout GROUP BY planId")
+    @Query("SELECT planId, COUNT(*) AS count FROM plan_workout GROUP BY planId")
     fun workoutCounts(): Flow<List<PlanWorkoutCount>>
 
     @Query("SELECT COALESCE(MAX(orderIndex) + 1, 0) FROM workout_exercise WHERE workoutId = :workoutId")

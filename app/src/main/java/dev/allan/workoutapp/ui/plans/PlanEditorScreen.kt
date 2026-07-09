@@ -109,9 +109,7 @@ class PlanEditorViewModel(app: Application, private val planId: Long) : AndroidV
 
     fun addWorkout(name: String) {
         viewModelScope.launch {
-            db.planDao().insertWorkout(
-                Workout(planId = planId, name = name, orderIndex = workouts.value.size, daysOfWeek = emptyList())
-            )
+            dev.allan.workoutapp.data.PlanRepo.createWorkout(db, planId, name, emptyList())
         }
     }
 
@@ -128,8 +126,12 @@ class PlanEditorViewModel(app: Application, private val planId: Long) : AndroidV
     fun loadCopyCandidates() {
         viewModelScope.launch {
             val planNames = db.planDao().allPlans().associate { it.id to it.name }
+            // A workout can belong to several plans now; label it with its first plan (or —).
+            val firstPlanOf = db.planDao().allPlanWorkouts()
+                .groupBy { it.workoutId }
+                .mapValues { (_, links) -> planNames[links.first().planId] ?: "—" }
             _copyCandidates.value = db.planDao().allWorkoutsList()
-                .map { it to (planNames[it.planId] ?: "?") }
+                .map { it to (firstPlanOf[it.id] ?: "—") }
         }
     }
 

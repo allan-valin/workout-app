@@ -32,6 +32,8 @@ object Backup {
         val customTranslations: List<ExerciseTranslation> = emptyList(),
         val plans: List<Plan> = emptyList(),
         val workouts: List<Workout> = emptyList(),
+        /** Plan↔workout membership. Absent in pre-v4 backups (those lose plan membership). */
+        val planWorkouts: List<dev.allan.workoutapp.data.db.PlanWorkout> = emptyList(),
         val workoutExercises: List<WorkoutExercise> = emptyList(),
         val setTemplates: List<SetTemplate> = emptyList(),
         val sessions: List<Session> = emptyList(),
@@ -44,7 +46,7 @@ object Backup {
         val customExercises = db.exerciseDao().customExercises()
         val customTranslations = customExercises.flatMap { db.exerciseDao().translations(it.id) }
         val plans = db.planDao().allPlans()
-        val workouts = plans.flatMap { db.planDao().workoutsList(it.id) }
+        val workouts = db.planDao().allWorkoutsList()
         val workoutExercises = workouts.flatMap { db.planDao().workoutExercisesList(it.id) }
         val setTemplates = workoutExercises.flatMap { db.planDao().setTemplatesList(it.id) }
         return json.encodeToString(
@@ -54,6 +56,7 @@ object Backup {
                 customTranslations = customTranslations,
                 plans = plans,
                 workouts = workouts,
+                planWorkouts = db.planDao().allPlanWorkouts(),
                 workoutExercises = workoutExercises,
                 setTemplates = setTemplates,
                 sessions = db.sessionDao().allSessions(),
@@ -76,6 +79,7 @@ object Backup {
         db.exerciseDao().insertTranslations(file.customTranslations)
         db.planDao().restorePlans(file.plans)
         db.planDao().restoreWorkouts(file.workouts)
+        db.planDao().restorePlanWorkouts(file.planWorkouts)
         db.planDao().restoreWorkoutExercises(file.workoutExercises)
         db.planDao().restoreSetTemplates(file.setTemplates)
         db.sessionDao().restoreSessions(file.sessions)

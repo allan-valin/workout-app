@@ -25,9 +25,11 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Inventory2
@@ -177,6 +179,24 @@ fun AppRoot() {
                 onResumeSession = { navController.navigate("session/$it") },
                 onOpenBodyweight = { navController.navigate("bodyweight") },
                 onOpenProgression = { navController.navigate("progression") },
+                onAddWorkout = { navController.navigate("addWorkout") },
+                onOpenArchivePlans = { navController.navigate("archivePlans") },
+                onOpenArchiveWorkouts = { navController.navigate("archiveWorkouts") },
+            )
+        }
+        composable("addWorkout") {
+            dev.allan.workoutapp.ui.plans.AddWorkoutScreen(onBack = { navController.popBackStack() })
+        }
+        composable("archivePlans") {
+            dev.allan.workoutapp.ui.plans.ArchivePlansScreen(
+                onBack = { navController.popBackStack() },
+                onOpenPlan = { navController.navigate("plan/$it") },
+            )
+        }
+        composable("archiveWorkouts") {
+            dev.allan.workoutapp.ui.plans.ArchiveWorkoutsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenWorkout = { navController.navigate("view/$it") },
             )
         }
         composable("bodyweight") {
@@ -292,21 +312,20 @@ private fun MainScaffold(
     onResumeSession: (Long) -> Unit,
     onOpenBodyweight: () -> Unit,
     onOpenProgression: () -> Unit,
+    onAddWorkout: () -> Unit,
+    onOpenArchivePlans: () -> Unit,
+    onOpenArchiveWorkouts: () -> Unit,
     vm: PlansViewModel = viewModel(),
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var showNewPlan by remember { mutableStateOf(false) }
-    // Plan selection for deletion (checkboxes on Active/Inactive plan cards).
-    var selectedPlans by remember { mutableStateOf(setOf<Long>()) }
-    var confirmDeletePlans by remember { mutableStateOf(false) }
 
-    val activePlans by vm.activePlans.collectAsState()
-    val inactivePlans by vm.inactivePlans.collectAsState()
+    val activePlan by vm.activePlan.collectAsState()
+    val activePlanWorkouts by vm.activePlanWorkouts.collectAsState()
     val todayWorkouts by vm.todayWorkouts.collectAsState()
     val runningSession by vm.runningSession.collectAsState()
     val completedWeekDays by vm.completedWeekDays.collectAsState()
     val exerciseCounts by vm.exerciseCounts.collectAsState()
-    val workoutCounts by vm.workoutCounts.collectAsState()
 
     val context = LocalContext.current
     val themeMode by dev.allan.workoutapp.data.Settings.themeMode(context)
@@ -325,14 +344,6 @@ private fun MainScaffold(
             TopAppBar(
                 title = { Text(stringResource(Tab.entries[selected].labelRes)) },
                 actions = {
-                    if (selectedPlans.isNotEmpty()) {
-                        IconButton(onClick = { confirmDeletePlans = true }) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = stringResource(R.string.delete),
-                            )
-                        }
-                    }
                     // Theme/language/settings live on the Start tab only.
                     if (Tab.entries[selected] != Tab.Home) return@TopAppBar
                     val dark = when (themeMode) {
@@ -416,7 +427,7 @@ private fun MainScaffold(
                     if (todayWorkouts.isEmpty()) {
                         item { Text(stringResource(R.string.no_workouts_today)) }
                     }
-                    if (activePlans.isEmpty()) {
+                    if (activePlan == null) {
                         // First-run state: nothing to train yet — offer plan creation right here.
                         item {
                             Card(Modifier.fillMaxWidth()) {
@@ -451,41 +462,65 @@ private fun MainScaffold(
                     }
                 }
                 Tab.Active -> {
-                    if (activePlans.isEmpty()) {
-                        item { Text(stringResource(R.string.no_active_plans), Modifier.padding(top = 16.dp)) }
-                    }
-                    items(activePlans, key = { it.id }) { plan ->
-                        PlanCard(
-                            plan,
-                            workoutCount = workoutCounts[plan.id] ?: 0,
-                            selected = plan.id in selectedPlans,
-                            onToggleSelect = {
-                                selectedPlans =
-                                    if (plan.id in selectedPlans) selectedPlans - plan.id
-                                    else selectedPlans + plan.id
-                            },
-                            onOpen = { onOpenPlan(plan.id) },
-                            onToggle = { vm.setPlanActive(plan, false) },
-                        )
+                    val plan = activePlan
+                    if (plan == null) {
+                        item {
+                            Text(
+                                stringResource(R.string.no_active_plan_hint),
+                                Modifier.padding(top = 16.dp),
+                            )
+                        }
+                    } else {
+                        item {
+                            Row(
+                                Modifier.fillMaxWidth().padding(top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    plan.name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(onClick = { onOpenPlan(plan.id) }) {
+                                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_training))
+                                }
+                            }
+                        }
+                        if (activePlanWorkouts.isEmpty()) {
+                            item { Text(stringResource(R.string.no_workouts_yet)) }
+                        }
+                        items(activePlanWorkouts, key = { it.id }) { w ->
+                            Card(onClick = { onOpenWorkout(w.id) }, modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    dev.allan.workoutapp.ui.plans.ExerciseCountBadge(exerciseCounts[w.id] ?: 0)
+                                    Text(w.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                                    IconButton(onClick = { onOpenWorkout(w.id) }) {
+                                        Icon(
+                                            Icons.Default.PlayArrow,
+                                            contentDescription = stringResource(R.string.start_workout),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        item {
+                            OutlinedButton(onClick = onAddWorkout, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Text(stringResource(R.string.add_workout), modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
                     }
                     item { LibraryButton(onOpenLibrary) }
                 }
                 Tab.Inactive -> {
-                    if (inactivePlans.isEmpty()) {
-                        item { Text(stringResource(R.string.no_inactive_plans), Modifier.padding(top = 16.dp)) }
-                    }
-                    items(inactivePlans, key = { it.id }) { plan ->
-                        PlanCard(
-                            plan,
-                            workoutCount = workoutCounts[plan.id] ?: 0,
-                            selected = plan.id in selectedPlans,
-                            onToggleSelect = {
-                                selectedPlans =
-                                    if (plan.id in selectedPlans) selectedPlans - plan.id
-                                    else selectedPlans + plan.id
-                            },
-                            onOpen = { onOpenPlan(plan.id) },
-                            onToggle = { vm.setPlanActive(plan, true) },
+                    item {
+                        dev.allan.workoutapp.ui.plans.ArchiveHubContent(
+                            onOpenPlans = onOpenArchivePlans,
+                            onOpenWorkouts = onOpenArchiveWorkouts,
                         )
                     }
                     item { LibraryButton(onOpenLibrary) }
@@ -498,23 +533,6 @@ private fun MainScaffold(
                 }
             }
         }
-    }
-
-    if (confirmDeletePlans) {
-        AlertDialog(
-            onDismissRequest = { confirmDeletePlans = false },
-            title = { Text(stringResource(R.string.delete_plans_confirm, selectedPlans.size)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.deletePlans(selectedPlans)
-                    selectedPlans = emptySet()
-                    confirmDeletePlans = false
-                }) { Text(stringResource(R.string.delete)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDeletePlans = false }) { Text(stringResource(R.string.cancel)) }
-            },
-        )
     }
 
     if (showNewPlan) {
