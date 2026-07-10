@@ -255,6 +255,12 @@
     <string name="consider_injuries">Verletzungen berücksichtigen</string>
     <string name="per_muscle_counts">Übungen pro Muskel</string>
     <string name="last_trained">Zuletzt trainiert %s</string>
+    <string name="swap_exercise">Übung tauschen</string>
+    <string name="swap_to">Tauschen zu %s</string>
+    <string name="swap_config_prompt">Welche Satz-Konfiguration für die neue Übung?</string>
+    <string name="swap_keep_config">Aktuelle Konfiguration behalten</string>
+    <string name="swap_incoming_config">Letzte Konfiguration dieser Übung verwenden</string>
+    <string name="swap_default_config">Standard (3 × 10, 60 s Pause)</string>
     <string name="muscles_worked">Trainierte Muskeln (experimentell)</string>
     <string name="muscles_worked_cycle">Muskeln in diesem Zyklus (experimentell)</string>
     <string name="muscle_legend_header">Farbton = Trainingsvolumen</string>

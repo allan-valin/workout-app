@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Star
@@ -59,6 +60,8 @@ fun ExerciseLibraryScreen(
     appLang: String,
     onBack: () -> Unit,
     pickerWorkoutId: Long? = null,
+    /** Swap mode: each result substitutes the selected exercise instead of adding. */
+    onSwapPick: ((String) -> Unit)? = null,
     vm: ExerciseLibraryViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsState()
@@ -71,18 +74,20 @@ fun ExerciseLibraryScreen(
     var selectedCustoms by remember { mutableStateOf(setOf<String>()) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val addedMsg = stringResource(R.string.exercise_added)
-    val onAdd: ((String) -> Unit)? = pickerWorkoutId?.let { wid ->
+    // Swap mode wins: tapping a result substitutes; otherwise picker mode adds to a workout.
+    val onAdd: ((String) -> Unit)? = onSwapPick ?: pickerWorkoutId?.let { wid ->
         { exerciseId ->
             vm.addToWorkout(wid, exerciseId) {
                 android.widget.Toast.makeText(context, addedMsg, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
+    val swapMode = onSwapPick != null
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.exercise_library)) },
+                title = { Text(stringResource(if (swapMode) R.string.swap_exercise else R.string.exercise_library)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -142,6 +147,7 @@ fun ExerciseLibraryScreen(
                             },
                             onClick = { vm.openDetail(hit) },
                             onAdd = onAdd,
+                            swapMode = swapMode,
                             isFavorite = hit.id in favoriteIds,
                             onToggleFavorite = { vm.toggleFavorite(hit.id) },
                         )
@@ -411,6 +417,7 @@ private fun ExerciseRow(
     muscleName: (Int) -> String,
     onClick: () -> Unit,
     onAdd: ((String) -> Unit)? = null,
+    swapMode: Boolean = false,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
 ) {
@@ -446,8 +453,10 @@ private fun ExerciseRow(
                 if (onAdd != null) {
                     IconButton(onClick = { onAdd(hit.id) }) {
                         Icon(
-                            Icons.Default.Add,
-                            contentDescription = stringResource(R.string.add_exercise),
+                            if (swapMode) Icons.Default.SwapVert else Icons.Default.Add,
+                            contentDescription = stringResource(
+                                if (swapMode) R.string.swap_exercise else R.string.add_exercise
+                            ),
                         )
                     }
                 }

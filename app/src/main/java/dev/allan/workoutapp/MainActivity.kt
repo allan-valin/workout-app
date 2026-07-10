@@ -359,11 +359,17 @@ fun AppRoot() {
         ) { entry ->
             val workoutId = entry.arguments!!.getLong("workoutId")
             val focusId = entry.arguments!!.getLong("focusId").takeIf { it >= 0 }
+            val swapResult by entry.savedStateHandle
+                .getStateFlow<String?>("swap_result", null)
+                .collectAsState()
             WorkoutEditorScreen(
                 workoutId = workoutId,
                 appLang = currentAppLang(),
                 onBack = { navController.popBackStack() },
                 onPickExercise = { navController.navigate("picker/$workoutId") },
+                onSwapExercise = { weId -> navController.navigate("swap/$workoutId/$weId") },
+                swapResult = swapResult,
+                onSwapConsumed = { entry.savedStateHandle["swap_result"] = null },
                 focusExerciseId = focusId,
             )
         }
@@ -375,6 +381,24 @@ fun AppRoot() {
                 appLang = currentAppLang(),
                 onBack = { navController.popBackStack() },
                 pickerWorkoutId = entry.arguments!!.getLong("workoutId"),
+            )
+        }
+        composable(
+            "swap/{workoutId}/{weId}",
+            arguments = listOf(
+                navArgument("workoutId") { type = NavType.LongType },
+                navArgument("weId") { type = NavType.LongType },
+            ),
+        ) { entry ->
+            val weId = entry.arguments!!.getLong("weId")
+            ExerciseLibraryScreen(
+                appLang = currentAppLang(),
+                onBack = { navController.popBackStack() },
+                onSwapPick = { exerciseId ->
+                    // Hand the choice back to the editor, then close the library.
+                    navController.previousBackStackEntry?.savedStateHandle?.set("swap_result", "$weId:$exerciseId")
+                    navController.popBackStack()
+                },
             )
         }
         }

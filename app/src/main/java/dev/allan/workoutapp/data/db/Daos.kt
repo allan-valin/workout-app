@@ -277,6 +277,16 @@ interface PlanDao {
     @Query("SELECT * FROM set_template WHERE workoutExerciseId = :weId ORDER BY setIndex")
     suspend fun setTemplatesList(weId: Long): List<SetTemplate>
 
+    @Query("SELECT * FROM workout_exercise WHERE id = :id")
+    suspend fun workoutExercise(id: Long): WorkoutExercise?
+
+    /** All uses of an exercise across workouts — for "load the incoming exercise's last config". */
+    @Query("SELECT * FROM workout_exercise WHERE exerciseId = :exId")
+    suspend fun workoutExercisesByExercise(exId: String): List<WorkoutExercise>
+
+    @Query("DELETE FROM set_template WHERE workoutExerciseId = :weId")
+    suspend fun deleteSetTemplatesForExercise(weId: Long)
+
     @Query("DELETE FROM plan WHERE id = :id")
     suspend fun deletePlan(id: Long)
 

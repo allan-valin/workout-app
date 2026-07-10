@@ -539,17 +539,19 @@ green; NOT emulator-verified):
 - DEMO DEBT still open (07-10 batch + this one) — deferred by Allan, do NOT spend resources yet.
 - Committed + pushed (checkpoint discipline restored this session).
 
-Workout editor — swap exercise (active OR archived workout):
-- [ ] New top-bar action "Swap" (icon = two arrows pointing opposite directions, stacked one
-      over the other), placed to the LEFT of the existing batch actions (select-all/delete).
-      Gated on EXACTLY ONE exercise selected via its left checkbox (reuse the existing
-      multi-select checkbox in WorkoutEditorScreen). Label the action "Swap" + the icon.
-- [ ] Tapping Swap with e.g. the 2nd exercise selected opens the search/library screen in a
-      "swap target" mode. There each result exposes a substitute button (+ or the same swap
-      arrows); tapping it replaces the selected exercise (2nd) IN PLACE with the chosen one
-      (same position/order, superset chain preserved).
-- [ ] On substitution, prompt for the new exercise's set config — 3 choices:
-      (a) keep the current set config from the exercise being replaced;
-      (b) load the last set config already used for the INCOMING exercise — only offered if it
-          exists in an archived training or another active training (look it up);
-      (c) default 3×10 @ 60 s rest.
+Workout editor — swap exercise (active OR archived workout) — DONE 2026-07-11:
+- [x] Top-bar "Swap" action (SwapVert icon) shown only when EXACTLY one exercise is selected via
+      its checkbox, left of select-all/delete. Clears selection and opens the library.
+- [x] Library opens in swap mode (title "Swap exercise", SwapVert per-result button). Picking a
+      result hands "weId:exerciseId" back to the editor via the nav savedStateHandle, pops.
+- [x] Replace IN PLACE: only WorkoutExercise.exerciseId changes (orderIndex + supersetWithPrev
+      preserved). Then a set-config dialog: (a) keep current config; (b) use the incoming
+      exercise's last config — offered only if another workout_exercise with that exercise has
+      templates (findIncomingConfig, newest by id); (c) default 3×10 @ 60 s. Routed through the
+      editor's edit{} so it's undoable. New DAO: workoutExercise(id), workoutExercisesByExercise,
+      deleteSetTemplatesForExercise. Strings swap_* in 3 langs.
+- Compile + assembleDebug + unit tests green. NOT emulator-verified.
+- Committed + pushed.
+
+Phase 11 COMPLETE (all feedback + swap). Remaining app-wide open item: DEMO DEBT (demo.html
+behind for both 07-10 and 07-11 batches) — deferred by Allan.

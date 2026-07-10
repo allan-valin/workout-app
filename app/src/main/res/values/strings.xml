@@ -255,6 +255,12 @@
     <string name="consider_injuries">Consider injuries</string>
     <string name="per_muscle_counts">Exercises per muscle</string>
     <string name="last_trained">Last trained %s</string>
+    <string name="swap_exercise">Swap exercise</string>
+    <string name="swap_to">Swap to %s</string>
+    <string name="swap_config_prompt">Which set config for the new exercise?</string>
+    <string name="swap_keep_config">Keep the current config</string>
+    <string name="swap_incoming_config">Use this exercise\'s last config</string>
+    <string name="swap_default_config">Default (3 × 10, 60 s rest)</string>
     <string name="muscles_worked">Muscles worked (experimental)</string>
     <string name="muscles_worked_cycle">Muscles worked this cycle (experimental)</string>
     <string name="muscle_legend_header">Shade = training volume</string>

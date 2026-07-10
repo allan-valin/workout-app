@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
@@ -48,6 +49,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -130,6 +132,66 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
 
     private val _suggesting = MutableStateFlow(false)
     val suggesting: StateFlow<Boolean> = _suggesting
+
+    // ---- Swap exercise ----------------------------------------------------------------
+    enum class SwapConfig { KEEP, INCOMING, DEFAULT }
+    data class SwapPrompt(
+        val weId: Long,
+        val newExerciseId: String,
+        val newName: String,
+        val hasIncoming: Boolean, // true if the incoming exercise has a config to reuse
+    )
+
+    private val _swapPrompt = MutableStateFlow<SwapPrompt?>(null)
+    val swapPrompt: StateFlow<SwapPrompt?> = _swapPrompt
+
+    /** Library returned a swap target: figure out whether the incoming exercise has a reusable
+     *  config, then raise the set-config choice dialog. */
+    fun beginSwap(weId: Long, newExerciseId: String) {
+        viewModelScope.launch {
+            val hasIncoming = findIncomingConfig(weId, newExerciseId) != null
+            val name = nameCache.getOrPut(newExerciseId) { PlanRepo.displayName(db, newExerciseId, lang) }
+            _swapPrompt.value = SwapPrompt(weId, newExerciseId, name, hasIncoming)
+        }
+    }
+
+    fun cancelSwap() { _swapPrompt.value = null }
+
+    /** Replace the exercise in place (order + superset preserved), applying the chosen set config. */
+    fun applySwap(mode: SwapConfig) {
+        val prompt = _swapPrompt.value ?: return
+        _swapPrompt.value = null
+        edit {
+            val we = db.planDao().workoutExercise(prompt.weId) ?: return@edit
+            db.planDao().updateWorkoutExercise(we.copy(exerciseId = prompt.newExerciseId))
+            when (mode) {
+                SwapConfig.KEEP -> {} // current sets carry over unchanged
+                SwapConfig.INCOMING -> findIncomingConfig(prompt.weId, prompt.newExerciseId)?.let { src ->
+                    db.planDao().deleteSetTemplatesForExercise(prompt.weId)
+                    src.forEachIndexed { i, t ->
+                        db.planDao().insertSetTemplate(t.copy(id = 0, workoutExerciseId = prompt.weId, setIndex = i))
+                    }
+                }
+                SwapConfig.DEFAULT -> {
+                    db.planDao().deleteSetTemplatesForExercise(prompt.weId)
+                    repeat(3) { i ->
+                        db.planDao().insertSetTemplate(
+                            SetTemplate(workoutExerciseId = prompt.weId, setIndex = i, targetValue = 10, restSecs = 60)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /** Most recent OTHER use of [exerciseId] that has set templates (highest id = newest). */
+    private suspend fun findIncomingConfig(excludeWeId: Long, exerciseId: String): List<SetTemplate>? {
+        db.planDao().workoutExercisesByExercise(exerciseId)
+            .filter { it.id != excludeWeId }
+            .sortedByDescending { it.id }
+            .forEach { c -> db.planDao().setTemplatesList(c.id).takeIf { it.isNotEmpty() }?.let { return it } }
+        return null
+    }
 
     val exercises: StateFlow<List<EditorExercise>> =
         combine(
@@ -440,6 +502,11 @@ fun WorkoutEditorScreen(
     appLang: String,
     onBack: () -> Unit,
     onPickExercise: () -> Unit,
+    /** Open the library in swap mode for this workout-exercise id. */
+    onSwapExercise: (Long) -> Unit = {},
+    /** Result from swap mode: "weId:exerciseId" (consumed once). */
+    swapResult: String? = null,
+    onSwapConsumed: () -> Unit = {},
     /** Non-null: edit only this workout-exercise (quick edit from a running session). */
     focusExerciseId: Long? = null,
 ) {
@@ -462,6 +529,18 @@ fun WorkoutEditorScreen(
     // Exit guard: unsaved edits → keep/discard prompt (back arrow or system back).
     var confirmExit by remember { mutableStateOf(false) }
     val attemptBack = { if (dirty) confirmExit = true else onBack() }
+    val swapPrompt by vm.swapPrompt.collectAsState()
+
+    // Library returned a swap target ("weId:exerciseId") — raise the set-config choice.
+    androidx.compose.runtime.LaunchedEffect(swapResult) {
+        swapResult?.let {
+            val parts = it.split(":", limit = 2)
+            val weId = parts.getOrNull(0)?.toLongOrNull()
+            val exId = parts.getOrNull(1)
+            if (weId != null && exId != null) vm.beginSwap(weId, exId)
+            onSwapConsumed()
+        }
+    }
     androidx.activity.compose.BackHandler(enabled = true) { attemptBack() }
 
     // Detect exercises added from the picker (an out-of-editor mutation) on return.
@@ -498,6 +577,17 @@ fun WorkoutEditorScreen(
                 },
                 actions = {
                     if (selectedExercises.isNotEmpty()) {
+                        // Swap: only with EXACTLY one exercise selected. Opens the library in
+                        // swap mode to substitute that exercise in place.
+                        if (selectedExercises.size == 1) {
+                            IconButton(onClick = {
+                                val weId = selectedExercises.first()
+                                selectedExercises = emptySet()
+                                onSwapExercise(weId)
+                            }) {
+                                Icon(Icons.Default.SwapVert, contentDescription = stringResource(R.string.swap_exercise))
+                            }
+                        }
                         IconButton(onClick = { selectedExercises = exercises.map { it.we.id }.toSet() }) {
                             Icon(Icons.Default.SelectAll, contentDescription = stringResource(R.string.select_all))
                         }
@@ -612,6 +702,37 @@ fun WorkoutEditorScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmBulkDelete = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
+    // After picking a swap target: choose which set config the new exercise gets.
+    swapPrompt?.let { prompt ->
+        AlertDialog(
+            onDismissRequest = { vm.cancelSwap() },
+            title = { Text(stringResource(R.string.swap_to, prompt.newName)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.swap_config_prompt), style = MaterialTheme.typography.bodyMedium)
+                    Button(
+                        onClick = { vm.applySwap(WorkoutEditorViewModel.SwapConfig.KEEP) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.swap_keep_config)) }
+                    if (prompt.hasIncoming) {
+                        OutlinedButton(
+                            onClick = { vm.applySwap(WorkoutEditorViewModel.SwapConfig.INCOMING) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.swap_incoming_config)) }
+                    }
+                    OutlinedButton(
+                        onClick = { vm.applySwap(WorkoutEditorViewModel.SwapConfig.DEFAULT) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.swap_default_config)) }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { vm.cancelSwap() }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
