@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -133,19 +134,31 @@ fun ArchivePlansScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArchiveWorkoutsScreen(onBack: () -> Unit, onOpenWorkout: (Long) -> Unit) {
+fun ArchiveWorkoutsScreen(
+    onBack: () -> Unit,
+    onOpenWorkout: (Long) -> Unit,
+    onEditWorkout: (Long) -> Unit = {},
+) {
     val vm: PlansViewModel = viewModel()
     val workouts by vm.allWorkouts.collectAsState()
     val activeIds by vm.activeWorkoutIds.collectAsState()
     val exerciseCounts by vm.exerciseCounts.collectAsState()
     val hasActivePlan by vm.activePlan.collectAsState()
+    var showAdd by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.archive_workouts)) },
-            navigationIcon = { BackButton(onBack) },
-        )
-    }) { padding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.archive_workouts)) },
+                navigationIcon = { BackButton(onBack) },
+                actions = {
+                    IconButton(onClick = { showAdd = true }) {
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_workout))
+                    }
+                },
+            )
+        },
+    ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -173,6 +186,32 @@ fun ArchiveWorkoutsScreen(onBack: () -> Unit, onOpenWorkout: (Long) -> Unit) {
                 }
             }
         }
+    }
+
+    if (showAdd) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            title = { Text(stringResource(R.string.add_workout)) },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.workout_name)) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = name.isNotBlank(),
+                    onClick = {
+                        vm.createArchivedWorkout(name.trim()) { onEditWorkout(it) }
+                        showAdd = false
+                    },
+                ) { Text(stringResource(R.string.ok)) }
+            },
+            dismissButton = { TextButton(onClick = { showAdd = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
 

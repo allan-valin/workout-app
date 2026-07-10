@@ -46,9 +46,9 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
     val allWorkouts: StateFlow<List<Workout>> = db.planDao().allWorkoutsFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** EXPERIMENTAL: muscle-map load unioned across all workouts in the active cycle. */
+    /** EXPERIMENTAL: muscle-map load (wger muscle id -> load) unioned across the active cycle. */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val activePlanMuscleLoad: StateFlow<Map<dev.allan.workoutapp.data.BodyRegion, Float>> =
+    val activePlanMuscleLoad: StateFlow<Map<Int, Float>> =
         activePlanWorkouts.map { workouts ->
             val pairs = mutableListOf<Pair<List<Int>, List<Int>>>()
             workouts.forEach { w ->
@@ -57,7 +57,7 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
                     pairs += (ex?.primaryMuscles ?: emptyList()) to (ex?.secondaryMuscles ?: emptyList())
                 }
             }
-            dev.allan.workoutapp.data.MuscleMap.regionLoad(pairs)
+            dev.allan.workoutapp.data.MuscleMap.muscleLoad(pairs)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     /** Workout ids currently in the active plan — labels them in Archive/Add screens. */
@@ -84,6 +84,14 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
         ids.forEach { id ->
             if (asCopy) dev.allan.workoutapp.data.PlanRepo.copyWorkout(db, id, planId)
             else dev.allan.workoutapp.data.PlanRepo.linkWorkout(db, id, planId)
+        }
+    }
+
+    /** Create a standalone workout straight into the Archive (no plan link, archived=true). */
+    fun createArchivedWorkout(name: String, onCreated: (Long) -> Unit) {
+        viewModelScope.launch {
+            val id = db.planDao().insertWorkout(Workout(name = name, daysOfWeek = emptyList(), archived = true))
+            onCreated(id)
         }
     }
 
@@ -118,6 +126,11 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
     /** workoutId -> exercise count, for the badges on Today cards. */
     val exerciseCounts: StateFlow<Map<Long, Int>> = db.planDao().exerciseCounts()
         .map { rows -> rows.associate { it.workoutId to it.count } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** workoutId -> last finished-session epoch millis, for the "last trained" row line. */
+    val lastTrained: StateFlow<Map<Long, Long>> = db.planDao().lastTrainedFlow()
+        .map { rows -> rows.associate { it.workoutId to it.lastAt } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     /** ISO days (1=Mon..7=Sun) of the current week with a finished session — week circles. */

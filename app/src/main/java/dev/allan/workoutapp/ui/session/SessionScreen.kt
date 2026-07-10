@@ -695,10 +695,11 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         modifier = Modifier.width(52.dp).clickable { targetEditFor = set },
                     )
                     // Fixed-width trailing slot (play always reserved) so every row + the
-                    // header line up on the same columns regardless of SECS/REPS.
+                    // header line up; SpaceBetween spreads play/check/delete instead of
+                    // bunching them at the right edge.
                     Row(
                         Modifier.width(112.dp),
-                        horizontalArrangement = Arrangement.End,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (set.valueUnit == ValueUnit.SECS) {

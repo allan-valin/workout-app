@@ -510,6 +510,35 @@ emulator-verified; Allan staying off-device until a trusted 1.0):
   justified cadence row, muscle map, stats date affordance). Sync next session (MAINTENANCE rule).
 - STILL OPEN in Phase 11: the "swap exercise" block below (untouched this session).
 
+SESSION 2026-07-11 (Allan's follow-up on the 07-10 batch — compile + unit-test + assembleDebug
+green; NOT emulator-verified):
+- [x] Session row: trailing play/check/delete were bunched at the right edge -> Arrangement
+      changed End->SpaceBetween so they spread across the 112dp slot (header still aligned).
+- [x] Nav: dropped the fade (it made content pop in top-to-bottom); now a clean horizontal
+      swipe — new screen slides fully in from the right, old parallaxes 1/3 out (260ms).
+- [x] Workout rows (Active tab): bottom-right "Last trained <date>" in the device's localized
+      short-date pattern (planDao.lastTrainedFlow MAX(startedAt) per workout, FINISHED/AUTO_ENDED;
+      PlansViewModel.lastTrained; formatDateShort via DateTimeFormatter.ofLocalizedDate SHORT).
+- [x] Active tab: the add/import-cycle FAB now shows ONLY when there's no active cycle (hidden
+      while one is active — a second cycle would just deactivate this one).
+- [x] Plan editor: active toggle replaced by a button — "Deactivate" (Archive icon, setActive
+      false) when active, "Activate" (deactivateAllPlans + activate) when not — mirroring the
+      Archive screen's activate action. deactivate string added (3 langs).
+- [x] Archive > Workouts: top-bar + action creates a NEW workout straight into the archive
+      (PlansViewModel.createArchivedWorkout, archived=true, no plan link) and opens the editor
+      (onEditWorkout -> workout/{id}). (The add-training I failed to acknowledge last session.)
+- [x] Muscle body reworked from the abstract stick-figure to ANATOMICAL: bundles wger's own
+      grayscale front/back body SVGs + per-muscle overlay SVGs (assets/body/, fetched from
+      wger.de, CC-BY-SA) rendered via coil-svg. Base drawn as-is; each targeted muscle's overlay
+      tinted orange by load (deeper = more exercises) with ColorFilter.tint. MuscleMap now keys by
+      wger muscle id (FRONT_IDS/BACK_IDS from snapshot is_front) instead of abstract regions.
+      Added a legend row: "Shade = training volume" + colored squares 1/2/3/4+ exercises (3 langs).
+      Shown on WorkoutViewScreen (per workout) + Active tab (cycle union). STILL EXPERIMENTAL.
+- wger research DROPPED at Allan's request (not his use case; he expected gym-mgmt/PT features
+  which their Django apps do have but he's not pursuing).
+- DEMO DEBT still open (07-10 batch + this one) — deferred by Allan, do NOT spend resources yet.
+- Committed + pushed (checkpoint discipline restored this session).
+
 Workout editor — swap exercise (active OR archived workout):
 - [ ] New top-bar action "Swap" (icon = two arrows pointing opposite directions, stacked one
       over the other), placed to the LEFT of the existing batch actions (select-all/delete).

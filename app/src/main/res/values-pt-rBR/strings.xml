@@ -230,6 +230,7 @@
     <string name="archive_plans">Planos</string>
     <string name="archive_workouts">Treinos</string>
     <string name="activate">Ativar</string>
+    <string name="deactivate">Desativar</string>
     <string name="in_active_plan">No plano ativo</string>
     <string name="add_to_plan">Adicionar ao plano</string>
     <string name="add_workout_hint">Escolha treinos, depois vincule (compartilhado — edições valem em todos) ou use como base (cópia independente).</string>
@@ -253,6 +254,9 @@
     <string name="discard_changes">Descartar</string>
     <string name="consider_injuries">Considerar lesões</string>
     <string name="per_muscle_counts">Exercícios por músculo</string>
+    <string name="last_trained">Último treino %s</string>
     <string name="muscles_worked">Músculos trabalhados (experimental)</string>
     <string name="muscles_worked_cycle">Músculos trabalhados no ciclo (experimental)</string>
+    <string name="muscle_legend_header">Tom = volume de treino</string>
+    <string name="muscle_legend_unit">exercícios</string>
 </resources>

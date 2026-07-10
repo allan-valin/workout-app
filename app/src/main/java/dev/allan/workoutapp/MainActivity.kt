@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -161,6 +162,11 @@ private fun flagFor(lang: String): String = when (lang) {
     else -> "🇬🇧"
 }
 
+/** Localized short date (dd.MM.yy / dd/MM/yyyy / …) per the device language pattern. */
+private fun formatDateShort(millis: Long): String =
+    java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        .format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.SHORT))
+
 private enum class Tab(val labelRes: Int) {
     Home(R.string.nav_home),
     Active(R.string.nav_active_plans),
@@ -201,28 +207,28 @@ fun AppRoot() {
             navController = navController,
             startDestination = "main",
             modifier = Modifier.padding(barPadding),
-            // Slide transitions so a drill-in screen never paints on top of the previous one
-            // for a frame (the "two screens merged" flash). Forward = new slides in from the
-            // right; back = it slides back out to the right.
+            // Clean horizontal swipe (no fade — the crossfade made content pop in top-to-bottom).
+            // Forward: new screen slides fully in from the right, old parallaxes 1/3 left. Back
+            // mirrors it. Both screens are opaque and move as whole units.
             enterTransition = {
                 androidx.compose.animation.slideInHorizontally(
-                    animationSpec = androidx.compose.animation.core.tween(220),
-                ) { it } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220))
+                    animationSpec = androidx.compose.animation.core.tween(260),
+                ) { it }
             },
             exitTransition = {
                 androidx.compose.animation.slideOutHorizontally(
-                    animationSpec = androidx.compose.animation.core.tween(220),
-                ) { -it / 4 } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(220))
+                    animationSpec = androidx.compose.animation.core.tween(260),
+                ) { -it / 3 }
             },
             popEnterTransition = {
                 androidx.compose.animation.slideInHorizontally(
-                    animationSpec = androidx.compose.animation.core.tween(220),
-                ) { -it / 4 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220))
+                    animationSpec = androidx.compose.animation.core.tween(260),
+                ) { -it / 3 }
             },
             popExitTransition = {
                 androidx.compose.animation.slideOutHorizontally(
-                    animationSpec = androidx.compose.animation.core.tween(220),
-                ) { it } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(220))
+                    animationSpec = androidx.compose.animation.core.tween(260),
+                ) { it }
             },
         ) {
         composable("main") {
@@ -266,6 +272,7 @@ fun AppRoot() {
             dev.allan.workoutapp.ui.plans.ArchiveWorkoutsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenWorkout = { navController.navigate("view/$it") },
+                onEditWorkout = { navController.navigate("workout/$it") },
             )
         }
         composable("bodyweight") {
@@ -419,6 +426,7 @@ private fun MainScaffold(
     val activePlan by vm.activePlan.collectAsState()
     val activePlanWorkouts by vm.activePlanWorkouts.collectAsState()
     val activePlanMuscleLoad by vm.activePlanMuscleLoad.collectAsState()
+    val lastTrained by vm.lastTrained.collectAsState()
     val todayWorkouts by vm.todayWorkouts.collectAsState()
     val runningSession by vm.runningSession.collectAsState()
     val completedWeekDays by vm.completedWeekDays.collectAsState()
@@ -469,7 +477,9 @@ private fun MainScaffold(
             )
         },
         floatingActionButton = {
-            if (Tab.entries[selected] == Tab.Active) {
+            // Add/import a cycle only when there's no active cycle (Active tab shows the active
+            // cycle's workouts otherwise — a second cycle would just deactivate this one).
+            if (Tab.entries[selected] == Tab.Active && activePlan == null) {
                 FloatingActionButton(onClick = { showNewPlan = true }) {
                     Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_plan))
                 }
@@ -568,17 +578,27 @@ private fun MainScaffold(
                         }
                         items(activePlanWorkouts, key = { it.id }) { w ->
                             Card(onClick = { onOpenWorkout(w.id) }, modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    dev.allan.workoutapp.ui.plans.ExerciseCountBadge(exerciseCounts[w.id] ?: 0)
-                                    Text(w.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                                    IconButton(onClick = { onOpenWorkout(w.id) }) {
-                                        Icon(
-                                            Icons.Default.PlayArrow,
-                                            contentDescription = stringResource(R.string.start_workout),
+                                Column(Modifier.padding(12.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        dev.allan.workoutapp.ui.plans.ExerciseCountBadge(exerciseCounts[w.id] ?: 0)
+                                        Text(w.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                                        IconButton(onClick = { onOpenWorkout(w.id) }) {
+                                            Icon(
+                                                Icons.Default.PlayArrow,
+                                                contentDescription = stringResource(R.string.start_workout),
+                                            )
+                                        }
+                                    }
+                                    lastTrained[w.id]?.let { millis ->
+                                        Text(
+                                            stringResource(R.string.last_trained, formatDateShort(millis)),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.End,
                                         )
                                     }
                                 }

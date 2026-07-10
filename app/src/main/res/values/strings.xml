@@ -230,6 +230,7 @@
     <string name="archive_plans">Plans</string>
     <string name="archive_workouts">Workouts</string>
     <string name="activate">Activate</string>
+    <string name="deactivate">Deactivate</string>
     <string name="in_active_plan">In active plan</string>
     <string name="add_to_plan">Add to plan</string>
     <string name="add_workout_hint">Pick workouts, then link them (shared — edits apply everywhere) or use as base (an independent copy).</string>
@@ -253,6 +254,9 @@
     <string name="discard_changes">Discard</string>
     <string name="consider_injuries">Consider injuries</string>
     <string name="per_muscle_counts">Exercises per muscle</string>
+    <string name="last_trained">Last trained %s</string>
     <string name="muscles_worked">Muscles worked (experimental)</string>
     <string name="muscles_worked_cycle">Muscles worked this cycle (experimental)</string>
+    <string name="muscle_legend_header">Shade = training volume</string>
+    <string name="muscle_legend_unit">exercises</string>
 </resources>

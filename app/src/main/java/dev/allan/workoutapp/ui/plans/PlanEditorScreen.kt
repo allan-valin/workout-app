@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -37,9 +38,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -99,6 +100,17 @@ class PlanEditorViewModel(app: Application, private val planId: Long) : AndroidV
     fun setCycleWeeks(weeks: Int?) = update { it.copy(cycleWeeks = weeks) }
 
     fun setActive(active: Boolean) = update { it.copy(isActive = active) }
+
+    /** Activate this cycle, deactivating any other (one-active-cycle rule). */
+    fun activate() {
+        val current = _plan.value ?: return
+        viewModelScope.launch {
+            db.planDao().deactivateAllPlans()
+            val next = current.copy(isActive = true)
+            _plan.value = next
+            db.planDao().updatePlan(next)
+        }
+    }
 
     private fun update(transform: (Plan) -> Plan) {
         val current = _plan.value ?: return
@@ -286,8 +298,17 @@ fun PlanEditorScreen(
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                     )
-                    Text(stringResource(R.string.plan_active))
-                    Switch(checked = p.isActive, onCheckedChange = vm::setActive)
+                    // Button (not a toggle) to mirror the Archive screen's Activate action.
+                    if (p.isActive) {
+                        OutlinedButton(onClick = { vm.setActive(false) }) {
+                            Icon(Icons.Default.Archive, contentDescription = null)
+                            Text(stringResource(R.string.deactivate), modifier = Modifier.padding(start = 6.dp))
+                        }
+                    } else {
+                        Button(onClick = { vm.activate() }) {
+                            Text(stringResource(R.string.activate))
+                        }
+                    }
                 }
             }
             val week = vm.currentWeek()

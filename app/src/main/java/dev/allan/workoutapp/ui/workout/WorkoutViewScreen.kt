@@ -112,15 +112,15 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** EXPERIMENTAL: per-region training load for the muscle map under the exercise list. */
-    val muscleLoad: StateFlow<Map<dev.allan.workoutapp.data.BodyRegion, Float>> =
+    /** EXPERIMENTAL: per-muscle (wger id) training load for the body map under the exercise list. */
+    val muscleLoad: StateFlow<Map<Int, Float>> =
         db.planDao().workoutExercises(workoutId)
             .map { wes ->
                 val pairs = wes.map { we ->
                     val ex = db.exerciseDao().exercise(we.exerciseId)
                     (ex?.primaryMuscles ?: emptyList()) to (ex?.secondaryMuscles ?: emptyList())
                 }
-                dev.allan.workoutapp.data.MuscleMap.regionLoad(pairs)
+                dev.allan.workoutapp.data.MuscleMap.muscleLoad(pairs)
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 

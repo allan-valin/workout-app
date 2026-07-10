@@ -13,6 +13,9 @@ data class WorkoutExerciseCount(val workoutId: Long, val count: Int)
 
 data class PlanWorkoutCount(val planId: Long, val count: Int)
 
+/** Row for [PlanDao.lastTrainedFlow]. */
+data class WorkoutLastTrained(val workoutId: Long, val lastAt: Long)
+
 /** Search result row: one exercise with its display name resolved for a language. */
 data class ExerciseHit(
     val id: String,
@@ -336,6 +339,15 @@ interface PlanDao {
     /** Workout count per plan — the plan/workout distinction on plan cards. */
     @Query("SELECT planId, COUNT(*) AS count FROM plan_workout GROUP BY planId")
     fun workoutCounts(): Flow<List<PlanWorkoutCount>>
+
+    /** Most recent finished-session start per workout — the "last trained" line on rows. */
+    @Query(
+        """
+        SELECT workoutId, MAX(startedAt) AS lastAt FROM session
+        WHERE status IN ('FINISHED','AUTO_ENDED') GROUP BY workoutId
+        """
+    )
+    fun lastTrainedFlow(): Flow<List<WorkoutLastTrained>>
 
     @Query("SELECT COALESCE(MAX(orderIndex) + 1, 0) FROM workout_exercise WHERE workoutId = :workoutId")
     suspend fun nextExerciseOrder(workoutId: Long): Int
