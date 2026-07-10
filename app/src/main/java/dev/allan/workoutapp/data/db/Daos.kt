@@ -208,6 +208,10 @@ interface PlanDao {
     @Query("SELECT * FROM plan WHERE isActive = 1 ORDER BY createdAt DESC LIMIT 1")
     fun activePlanFlow(): Flow<Plan?>
 
+    /** Suspend variant — avoids the StateFlow null-race when adding workouts to the active plan. */
+    @Query("SELECT * FROM plan WHERE isActive = 1 ORDER BY createdAt DESC LIMIT 1")
+    suspend fun activePlanNow(): Plan?
+
     /** Enforces the one-active-plan rule before activating a specific plan. */
     @Query("UPDATE plan SET isActive = 0")
     suspend fun deactivateAllPlans()

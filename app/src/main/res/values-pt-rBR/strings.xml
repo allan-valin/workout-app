@@ -235,6 +235,11 @@
     <string name="add_workout_hint">Escolha treinos, depois vincule (compartilhado — edições valem em todos) ou use como base (cópia independente).</string>
     <string name="link_workout">Vincular (compart.)</string>
     <string name="use_as_base">Usar como base</string>
+    <string name="use_as_base_hint">Cópia independente de qualquer treino — edite à vontade sem mexer no original.</string>
+    <string name="import_workout">Importar</string>
+    <string name="import_workout_hint">Traz um treino arquivado como está (compartilhado — edições valem em todos os lugares).</string>
+    <string name="add_from_scratch">Do zero</string>
+    <string name="add_from_scratch_hint">Cria um treino vazio e abre para montar.</string>
     <string name="no_workouts_yet">Nenhum treino ainda.</string>
     <string name="no_active_plan_hint">Nenhum plano ativo. Ative um em Arquivo → Planos, ou crie um novo.</string>
     <string name="download_workout">Baixar</string>
@@ -248,4 +253,6 @@
     <string name="discard_changes">Descartar</string>
     <string name="consider_injuries">Considerar lesões</string>
     <string name="per_muscle_counts">Exercícios por músculo</string>
+    <string name="muscles_worked">Músculos trabalhados (experimental)</string>
+    <string name="muscles_worked_cycle">Músculos trabalhados no ciclo (experimental)</string>
 </resources>

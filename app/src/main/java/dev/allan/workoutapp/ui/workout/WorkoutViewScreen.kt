@@ -112,6 +112,18 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** EXPERIMENTAL: per-region training load for the muscle map under the exercise list. */
+    val muscleLoad: StateFlow<Map<dev.allan.workoutapp.data.BodyRegion, Float>> =
+        db.planDao().workoutExercises(workoutId)
+            .map { wes ->
+                val pairs = wes.map { we ->
+                    val ex = db.exerciseDao().exercise(we.exerciseId)
+                    (ex?.primaryMuscles ?: emptyList()) to (ex?.secondaryMuscles ?: emptyList())
+                }
+                dev.allan.workoutapp.data.MuscleMap.regionLoad(pairs)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     init {
         viewModelScope.launch { _workout.value = db.planDao().workout(workoutId) }
     }
@@ -217,6 +229,7 @@ fun WorkoutViewScreen(
     val exercises by vm.exercises.collectAsState()
     val detail by vm.detail.collectAsState()
     val hasRunningSession by vm.hasRunningSession.collectAsState()
+    val muscleLoad by vm.muscleLoad.collectAsState()
     var showArchive by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
 
@@ -274,6 +287,16 @@ fun WorkoutViewScreen(
                             Text(ex.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                             Text(ex.summary, style = MaterialTheme.typography.bodyMedium)
                         }
+                    }
+                }
+                // EXPERIMENTAL muscle map: orange = targeted, deeper = more exercises hitting it.
+                if (muscleLoad.isNotEmpty()) {
+                    item {
+                        dev.allan.workoutapp.ui.common.BodyMap(
+                            load = muscleLoad,
+                            title = stringResource(R.string.muscles_worked),
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        )
                     }
                 }
             }

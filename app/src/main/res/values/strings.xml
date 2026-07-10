@@ -235,6 +235,11 @@
     <string name="add_workout_hint">Pick workouts, then link them (shared — edits apply everywhere) or use as base (an independent copy).</string>
     <string name="link_workout">Link (shared)</string>
     <string name="use_as_base">Use as base</string>
+    <string name="use_as_base_hint">Independent copy of any workout — edit it freely without touching the original.</string>
+    <string name="import_workout">Import</string>
+    <string name="import_workout_hint">Bring an archived workout in as-is (shared — edits apply everywhere it appears).</string>
+    <string name="add_from_scratch">From scratch</string>
+    <string name="add_from_scratch_hint">Create an empty workout and open it to build.</string>
     <string name="no_workouts_yet">No workouts yet.</string>
     <string name="no_active_plan_hint">No active plan. Activate one from Archive → Plans, or create a new one.</string>
     <string name="download_workout">Download</string>
@@ -248,4 +253,6 @@
     <string name="discard_changes">Discard</string>
     <string name="consider_injuries">Consider injuries</string>
     <string name="per_muscle_counts">Exercises per muscle</string>
+    <string name="muscles_worked">Muscles worked (experimental)</string>
+    <string name="muscles_worked_cycle">Muscles worked this cycle (experimental)</string>
 </resources>

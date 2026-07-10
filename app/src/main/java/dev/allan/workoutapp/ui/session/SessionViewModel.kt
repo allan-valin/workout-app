@@ -577,14 +577,27 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
 
     fun addSessionSet(exerciseIndex: Int) {
         val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
+        // Duplicate the current last row, including its live-typed weight/reps (which live in the
+        // draft, not the template), so the new set mirrors what's on screen before it was added.
+        val lastLive = ex.sets.lastOrNull()
         viewModelScope.launch {
             val templates = db.planDao().setTemplatesForWorkout(workoutId).first()
                 .filter { it.workoutExerciseId == ex.workoutExerciseId }.sortedBy { it.setIndex }
             val last = templates.lastOrNull()
-            db.planDao().insertSetTemplate(
+            val newId = db.planDao().insertSetTemplate(
                 (last ?: dev.allan.workoutapp.data.db.SetTemplate(workoutExerciseId = ex.workoutExerciseId, setIndex = -1))
                     .copy(id = 0, setIndex = (last?.setIndex ?: -1) + 1)
             )
+            if (lastLive != null) {
+                db.sessionDao().upsertDraft(
+                    dev.allan.workoutapp.data.db.SessionSetDraft(
+                        sessionId = _state.value.sessionId ?: return@launch,
+                        templateId = newId,
+                        weightKg = lastLive.weightKg,
+                        value = lastLive.value,
+                    )
+                )
+            }
             _state.value = _state.value.copy(templatesChanged = true)
             startOrResume()
         }
@@ -593,6 +606,35 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     fun removeSessionSet(set: SessionSet) {
         viewModelScope.launch {
             db.planDao().deleteSetTemplate(set.templateId)
+            _state.value = _state.value.copy(templatesChanged = true)
+            startOrResume()
+        }
+    }
+
+    /**
+     * Long-press drag-reorder of a set mid-session. Renumbers the templates' setIndex AND
+     * remaps any already-logged sets (SetLog keys on setIndex) so completed rows follow the move.
+     * Drafts key on templateId, so they need no remap.
+     */
+    fun moveSessionSet(exerciseIndex: Int, fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
+        val sessionId = _state.value.sessionId ?: return
+        val weId = ex.workoutExerciseId
+        viewModelScope.launch {
+            val templates = db.planDao().setTemplatesForWorkout(workoutId).first()
+                .filter { it.workoutExerciseId == weId }.sortedBy { it.setIndex }.toMutableList()
+            if (fromIndex !in templates.indices || toIndex !in templates.indices) return@launch
+            // Snapshot logs by their (old) setIndex before we renumber anything.
+            val logsByOld = db.sessionDao().setLogs(sessionId)
+                .filter { it.workoutExerciseId == weId }.associateBy { it.setIndex }
+            templates.add(toIndex, templates.removeAt(fromIndex))
+            // Clear this exercise's logs, then rewrite each at its template's new position.
+            logsByOld.keys.forEach { db.sessionDao().deleteSetLog(sessionId, weId, it) }
+            templates.forEachIndexed { newIdx, t ->
+                if (t.setIndex != newIdx) db.planDao().updateSetTemplate(t.copy(setIndex = newIdx))
+                logsByOld[t.setIndex]?.let { db.sessionDao().insertSetLog(it.copy(id = 0, setIndex = newIdx)) }
+            }
             _state.value = _state.value.copy(templatesChanged = true)
             startOrResume()
         }

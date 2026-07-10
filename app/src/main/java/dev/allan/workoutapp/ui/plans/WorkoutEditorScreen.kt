@@ -47,6 +47,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +56,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -349,8 +351,10 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
     }
 
     fun addSet(item: EditorExercise) {
-        val last = item.sets.lastOrNull()
         edit {
+            // Read the latest sets from the DB (not the possibly-stale composable snapshot) so
+            // a weight/reps edit typed just before tapping "add set" is carried into the clone.
+            val last = db.planDao().setTemplatesList(item.we.id).maxByOrNull { it.setIndex }
             db.planDao().insertSetTemplate(
                 (last ?: SetTemplate(workoutExerciseId = item.we.id, setIndex = -1))
                     .copy(id = 0, setIndex = (last?.setIndex ?: -1) + 1)
@@ -360,6 +364,17 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
 
     fun removeSet(set: SetTemplate) {
         edit { db.planDao().deleteSetTemplate(set.id) }
+    }
+
+    /** Long-press drag-reorder of an exercise's sets: renumber setIndex to the new order. */
+    fun moveSet(item: EditorExercise, fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        edit {
+            val sets = db.planDao().setTemplatesList(item.we.id).sortedBy { it.setIndex }.toMutableList()
+            if (fromIndex !in sets.indices || toIndex !in sets.indices) return@edit
+            sets.add(toIndex, sets.removeAt(fromIndex))
+            sets.forEachIndexed { i, s -> if (s.setIndex != i) db.planDao().updateSetTemplate(s.copy(setIndex = i)) }
+        }
     }
 
     fun applyRestToAll(item: EditorExercise, restSecs: Int) {
@@ -937,8 +952,23 @@ private fun ExerciseEditorCard(
             }
 
             SetHeaderRow(item.we.weightMode)
-            item.sets.forEach { set ->
-                SetRow(set, onUpdate = vm::updateSet, onDelete = { vm.removeSet(set) })
+            // Long-press any set row to drag-reorder; neighbours slide out of the way.
+            sh.calvin.reorderable.ReorderableColumn(
+                list = item.sets,
+                onSettle = { from, to -> vm.moveSet(item, from, to) },
+            ) { _, set, isDragging ->
+                key(set.id) {
+                    val elevation by androidx.compose.animation.core.animateDpAsState(
+                        if (isDragging) 6.dp else 0.dp, label = "setDrag",
+                    )
+                    androidx.compose.material3.Surface(
+                        tonalElevation = elevation,
+                        shadowElevation = elevation,
+                        modifier = Modifier.longPressDraggableHandle(),
+                    ) {
+                        SetRow(set, onUpdate = vm::updateSet, onDelete = { vm.removeSet(set) })
+                    }
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1094,19 +1124,30 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
     // before onFocusChanged fired, silently dropping the cadence.
     var tempo by remember(set.id, set.tempo) { mutableStateOf(set.tempo) }
     var showTempoInfo by remember { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+    // Justified cadence row: label left, centered value, info button right.
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            stringResource(R.string.tempo_label) + ":",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         OutlinedTextField(
             value = tempo,
             onValueChange = {
                 tempo = it.filter { c -> c.isDigit() || c == '-' }.take(11)
                 onUpdate(set.copy(tempo = tempo.trim()))
             },
-            label = { Text(stringResource(R.string.tempo_label)) },
-            placeholder = { Text("4-0-2-0") },
+            placeholder = {
+                Text("4-0-2-0", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            },
             singleLine = true,
+            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
             modifier = Modifier
                 .weight(1f)
-                .padding(top = 2.dp, bottom = 2.dp),
+                .padding(horizontal = 8.dp, vertical = 2.dp),
         )
         // Dedicated cadence legend — separate from the exercise info button.
         IconButton(onClick = { showTempoInfo = true }) {

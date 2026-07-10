@@ -201,6 +201,29 @@ fun AppRoot() {
             navController = navController,
             startDestination = "main",
             modifier = Modifier.padding(barPadding),
+            // Slide transitions so a drill-in screen never paints on top of the previous one
+            // for a frame (the "two screens merged" flash). Forward = new slides in from the
+            // right; back = it slides back out to the right.
+            enterTransition = {
+                androidx.compose.animation.slideInHorizontally(
+                    animationSpec = androidx.compose.animation.core.tween(220),
+                ) { it } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220))
+            },
+            exitTransition = {
+                androidx.compose.animation.slideOutHorizontally(
+                    animationSpec = androidx.compose.animation.core.tween(220),
+                ) { -it / 4 } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(220))
+            },
+            popEnterTransition = {
+                androidx.compose.animation.slideInHorizontally(
+                    animationSpec = androidx.compose.animation.core.tween(220),
+                ) { -it / 4 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220))
+            },
+            popExitTransition = {
+                androidx.compose.animation.slideOutHorizontally(
+                    animationSpec = androidx.compose.animation.core.tween(220),
+                ) { it } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(220))
+            },
         ) {
         composable("main") {
             MainScaffold(
@@ -213,13 +236,25 @@ fun AppRoot() {
                 onResumeSession = { navController.navigate("session/$it") },
                 onOpenBodyweight = { navController.navigate("bodyweight") },
                 onOpenProgression = { navController.navigate("progression") },
-                onAddWorkout = { navController.navigate("addWorkout") },
                 onOpenArchivePlans = { navController.navigate("archivePlans") },
                 onOpenArchiveWorkouts = { navController.navigate("archiveWorkouts") },
             )
         }
-        composable("addWorkout") {
-            dev.allan.workoutapp.ui.plans.AddWorkoutScreen(onBack = { navController.popBackStack() })
+        composable(
+            "addWorkout/{planId}/{mode}",
+            arguments = listOf(
+                navArgument("planId") { type = NavType.LongType },
+                navArgument("mode") { type = NavType.StringType },
+            ),
+        ) { entry ->
+            val mode = if (entry.arguments!!.getString("mode") == "import")
+                dev.allan.workoutapp.ui.plans.AddWorkoutMode.IMPORT
+            else dev.allan.workoutapp.ui.plans.AddWorkoutMode.BASE
+            dev.allan.workoutapp.ui.plans.AddWorkoutScreen(
+                planId = entry.arguments!!.getLong("planId"),
+                mode = mode,
+                onBack = { navController.popBackStack() },
+            )
         }
         composable("archivePlans") {
             dev.allan.workoutapp.ui.plans.ArchivePlansScreen(
@@ -300,10 +335,12 @@ fun AppRoot() {
             "plan/{planId}",
             arguments = listOf(navArgument("planId") { type = NavType.LongType }),
         ) { entry ->
+            val planId = entry.arguments!!.getLong("planId")
             PlanEditorScreen(
-                planId = entry.arguments!!.getLong("planId"),
+                planId = planId,
                 onBack = { navController.popBackStack() },
                 onOpenWorkout = { navController.navigate("workout/$it") },
+                onAddWorkout = { mode -> navController.navigate("addWorkout/$planId/$mode") },
             )
         }
         composable(
@@ -372,7 +409,6 @@ private fun MainScaffold(
     onResumeSession: (Long) -> Unit,
     onOpenBodyweight: () -> Unit,
     onOpenProgression: () -> Unit,
-    onAddWorkout: () -> Unit,
     onOpenArchivePlans: () -> Unit,
     onOpenArchiveWorkouts: () -> Unit,
     vm: PlansViewModel = viewModel(),
@@ -382,6 +418,7 @@ private fun MainScaffold(
 
     val activePlan by vm.activePlan.collectAsState()
     val activePlanWorkouts by vm.activePlanWorkouts.collectAsState()
+    val activePlanMuscleLoad by vm.activePlanMuscleLoad.collectAsState()
     val todayWorkouts by vm.todayWorkouts.collectAsState()
     val runningSession by vm.runningSession.collectAsState()
     val completedWeekDays by vm.completedWeekDays.collectAsState()
@@ -547,10 +584,16 @@ private fun MainScaffold(
                                 }
                             }
                         }
-                        item {
-                            OutlinedButton(onClick = onAddWorkout, modifier = Modifier.fillMaxWidth()) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Text(stringResource(R.string.add_workout), modifier = Modifier.padding(start = 8.dp))
+                        // Add-workout lives in the plan editor + Archive now (not the plain
+                        // Active view) — tap the pencil to edit the cycle and add there.
+                        // EXPERIMENTAL muscle map for the whole cycle (all workouts unioned).
+                        if (activePlanMuscleLoad.isNotEmpty()) {
+                            item {
+                                dev.allan.workoutapp.ui.common.BodyMap(
+                                    load = activePlanMuscleLoad,
+                                    title = stringResource(R.string.muscles_worked_cycle),
+                                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                                )
                             }
                         }
                     }

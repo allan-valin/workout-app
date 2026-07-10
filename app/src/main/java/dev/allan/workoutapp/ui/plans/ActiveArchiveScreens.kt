@@ -177,21 +177,31 @@ fun ArchiveWorkoutsScreen(onBack: () -> Unit, onOpenWorkout: (Long) -> Unit) {
 }
 
 /**
- * Add-workout screen: multi-select any workout, then either LINK it (shared, edits propagate)
- * or use it as a BASE (independent copy). Both add to the active plan.
+ * Two add modes, picked upstream by the plan editor:
+ *  - IMPORT: bring an ARCHIVED workout into the plan as a shared link (edits propagate).
+ *  - BASE:   copy ANY workout into the plan as an independent starting point.
+ */
+enum class AddWorkoutMode { IMPORT, BASE }
+
+/**
+ * Add-workout screen: multi-select workouts and add them to [planId] per [mode]. IMPORT lists
+ * archived workouts only (linked as-is); BASE lists all workouts (copied to edit).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddWorkoutScreen(onBack: () -> Unit) {
+fun AddWorkoutScreen(planId: Long, mode: AddWorkoutMode, onBack: () -> Unit) {
     val vm: PlansViewModel = viewModel()
-    val workouts by vm.allWorkouts.collectAsState()
+    val allWorkouts by vm.allWorkouts.collectAsState()
     val activeIds by vm.activeWorkoutIds.collectAsState()
     val exerciseCounts by vm.exerciseCounts.collectAsState()
+    // IMPORT: archived only (why duplicate an active one exactly?). BASE: everything.
+    val workouts = if (mode == AddWorkoutMode.IMPORT) allWorkouts.filter { it.archived } else allWorkouts
     var selected by remember { mutableStateOf(setOf<Long>()) }
+    val titleRes = if (mode == AddWorkoutMode.IMPORT) R.string.import_workout else R.string.use_as_base
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(stringResource(R.string.add_workout)) },
+            title = { Text(stringResource(titleRes)) },
             navigationIcon = { BackButton(onBack) },
         )
     }) { padding ->
@@ -202,7 +212,10 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
             ) {
                 item {
                     Text(
-                        stringResource(R.string.add_workout_hint),
+                        stringResource(
+                            if (mode == AddWorkoutMode.IMPORT) R.string.import_workout_hint
+                            else R.string.use_as_base_hint
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
@@ -232,22 +245,15 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            // Two visually distinct add modes.
-            Row(
-                Modifier.fillMaxWidth().padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                OutlinedButton(
-                    onClick = { vm.addWorkoutsToActivePlan(selected, asCopy = false); onBack() },
-                    enabled = selected.isNotEmpty(),
-                    modifier = Modifier.weight(1f),
-                ) { Text(stringResource(R.string.link_workout)) }
-                FilledTonalButton(
-                    onClick = { vm.addWorkoutsToActivePlan(selected, asCopy = true); onBack() },
-                    enabled = selected.isNotEmpty(),
-                    modifier = Modifier.weight(1f),
-                ) { Text(stringResource(R.string.use_as_base)) }
-            }
+            // Single action button — the mode was already chosen in the plan editor overlay.
+            FilledTonalButton(
+                onClick = {
+                    vm.addWorkoutsToPlan(planId, selected, asCopy = mode == AddWorkoutMode.BASE)
+                    onBack()
+                },
+                enabled = selected.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+            ) { Text(stringResource(titleRes)) }
         }
     }
 }

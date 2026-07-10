@@ -457,3 +457,70 @@ In-progress session:
 - [x] Story bar: segments 4→8 dp tall and tappable (pager jumps via pendingSwipeTo).
 - [x] End workout: unified dialog with green Save / red Discard buttons and an "N of M sets
       not completed" warning when sets are open.
+
+## Phase 11 — Allan feedback (2026-07-10)
+
+SESSION 2026-07-10 (second feedback batch of the day — compile + unit-test green, NOT
+emulator-verified; Allan staying off-device until a trusted 1.0):
+- [x] In-session delete "x": no confirmation (SessionScreen removeSetTarget dialog + state
+      removed; x calls removeSessionSet directly). Long-press a set row now DRAG-REORDERS
+      instead of deleting.
+- [x] Add-set duplicates the CURRENT last row (was cloning a stale snapshot). Editor addSet
+      reads the latest sets from the DB inside edit{} (async write race). Session addSessionSet
+      also carries the last row's live weight/reps (draft, not template) into the new set.
+- [x] Session table header alignment: trailing controls (optional SECS play + check + close)
+      packed into ONE fixed-width 112dp slot (play always reserved) so every row + header line
+      up on the same columns; header spacer widened 80->112.
+- [x] Cadence row = justified "Cadence: 1-2-3-4 (i)": label left, centered value, existing info
+      button right (was a labelled TextField + trailing info). Tempo already commits on change.
+- [x] Nav transitions: NavHost enter/exit/pop slide+fade (220ms) — kills the "two screens
+      merged for a frame" flash and the sluggish drill-in feel (incl. the "..." end menu).
+- [x] Add-workout consolidation + bug fix (Allan: don't delete AddWorkoutScreen, reuse it):
+      * Root bug — AddWorkoutScreen got a fresh nav-scoped PlansViewModel whose activePlan
+        StateFlow was still null (async Room emit) when Link/Base was tapped -> return@launch
+        no-op. Fixed with a suspend planDao().activePlanNow() + addWorkoutsToPlan(planId,...);
+        the same null-race latent in Archive "Add to plan" is fixed too.
+      * Add-workout removed from the plain Active view — now ONLY in the plan editor overlay +
+        Archive (per Allan). Plain Active just lists workouts + start.
+      * Plan-editor overlay is now the single 3-option chooser: (a) From scratch (empty workout,
+        opens editor), (b) Import an archived workout as-is (shared link, archived-only list),
+        (c) Use as base (independent copy, all workouts). AddWorkoutScreen parametrized with
+        planId + AddWorkoutMode(IMPORT/BASE): IMPORT lists archived only + links; BASE lists all
+        + copies. Single action button.
+      * "Vincular"/link renamed to "Import" (import_workout string, 3 langs) + new hint strings.
+- [x] Stats bodyweight date: the picker trigger is now a bordered OutlinedButton with a calendar
+      (DateRange) icon so it reads as tappable (was a plain TextButton).
+- [x] Drag-reorder (both editor + session): added sh.calvin.reorderable 2.4.3 (ReorderableColumn,
+      non-lazy, neighbours slide out of the drop path). Long-press any set row = handle.
+      Editor moveSet renumbers setIndex. Session moveSessionSet renumbers templates AND remaps
+      already-logged SetLogs (they key on setIndex; drafts key on templateId so untouched).
+- [x] EXPERIMENTAL muscle map (Allan wants to SEE it before finalizing): data/MuscleMap.kt maps
+      the stable wger muscle ids -> coarse BodyRegions + regionLoad() (primary 1.0, secondary
+      0.5). ui/common/BodyMap.kt draws a front+back WIRE body on Canvas, filling targeted regions
+      orange, DEEPER orange = more exercises hitting it (over/under-trained signal). Shown under
+      the exercise list on WorkoutViewScreen (per-workout) and on the Active tab (unioned across
+      the whole cycle). NOTE: blocks are approximate, NOT anatomical — first pass. If Allan likes
+      the idea, replace the Canvas blocks with wger's own per-muscle SVG overlays.
+- wger research (Allan: "look at their repo for stats I missed"; diet excluded): their Django
+  apps we DON'T mirror = **measurements** (arbitrary body circumferences / body-fat % over time
+  with charts, beyond just bodyweight) and **trophies** (achievements). The "pie chart" Allan saw
+  = wger's per-muscle exercise distribution on a routine (we now show it as the body map instead).
+  Candidate next features: custom body-measurement tracking (waist/arm/etc.) in Statistics.
+- DEMO DEBT: docs/demo.html NOT synced for this batch (add-workout 3-option overlay, drag-reorder,
+  justified cadence row, muscle map, stats date affordance). Sync next session (MAINTENANCE rule).
+- STILL OPEN in Phase 11: the "swap exercise" block below (untouched this session).
+
+Workout editor — swap exercise (active OR archived workout):
+- [ ] New top-bar action "Swap" (icon = two arrows pointing opposite directions, stacked one
+      over the other), placed to the LEFT of the existing batch actions (select-all/delete).
+      Gated on EXACTLY ONE exercise selected via its left checkbox (reuse the existing
+      multi-select checkbox in WorkoutEditorScreen). Label the action "Swap" + the icon.
+- [ ] Tapping Swap with e.g. the 2nd exercise selected opens the search/library screen in a
+      "swap target" mode. There each result exposes a substitute button (+ or the same swap
+      arrows); tapping it replaces the selected exercise (2nd) IN PLACE with the chosen one
+      (same position/order, superset chain preserved).
+- [ ] On substitution, prompt for the new exercise's set config — 3 choices:
+      (a) keep the current set config from the exercise being replaced;
+      (b) load the last set config already used for the INCOMING exercise — only offered if it
+          exists in an archived training or another active training (look it up);
+      (c) default 3×10 @ 60 s rest.

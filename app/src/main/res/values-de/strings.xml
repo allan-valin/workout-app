@@ -235,6 +235,11 @@
     <string name="add_workout_hint">Trainings wählen, dann verknüpfen (geteilt — Änderungen überall) oder als Basis nutzen (unabhängige Kopie).</string>
     <string name="link_workout">Verknüpfen (geteilt)</string>
     <string name="use_as_base">Als Basis nutzen</string>
+    <string name="use_as_base_hint">Unabhängige Kopie eines Trainings — frei bearbeiten, ohne das Original zu ändern.</string>
+    <string name="import_workout">Importieren</string>
+    <string name="import_workout_hint">Bringt ein archiviertes Training unverändert ein (geteilt — Änderungen überall wirksam).</string>
+    <string name="add_from_scratch">Von Grund auf</string>
+    <string name="add_from_scratch_hint">Erstellt ein leeres Training und öffnet es zum Aufbauen.</string>
     <string name="no_workouts_yet">Noch keine Trainings.</string>
     <string name="no_active_plan_hint">Kein aktiver Plan. Aktiviere einen unter Archiv → Pläne, oder erstelle einen neuen.</string>
     <string name="download_workout">Herunterladen</string>
@@ -248,4 +253,6 @@
     <string name="discard_changes">Verwerfen</string>
     <string name="consider_injuries">Verletzungen berücksichtigen</string>
     <string name="per_muscle_counts">Übungen pro Muskel</string>
+    <string name="muscles_worked">Trainierte Muskeln (experimentell)</string>
+    <string name="muscles_worked_cycle">Muskeln in diesem Zyklus (experimentell)</string>
 </resources>

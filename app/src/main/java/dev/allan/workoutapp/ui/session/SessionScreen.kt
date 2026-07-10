@@ -65,6 +65,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -405,10 +406,9 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
 private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState) {
     val ex = state.exercises.getOrNull(page) ?: return
     var editTarget by remember { mutableStateOf<Pair<SessionSet, String>?>(null) } // set + field
-    // In-session plan editing (mirrors the editor): type picker, target dialog, long-press remove.
+    // In-session plan editing (mirrors the editor): type picker, target dialog.
     var typeMenuFor by remember { mutableStateOf<Long?>(null) }   // templateId
     var targetEditFor by remember { mutableStateOf<SessionSet?>(null) }
-    var removeSetTarget by remember { mutableStateOf<SessionSet?>(null) }
 
     // Image collapses when the sets table scrolls up and reappears on scroll-down at the top.
     val tableScroll = rememberScrollState()
@@ -579,23 +579,28 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 )
                 SessionHeader(doneHeader, Modifier.width(52.dp))
                 SessionHeader(stringResource(R.string.header_target), Modifier.width(52.dp))
-                SessionHeader("", Modifier.width(80.dp))
+                SessionHeader("", Modifier.width(112.dp))
             }
-            ex.sets.forEach { set ->
+            // Long-press any set row to drag-reorder mid-session; neighbours slide aside.
+            sh.calvin.reorderable.ReorderableColumn(
+                list = ex.sets,
+                onSettle = { from, to -> vm.moveSessionSet(page, from, to) },
+            ) { _, set, isDragging ->
+              key(set.templateId) {
                 val isCurrent = state.currentStep == page to set.templateId
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .longPressDraggableHandle()
                         .background(
                             // Highlight = "you are here" in the (superset-aware) set order.
-                            if (isCurrent) MaterialTheme.colorScheme.primaryContainer
+                            if (isDragging) MaterialTheme.colorScheme.secondaryContainer
+                            else if (isCurrent) MaterialTheme.colorScheme.primaryContainer
                             else androidx.compose.ui.graphics.Color.Transparent,
                             RoundedCornerShape(10.dp),
                         )
-                        // Long-press a set to remove it (mirrors the editor's delete).
-                        .combinedClickable(onClick = {}, onLongClick = { removeSetTarget = set })
                         .padding(vertical = 3.dp, horizontal = 2.dp),
                 ) {
                     // Tap the type letter to change the set type in-session.
@@ -689,36 +694,47 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.width(52.dp).clickable { targetEditFor = set },
                     )
-                    if (set.valueUnit == ValueUnit.SECS) {
-                        IconButton(onClick = { vm.startSetCountdown(set) }) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.start_timer))
+                    // Fixed-width trailing slot (play always reserved) so every row + the
+                    // header line up on the same columns regardless of SECS/REPS.
+                    Row(
+                        Modifier.width(112.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (set.valueUnit == ValueUnit.SECS) {
+                            IconButton(onClick = { vm.startSetCountdown(set) }, modifier = Modifier.size(40.dp)) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.start_timer))
+                            }
+                        } else {
+                            androidx.compose.foundation.layout.Spacer(Modifier.size(40.dp))
+                        }
+                        IconButton(onClick = { vm.logSet(page, set) }, modifier = Modifier.size(40.dp)) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = stringResource(R.string.log_set),
+                                // Done = medium green; undone = primary so it stays visible on
+                                // the primaryContainer current-set highlight (gray vanished there).
+                                tint = if (set.done) DoneGreen
+                                else MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        // Explicit per-row delete — no confirm (re-adding a set is trivial).
+                        IconButton(
+                            onClick = { vm.removeSessionSet(set) },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.delete),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
-                    IconButton(onClick = { vm.logSet(page, set) }) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = stringResource(R.string.log_set),
-                            // Done = medium green; undone = primary so it stays visible on
-                            // the primaryContainer current-set highlight (gray vanished there).
-                            tint = if (set.done) DoneGreen
-                            else MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    // Explicit per-row delete (mirrors the editor); long-press still works too.
-                    IconButton(
-                        onClick = { removeSetTarget = set },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = stringResource(R.string.delete),
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
+              }
             }
-            // Row-wide add-set button (mirrors the editor). Long-press a row to remove.
+            // Row-wide add-set button (mirrors the editor).
             TextButton(
                 onClick = { vm.addSessionSet(page) },
                 modifier = Modifier.fillMaxWidth(),
@@ -795,18 +811,6 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
         )
     }
 
-    removeSetTarget?.let { set ->
-        AlertDialog(
-            onDismissRequest = { removeSetTarget = null },
-            title = { Text(stringResource(R.string.delete)) },
-            confirmButton = {
-                TextButton(onClick = { vm.removeSessionSet(set); removeSetTarget = null }) {
-                    Text(stringResource(R.string.delete))
-                }
-            },
-            dismissButton = { TextButton(onClick = { removeSetTarget = null }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
 }
 
 @Composable
