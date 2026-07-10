@@ -555,3 +555,58 @@ Workout editor — swap exercise (active OR archived workout) — DONE 2026-07-1
 
 Phase 11 COMPLETE (all feedback + swap). Remaining app-wide open item: DEMO DEBT (demo.html
 behind for both 07-10 and 07-11 batches) — deferred by Allan.
+
+## Phase 12 — Allan feedback (2026-07-11 night; NOT STARTED — recorded before bed)
+
+Regressions / misses from the 07-11 batch, plus new asks. NONE implemented yet.
+
+Row / alignment:
+- [ ] Session set-row: check + delete-x STILL bundled together (SpaceBetween in the 112dp slot
+      did NOT fix it). Before the fixed-slot alignment work they were well placed. Rework so all
+      row items are genuinely evenly distributed across the row width (the icons must not clump);
+      keep the header aligned. Consider abandoning the fixed 112dp End/SpaceBetween slot and
+      distributing the whole row (weighted cells / SpaceBetween on the outer Row).
+
+Nav transitions:
+- [ ] The slide animation is NOT applied when switching the 4 bottom-nav tabs (Home/Active/
+      Archive/Stats). Those are selectedTab STATE changes inside the "main" composable, not
+      NavHost destinations, so they don't animate. Animate the tab content swap (AnimatedContent
+      / Crossfade or a horizontal slide keyed on selectedTab) to match the drill-in swipe.
+
+Add-workout / add-cycle consistency (same-looking UI for same-looking actions):
+- [ ] Archive > Workouts "add training" must use the SAME 3-button overlay as the plan-editor
+      add (from scratch / import / use as base) — same look even if the archive path stores it
+      archived. Do NOT show a different bare name-dialog. User must not see the behind-the-scenes
+      difference.
+- [ ] The top-right background-less IconButton is almost invisible. Replace with the SAME nice
+      "+" FAB used on the Active tab (when no cycle is active). Reuse that FAB design for adding
+      a training in Archive.
+- [ ] Use that same FAB to allow CREATING A CYCLE from Archive > Cycles (Plans) too.
+
+New-cycle overlay (Active tab + FAB):
+- [ ] Below the "import JSON" button, add a button "Import from archive / reactivate / repeat old
+      cycle" — pick an archived cycle to reactivate/repeat.
+
+Muscle graphics:
+- [ ] Remove "(experimental)" from the muscle-map titles (muscles_worked / muscles_worked_cycle).
+      Dev-only labels must never surface to the user.
+- [ ] The xray-style body is unsettling. Prefer an anatomically-correct DRAWING like wger's
+      exercise images (e.g. "Voador peitoral" / Pec Deck — a drawn body with the worked muscle
+      shaded). Look for a drawn full-body anatomical asset; if none suitable, KEEP the current
+      wger xray body for now.
+
+Swap exercise:
+- [ ] "Use this exercise's last config" option must appear ONLY when a last config actually
+      exists (gated by findIncomingConfig). Verify — may already be gated via hasIncoming; if it
+      still shows with no saved config, fix.
+
+Cadence (tempo) editor redesign — apply in BOTH editor and in-training:
+- [ ] Replace the inline cadence text field with a CENTERED button "Edit cadence" (keep the info
+      (i) button where it is now).
+- [ ] Tapping it opens an overlay with 4 edit-text boxes (digits only; tapping opens the numeric
+      keyboard). You can type directly.
+- [ ] Each of the 4 boxes has a stepper: an up-triangle (increment) ABOVE the box and a
+      down-triangle (decrement) BELOW it. An OK button sits on the same row.
+- [ ] Same overlay/behaviour must be reachable in-training (mirror the editor).
+
+DEMO DEBT still open (07-10 + 07-11 batches) — deferred by Allan, do NOT spend resources yet.
