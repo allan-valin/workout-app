@@ -572,6 +572,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     fun setSetType(set: SessionSet, type: SetType) = editTemplate(set.templateId) { it.copy(type = type) }
+    fun setSetTempo(set: SessionSet, tempo: String) = editTemplate(set.templateId) { it.copy(tempo = tempo) }
     fun setSetTarget(set: SessionSet, min: Int, max: Int?) =
         editTemplate(set.templateId) { it.copy(targetValue = min, targetValueMax = max?.takeIf { m -> m > min }) }
 

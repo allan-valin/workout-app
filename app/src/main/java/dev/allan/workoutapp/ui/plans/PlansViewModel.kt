@@ -87,6 +87,20 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Archive "import as-is": move workouts into the Archive (detached from every plan). */
+    fun moveWorkoutsToArchive(ids: Set<Long>) {
+        viewModelScope.launch {
+            ids.forEach { dev.allan.workoutapp.data.PlanRepo.archiveWorkoutFully(db, it) }
+        }
+    }
+
+    /** Archive "use as base": independent archived copies, no plan link. */
+    fun copyWorkoutsToArchive(ids: Set<Long>) {
+        viewModelScope.launch {
+            ids.forEach { dev.allan.workoutapp.data.PlanRepo.copyWorkout(db, it, targetPlanId = null) }
+        }
+    }
+
     /** Create a standalone workout straight into the Archive (no plan link, archived=true). */
     fun createArchivedWorkout(name: String, onCreated: (Long) -> Unit) {
         viewModelScope.launch {

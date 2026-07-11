@@ -1240,40 +1240,35 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
             )
         }
     }
-    // Per-set cadence/tempo reminder (e.g. 4-0-2-0), below the set details.
-    // Commit on every change (not just blur): tapping Save/back could dispose the field
-    // before onFocusChanged fired, silently dropping the cadence.
-    var tempo by remember(set.id, set.tempo) { mutableStateOf(set.tempo) }
+    // Per-set cadence/tempo (e.g. 4-0-2-0), below the set details: a centered edit button
+    // opening the shared 4-box overlay; the info (i) keeps its spot on the right.
+    var showTempoEdit by remember { mutableStateOf(false) }
     var showTempoInfo by remember { mutableStateOf(false) }
-    // Justified cadence row: label left, centered value, info button right.
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(
-            stringResource(R.string.tempo_label) + ":",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedTextField(
-            value = tempo,
-            onValueChange = {
-                tempo = it.filter { c -> c.isDigit() || c == '-' }.take(11)
-                onUpdate(set.copy(tempo = tempo.trim()))
-            },
-            placeholder = {
-                Text("4-0-2-0", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-            },
-            singleLine = true,
-            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp, vertical = 2.dp),
-        )
+        // Left spacer balances the trailing info button so the edit button sits truly centered.
+        Box(Modifier.width(48.dp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            OutlinedButton(onClick = { showTempoEdit = true }) {
+                Text(
+                    if (set.tempo.isBlank()) stringResource(R.string.edit_cadence)
+                    else stringResource(R.string.cadence_value, set.tempo)
+                )
+            }
+        }
         // Dedicated cadence legend — separate from the exercise info button.
         IconButton(onClick = { showTempoInfo = true }) {
             Icon(Icons.Default.Info, contentDescription = stringResource(R.string.tempo_info_title))
         }
+    }
+    if (showTempoEdit) {
+        dev.allan.workoutapp.ui.common.CadenceDialog(
+            initial = set.tempo,
+            onConfirm = { onUpdate(set.copy(tempo = it)) },
+            onDismiss = { showTempoEdit = false },
+        )
     }
     if (showTempoInfo) {
         AlertDialog(

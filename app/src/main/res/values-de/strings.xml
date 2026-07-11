@@ -124,6 +124,7 @@
     <string name="settings">Einstellungen</string>
     <string name="plans_transfer">Trainingspläne</string>
     <string name="import_plan">Plan importieren (JSON)</string>
+    <string name="reactivate_cycle">Archivierten Zyklus wiederholen</string>
     <string name="export_plan">Plan exportieren (JSON)</string>
     <string name="history_export">Verlauf exportieren</string>
     <string name="export_sets_csv">Sätze exportieren (CSV)</string>
@@ -218,6 +219,8 @@
     <string name="mode_isolation">Isolationsübungen</string>
     <string name="approx_duration">≈ %1$d Min</string>
     <string name="tempo_label">Tempo (z.B. 4-0-2-0)</string>
+    <string name="edit_cadence">Kadenz bearbeiten</string>
+    <string name="cadence_value">Kadenz: %1$s</string>
     <string name="tempo_info_title">Kadenz</string>
     <string name="tempo_info_body">Die vier Zahlen sind Sekunden pro Phase: exzentrisch (Absenken) – Pause – konzentrisch (Anheben) – Pause. Z.B. 4-0-2-0 = 4s runter, keine Pause, 2s hoch, keine Pause.</string>
     <string name="keep_plan_changes_title">Planänderungen behalten?</string>
@@ -261,8 +264,8 @@
     <string name="swap_keep_config">Aktuelle Konfiguration behalten</string>
     <string name="swap_incoming_config">Letzte Konfiguration dieser Übung verwenden</string>
     <string name="swap_default_config">Standard (3 × 10, 60 s Pause)</string>
-    <string name="muscles_worked">Trainierte Muskeln (experimentell)</string>
-    <string name="muscles_worked_cycle">Muskeln in diesem Zyklus (experimentell)</string>
+    <string name="muscles_worked">Trainierte Muskeln</string>
+    <string name="muscles_worked_cycle">Muskeln in diesem Zyklus</string>
     <string name="muscle_legend_header">Farbton = Trainingsvolumen</string>
     <string name="muscle_legend_unit">Übungen</string>
 </resources>

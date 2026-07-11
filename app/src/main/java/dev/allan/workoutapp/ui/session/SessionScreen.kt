@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -536,16 +537,36 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             }
         }
 
-        // Cadence/tempo reminder for the current set — big, between the clock and the sets.
-        val curTempo = ex.sets.firstOrNull { state.currentStep == page to it.templateId }?.tempo?.takeIf { it.isNotBlank() }
-            ?: ex.sets.firstOrNull { it.tempo.isNotBlank() }?.tempo
-        if (curTempo != null) {
-            Text(
-                curTempo,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        // Cadence/tempo for the current set — big, between the clock and the sets. Tapping it
+        // (or the edit button when none is set) opens the SAME 4-box overlay as the editor.
+        val tempoSet = ex.sets.firstOrNull { state.currentStep == page to it.templateId }
+            ?: ex.sets.firstOrNull { it.tempo.isNotBlank() }
+            ?: ex.sets.firstOrNull()
+        var showTempoEdit by remember { mutableStateOf(false) }
+        if (tempoSet != null) {
+            if (tempoSet.tempo.isNotBlank()) {
+                Text(
+                    tempoSet.tempo,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showTempoEdit = true }
+                        .padding(vertical = 2.dp),
+                )
+            } else {
+                TextButton(
+                    onClick = { showTempoEdit = true },
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                ) { Text(stringResource(R.string.edit_cadence)) }
+            }
+        }
+        if (showTempoEdit && tempoSet != null) {
+            dev.allan.workoutapp.ui.common.CadenceDialog(
+                initial = tempoSet.tempo,
+                onConfirm = { vm.setSetTempo(tempoSet, it) },
+                onDismiss = { showTempoEdit = false },
             )
         }
 
@@ -564,22 +585,22 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     stringResource(R.string.reps) + "/" + stringResource(R.string.secs)
                 else -> stringResource(R.string.reps)
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                SessionHeader(stringResource(R.string.header_type), Modifier.width(28.dp))
+            // Header and set rows share the same weight per column (see RowWeights) so they
+            // stay aligned while every cell — icons included — gets a proportional share of
+            // the row width instead of clumping at the right edge.
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)) {
+                SessionHeader(stringResource(R.string.header_type), Modifier.weight(RowWeights.TYPE))
                 SessionHeader(
                     stringResource(R.string.kg) + " · " + when (ex.weightMode) {
                         WeightMode.TOTAL -> stringResource(R.string.weight_total)
                         WeightMode.PER_DUMBBELL -> stringResource(R.string.weight_per_dumbbell)
                         WeightMode.PER_SIDE -> stringResource(R.string.weight_per_side)
                     }.lowercase(),
-                    Modifier.weight(1f),
+                    Modifier.weight(RowWeights.WEIGHT),
                 )
-                SessionHeader(doneHeader, Modifier.width(52.dp))
-                SessionHeader(stringResource(R.string.header_target), Modifier.width(52.dp))
-                SessionHeader("", Modifier.width(112.dp))
+                SessionHeader(doneHeader, Modifier.weight(RowWeights.VALUE))
+                SessionHeader(stringResource(R.string.header_target), Modifier.weight(RowWeights.TARGET))
+                Spacer(Modifier.weight(RowWeights.PLAY + RowWeights.CHECK + RowWeights.DELETE))
             }
             // Long-press any set row to drag-reorder mid-session; neighbours slide aside.
             sh.calvin.reorderable.ReorderableColumn(
@@ -590,7 +611,6 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 val isCurrent = state.currentStep == page to set.templateId
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .longPressDraggableHandle()
@@ -604,7 +624,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         .padding(vertical = 3.dp, horizontal = 2.dp),
                 ) {
                     // Tap the type letter to change the set type in-session.
-                    Box(Modifier.width(28.dp)) {
+                    Box(Modifier.weight(RowWeights.TYPE)) {
                         Text(
                             when (set.type) {
                                 SetType.WARMUP -> stringResource(R.string.set_warmup)
@@ -645,7 +665,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     // − weight + quick-steppers around the tap-to-edit weight button.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(RowWeights.WEIGHT),
                     ) {
                         IconButton(
                             onClick = { vm.updateWeight(page, set, (set.weightKg - 1.0).coerceAtLeast(0.0)) },
@@ -680,7 +700,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     OutlinedButton(
                         onClick = { editTarget = set to "value" },
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
-                        modifier = Modifier.width(52.dp),
+                        modifier = Modifier.weight(RowWeights.VALUE),
                     ) {
                         Text("${set.value}")
                     }
@@ -692,23 +712,18 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.width(52.dp).clickable { targetEditFor = set },
+                        modifier = Modifier.weight(RowWeights.TARGET).clickable { targetEditFor = set },
                     )
-                    // Fixed-width trailing slot (play always reserved) so every row + the
-                    // header line up; SpaceBetween spreads play/check/delete instead of
-                    // bunching them at the right edge.
-                    Row(
-                        Modifier.width(112.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    // Trailing icons each own a weighted cell (play's stays reserved when
+                    // absent) — they spread with the row width instead of clumping.
+                    Box(Modifier.weight(RowWeights.PLAY), contentAlignment = Alignment.Center) {
                         if (set.valueUnit == ValueUnit.SECS) {
                             IconButton(onClick = { vm.startSetCountdown(set) }, modifier = Modifier.size(40.dp)) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.start_timer))
                             }
-                        } else {
-                            androidx.compose.foundation.layout.Spacer(Modifier.size(40.dp))
                         }
+                    }
+                    Box(Modifier.weight(RowWeights.CHECK), contentAlignment = Alignment.Center) {
                         IconButton(onClick = { vm.logSet(page, set) }, modifier = Modifier.size(40.dp)) {
                             Icon(
                                 Icons.Default.Check,
@@ -719,7 +734,9 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                                 else MaterialTheme.colorScheme.primary,
                             )
                         }
-                        // Explicit per-row delete — no confirm (re-adding a set is trivial).
+                    }
+                    // Explicit per-row delete — no confirm (re-adding a set is trivial).
+                    Box(Modifier.weight(RowWeights.DELETE), contentAlignment = Alignment.Center) {
                         IconButton(
                             onClick = { vm.removeSessionSet(set) },
                             modifier = Modifier.size(28.dp),
@@ -824,6 +841,20 @@ private fun SessionHeader(text: String, modifier: Modifier = Modifier) {
         textAlign = TextAlign.Center,
         modifier = modifier,
     )
+}
+
+/**
+ * Column weights shared by the sets-table header and every set row. All cells are weighted,
+ * so extra width spreads proportionally across the whole row (icons included) on any screen.
+ */
+private object RowWeights {
+    const val TYPE = 0.7f
+    const val WEIGHT = 3.4f
+    const val VALUE = 1.2f
+    const val TARGET = 1.0f
+    const val PLAY = 0.9f
+    const val CHECK = 0.9f
+    const val DELETE = 0.7f
 }
 
 /** Medium green for completed states — visible on the current-set highlight in both themes. */

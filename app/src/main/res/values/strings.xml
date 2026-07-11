@@ -124,6 +124,7 @@
     <string name="settings">Settings</string>
     <string name="plans_transfer">Workout plans</string>
     <string name="import_plan">Import plan (JSON)</string>
+    <string name="reactivate_cycle">Repeat an archived cycle</string>
     <string name="export_plan">Export plan (JSON)</string>
     <string name="history_export">History export</string>
     <string name="export_sets_csv">Export sets (CSV)</string>
@@ -218,6 +219,8 @@
     <string name="mode_isolation">Isolation</string>
     <string name="approx_duration">≈ %1$d min</string>
     <string name="tempo_label">Tempo (e.g. 4-0-2-0)</string>
+    <string name="edit_cadence">Edit cadence</string>
+    <string name="cadence_value">Cadence: %1$s</string>
     <string name="tempo_info_title">Cadence</string>
     <string name="tempo_info_body">The four numbers are seconds per phase: eccentric (lowering) – pause – concentric (lifting) – pause. E.g. 4-0-2-0 = 4s down, no pause, 2s up, no pause.</string>
     <string name="keep_plan_changes_title">Keep plan changes?</string>
@@ -261,8 +264,8 @@
     <string name="swap_keep_config">Keep the current config</string>
     <string name="swap_incoming_config">Use this exercise\'s last config</string>
     <string name="swap_default_config">Default (3 × 10, 60 s rest)</string>
-    <string name="muscles_worked">Muscles worked (experimental)</string>
-    <string name="muscles_worked_cycle">Muscles worked this cycle (experimental)</string>
+    <string name="muscles_worked">Muscles worked</string>
+    <string name="muscles_worked_cycle">Muscles worked this cycle</string>
     <string name="muscle_legend_header">Shade = training volume</string>
     <string name="muscle_legend_unit">exercises</string>
 </resources>

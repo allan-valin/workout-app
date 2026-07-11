@@ -556,57 +556,64 @@ Workout editor — swap exercise (active OR archived workout) — DONE 2026-07-1
 Phase 11 COMPLETE (all feedback + swap). Remaining app-wide open item: DEMO DEBT (demo.html
 behind for both 07-10 and 07-11 batches) — deferred by Allan.
 
-## Phase 12 — Allan feedback (2026-07-11 night; NOT STARTED — recorded before bed)
+## Phase 12 — Allan feedback (2026-07-11 night) — DONE 2026-07-11 (Fable session; compile +
+unit tests + assembleDebug green; NOT emulator-verified per off-device-until-1.0 rule)
 
-Regressions / misses from the 07-11 batch, plus new asks. NONE implemented yet.
+Validation of the 07-11 Opus batch first (Allan asked): row-spread "fix" was a mathematical
+no-op — the 112dp trailing slot held 40+40+28=108dp of icons, so SpaceBetween had 4dp to
+distribute. Tab-switch anim genuinely missed (state change, not a NavHost destination).
+Swap-config gate was ALREADY correct (see below). Archive add + FAB parity were real misses.
 
 Row / alignment:
-- [ ] Session set-row: check + delete-x STILL bundled together (SpaceBetween in the 112dp slot
-      did NOT fix it). Before the fixed-slot alignment work they were well placed. Rework so all
-      row items are genuinely evenly distributed across the row width (the icons must not clump);
-      keep the header aligned. Consider abandoning the fixed 112dp End/SpaceBetween slot and
-      distributing the whole row (weighted cells / SpaceBetween on the outer Row).
+- [x] Session set-row reworked to fully WEIGHTED cells (RowWeights object in SessionScreen:
+      type/weight-group/value/target/play/check/delete = 0.7/3.4/1.2/1.0/0.9/0.9/0.7). Header
+      uses the same weights (trailing = one spacer summing the 3 icon weights) so alignment
+      holds by construction; spacedBy removed from both. Icons sit centered in their own cells
+      and spread with screen width — no fixed slot left to clump in.
 
 Nav transitions:
-- [ ] The slide animation is NOT applied when switching the 4 bottom-nav tabs (Home/Active/
-      Archive/Stats). Those are selectedTab STATE changes inside the "main" composable, not
-      NavHost destinations, so they don't animate. Animate the tab content swap (AnimatedContent
-      / Crossfade or a horizontal slide keyed on selectedTab) to match the drill-in swipe.
+- [x] Bottom-nav tab content now animates: AnimatedContent keyed on selectedTab wraps the main
+      LazyColumn, direction-aware horizontal slide (enter from right when moving right in tab
+      order, mirrored back), same 260ms tween + 1/3 parallax as the drill-in transition.
 
-Add-workout / add-cycle consistency (same-looking UI for same-looking actions):
-- [ ] Archive > Workouts "add training" must use the SAME 3-button overlay as the plan-editor
-      add (from scratch / import / use as base) — same look even if the archive path stores it
-      archived. Do NOT show a different bare name-dialog. User must not see the behind-the-scenes
-      difference.
-- [ ] The top-right background-less IconButton is almost invisible. Replace with the SAME nice
-      "+" FAB used on the Active tab (when no cycle is active). Reuse that FAB design for adding
-      a training in Archive.
-- [ ] Use that same FAB to allow CREATING A CYCLE from Archive > Cycles (Plans) too.
+Add-workout / add-cycle consistency:
+- [x] The 3-option overlay extracted to ui/plans/AddWorkoutChooser.kt (AddWorkoutChooserDialog +
+      AddWorkoutOption moved out of PlanEditorScreen). Archive > Workouts now shows the SAME
+      overlay: scratch → createArchivedWorkout + editor; import as-is → moves a workout into
+      the Archive (PlanRepo.archiveWorkoutFully: detach from every plan + archived=true); use
+      as base → independent archived copy (copyWorkout targetPlanId now nullable → archived
+      standalone copy). AddWorkoutScreen takes planId: Long? — null = archive target (IMPORT
+      lists non-archived, BASE lists all); new route addWorkoutArchive/{mode}.
+- [x] Archive > Workouts top-bar IconButton replaced by the same "+" FAB as the Active tab.
+- [x] Archive > Cycles got the same FAB → full NewPlanDialog (moved to ui/plans/NewPlanDialog.kt,
+      shared) incl. the Settings import pipeline (own SAF launcher + PlanImportDialogs).
 
-New-cycle overlay (Active tab + FAB):
-- [ ] Below the "import JSON" button, add a button "Import from archive / reactivate / repeat old
-      cycle" — pick an archived cycle to reactivate/repeat.
+New-cycle overlay:
+- [x] "Repeat an archived cycle" button (reactivate_cycle, 3 langs) below import-JSON →
+      ReactivateCycleDialog picker of inactive plans → setPlanActive (one-active rule). Hidden
+      when no archived cycles exist, and on Archive > Cycles (circular there — the list behind
+      the dialog IS the archive).
 
 Muscle graphics:
-- [ ] Remove "(experimental)" from the muscle-map titles (muscles_worked / muscles_worked_cycle).
-      Dev-only labels must never surface to the user.
-- [ ] The xray-style body is unsettling. Prefer an anatomically-correct DRAWING like wger's
-      exercise images (e.g. "Voador peitoral" / Pec Deck — a drawn body with the worked muscle
-      shaded). Look for a drawn full-body anatomical asset; if none suitable, KEEP the current
-      wger xray body for now.
+- [x] "(experimental)" stripped from muscles_worked / muscles_worked_cycle in en/pt-BR/de.
+- [x] Drawn-body asset: KEPT the wger xray body (Allan's fallback clause). wger only ships the
+      xray-style per-muscle overlays; a drawn MuscleWiki-style set would be a new asset hunt +
+      license review — decide on-device whether it's worth it.
 
 Swap exercise:
-- [ ] "Use this exercise's last config" option must appear ONLY when a last config actually
-      exists (gated by findIncomingConfig). Verify — may already be gated via hasIncoming; if it
-      still shows with no saved config, fix.
+- [x] VERIFIED already gated correctly: the dialog shows "use last config" only when
+      prompt.hasIncoming, and findIncomingConfig returns non-null only for another
+      workout_exercise of that exercise WITH non-empty set templates. No fix needed.
 
-Cadence (tempo) editor redesign — apply in BOTH editor and in-training:
-- [ ] Replace the inline cadence text field with a CENTERED button "Edit cadence" (keep the info
-      (i) button where it is now).
-- [ ] Tapping it opens an overlay with 4 edit-text boxes (digits only; tapping opens the numeric
-      keyboard). You can type directly.
-- [ ] Each of the 4 boxes has a stepper: an up-triangle (increment) ABOVE the box and a
-      down-triangle (decrement) BELOW it. An OK button sits on the same row.
-- [ ] Same overlay/behaviour must be reachable in-training (mirror the editor).
+Cadence (tempo) editor redesign:
+- [x] Shared overlay ui/common/CadenceDialog.kt: 4 digit boxes (numeric keyboard, direct
+      typing), up-triangle above / down-triangle below each box (±1, 0..99), OK on the same
+      row; all-zero confirms as "" (clears). Editor SetRow: inline text field replaced by a
+      CENTERED OutlinedButton ("Edit cadence" / "Cadence: 4-0-2-0"), info (i) kept in place.
+- [x] In-session mirror: the big tempo display is now tappable → same overlay (writes through
+      SessionViewModel.setSetTempo → editTemplate, so the end-of-session keep-vs-one-time
+      prompt covers it); when the current set has no tempo, a centered "Edit cadence"
+      TextButton appears instead. Strings edit_cadence / cadence_value in 3 langs.
 
-DEMO DEBT still open (07-10 + 07-11 batches) — deferred by Allan, do NOT spend resources yet.
+DEMO DEBT still open (07-10 + 07-11 batches + this one) — deferred by Allan, do NOT spend
+resources yet.

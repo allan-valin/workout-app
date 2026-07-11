@@ -79,15 +79,25 @@ object PlanRepo {
     }
 
     /**
-     * BASE: copies a workout (exercises + set templates) into an independent new workout
-     * and links the copy into [targetPlanId]. Returns the new workout id.
+     * Moves a workout into the Archive as-is: detaches it from every plan and flags it
+     * archived (history kept). The archive counterpart of "import a workout as-is".
      */
-    suspend fun copyWorkout(db: AppDatabase, sourceWorkoutId: Long, targetPlanId: Long): Long? {
+    suspend fun archiveWorkoutFully(db: AppDatabase, workoutId: Long) {
+        db.planDao().deletePlanWorkoutsForWorkout(workoutId)
+        db.planDao().workout(workoutId)?.let { db.planDao().updateWorkout(it.copy(archived = true)) }
+    }
+
+    /**
+     * BASE: copies a workout (exercises + set templates) into an independent new workout
+     * and links the copy into [targetPlanId] — or, when [targetPlanId] is null, stores the
+     * copy archived with no plan link (Archive "use as base"). Returns the new workout id.
+     */
+    suspend fun copyWorkout(db: AppDatabase, sourceWorkoutId: Long, targetPlanId: Long?): Long? {
         val source = db.planDao().workout(sourceWorkoutId) ?: return null
         val newWorkoutId = db.planDao().insertWorkout(
-            source.copy(id = 0, archived = false, daysOfWeek = source.daysOfWeek)
+            source.copy(id = 0, archived = targetPlanId == null, daysOfWeek = source.daysOfWeek)
         )
-        db.planDao().insertPlanWorkout(
+        if (targetPlanId != null) db.planDao().insertPlanWorkout(
             dev.allan.workoutapp.data.db.PlanWorkout(
                 planId = targetPlanId,
                 workoutId = newWorkoutId,

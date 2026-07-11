@@ -21,6 +21,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,7 +72,7 @@ private fun BigSquare(label: String, modifier: Modifier, onClick: () -> Unit) {
     }
 }
 
-/** Archive → Plans: every inactive plan; activate (one-active rule) or delete. */
+/** Archive → Plans: every inactive plan; activate (one-active rule), delete, or create new. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchivePlansScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit) {
@@ -79,13 +80,27 @@ fun ArchivePlansScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit) {
     val plans by vm.inactivePlans.collectAsState()
     val counts by vm.workoutCounts.collectAsState()
     var confirmDelete by remember { mutableStateOf<Plan?>(null) }
+    var showNewPlan by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.archive_plans)) },
-            navigationIcon = { BackButton(onBack) },
-        )
-    }) { padding ->
+    // Same new-cycle overlay (and import pipeline) as the Active tab FAB.
+    val settingsVm: dev.allan.workoutapp.ui.settings.SettingsViewModel = viewModel()
+    val importPlanLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { settingsVm.importPlan(it, dev.allan.workoutapp.currentAppLang()) } }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.archive_plans)) },
+                navigationIcon = { BackButton(onBack) },
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showNewPlan = true }) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_plan))
+            }
+        },
+    ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -126,6 +141,28 @@ fun ArchivePlansScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit) {
             dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+
+    if (showNewPlan) {
+        NewPlanDialog(
+            onDismiss = { showNewPlan = false },
+            onCreateBlank = { name, weeks ->
+                vm.createBlankPlan(name, weeks) { onOpenPlan(it) }
+                showNewPlan = false
+            },
+            onCreateWizard = { name, weeks, days ->
+                vm.createWizardPlan(name, weeks, days) { onOpenPlan(it) }
+                showNewPlan = false
+            },
+            onImport = {
+                showNewPlan = false
+                importPlanLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+            },
+            // The list behind this dialog IS the archive — activating from here already works,
+            // so the overlay's reactivate entry would be circular; hide it.
+            onReactivate = null,
+        )
+    }
+    dev.allan.workoutapp.ui.settings.PlanImportDialogs(settingsVm)
 }
 
 /**
@@ -138,6 +175,7 @@ fun ArchiveWorkoutsScreen(
     onBack: () -> Unit,
     onOpenWorkout: (Long) -> Unit,
     onEditWorkout: (Long) -> Unit = {},
+    onAddToArchive: (mode: String) -> Unit = {},
 ) {
     val vm: PlansViewModel = viewModel()
     val workouts by vm.allWorkouts.collectAsState()
@@ -151,12 +189,13 @@ fun ArchiveWorkoutsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.archive_workouts)) },
                 navigationIcon = { BackButton(onBack) },
-                actions = {
-                    IconButton(onClick = { showAdd = true }) {
-                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_workout))
-                    }
-                },
             )
+        },
+        // Same "+" FAB as the Active tab — one add affordance everywhere.
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAdd = true }) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_workout))
+            }
         },
     ) { padding ->
         LazyColumn(
@@ -189,28 +228,13 @@ fun ArchiveWorkoutsScreen(
     }
 
     if (showAdd) {
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAdd = false },
-            title = { Text(stringResource(R.string.add_workout)) },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.workout_name)) },
-                    singleLine = true,
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = name.isNotBlank(),
-                    onClick = {
-                        vm.createArchivedWorkout(name.trim()) { onEditWorkout(it) }
-                        showAdd = false
-                    },
-                ) { Text(stringResource(R.string.ok)) }
-            },
-            dismissButton = { TextButton(onClick = { showAdd = false }) { Text(stringResource(R.string.cancel)) } },
+        // Same 3-option overlay as the plan editor — the archive path just stores the
+        // result archived; the user never sees that difference.
+        AddWorkoutChooserDialog(
+            onDismiss = { showAdd = false },
+            onCreateScratch = { name -> vm.createArchivedWorkout(name) { onEditWorkout(it) } },
+            onImport = { onAddToArchive("import") },
+            onUseAsBase = { onAddToArchive("base") },
         )
     }
 }
@@ -225,16 +249,23 @@ enum class AddWorkoutMode { IMPORT, BASE }
 /**
  * Add-workout screen: multi-select workouts and add them to [planId] per [mode]. IMPORT lists
  * archived workouts only (linked as-is); BASE lists all workouts (copied to edit).
+ * A null [planId] targets the ARCHIVE instead: IMPORT moves non-archived workouts in as-is
+ * (detached from their plans), BASE stores independent archived copies.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddWorkoutScreen(planId: Long, mode: AddWorkoutMode, onBack: () -> Unit) {
+fun AddWorkoutScreen(planId: Long?, mode: AddWorkoutMode, onBack: () -> Unit) {
     val vm: PlansViewModel = viewModel()
     val allWorkouts by vm.allWorkouts.collectAsState()
     val activeIds by vm.activeWorkoutIds.collectAsState()
     val exerciseCounts by vm.exerciseCounts.collectAsState()
-    // IMPORT: archived only (why duplicate an active one exactly?). BASE: everything.
-    val workouts = if (mode == AddWorkoutMode.IMPORT) allWorkouts.filter { it.archived } else allWorkouts
+    // IMPORT into a plan: archived only (why duplicate an active one exactly?). IMPORT into
+    // the archive: the ones not archived yet. BASE: everything.
+    val workouts = when {
+        mode != AddWorkoutMode.IMPORT -> allWorkouts
+        planId != null -> allWorkouts.filter { it.archived }
+        else -> allWorkouts.filter { !it.archived }
+    }
     var selected by remember { mutableStateOf(setOf<Long>()) }
     val titleRes = if (mode == AddWorkoutMode.IMPORT) R.string.import_workout else R.string.use_as_base
 
@@ -284,10 +315,15 @@ fun AddWorkoutScreen(planId: Long, mode: AddWorkoutMode, onBack: () -> Unit) {
                     }
                 }
             }
-            // Single action button — the mode was already chosen in the plan editor overlay.
+            // Single action button — the mode was already chosen in the add overlay.
             FilledTonalButton(
                 onClick = {
-                    vm.addWorkoutsToPlan(planId, selected, asCopy = mode == AddWorkoutMode.BASE)
+                    when {
+                        planId != null ->
+                            vm.addWorkoutsToPlan(planId, selected, asCopy = mode == AddWorkoutMode.BASE)
+                        mode == AddWorkoutMode.IMPORT -> vm.moveWorkoutsToArchive(selected)
+                        else -> vm.copyWorkoutsToArchive(selected)
+                    }
                     onBack()
                 },
                 enabled = selected.isNotEmpty(),

@@ -404,62 +404,12 @@ fun PlanEditorScreen(
     }
 
     if (showAddWorkout) {
-        var fromScratch by remember { mutableStateOf(false) }
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAddWorkout = false },
-            title = { Text(stringResource(R.string.add_workout)) },
-            text = {
-                Column(
-                    Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (fromScratch) {
-                        // (a) From scratch: name it, then open the empty workout to edit.
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { name = it },
-                            label = { Text(stringResource(R.string.workout_name)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        AddWorkoutOption(
-                            icon = Icons.Default.Add,
-                            title = stringResource(R.string.add_from_scratch),
-                            subtitle = stringResource(R.string.add_from_scratch_hint),
-                            onClick = { fromScratch = true },
-                        )
-                        // (b) Import an archived workout as-is (shared link).
-                        AddWorkoutOption(
-                            icon = Icons.Default.ContentCopy,
-                            title = stringResource(R.string.import_workout),
-                            subtitle = stringResource(R.string.import_workout_hint),
-                            onClick = { showAddWorkout = false; onAddWorkout("import") },
-                        )
-                        // (c) Use any workout as a base (independent copy).
-                        AddWorkoutOption(
-                            icon = Icons.Default.ContentCopy,
-                            title = stringResource(R.string.use_as_base),
-                            subtitle = stringResource(R.string.use_as_base_hint),
-                            onClick = { showAddWorkout = false; onAddWorkout("base") },
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                if (fromScratch) {
-                    TextButton(
-                        onClick = {
-                            if (name.isNotBlank()) vm.addWorkout(name.trim())
-                            showAddWorkout = false
-                        }
-                    ) { Text(stringResource(R.string.ok)) }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddWorkout = false }) { Text(stringResource(R.string.cancel)) }
-            },
+        // Shared 3-option overlay — same look wherever a workout can be added.
+        AddWorkoutChooserDialog(
+            onDismiss = { showAddWorkout = false },
+            onCreateScratch = { vm.addWorkout(it) },
+            onImport = { onAddWorkout("import") },
+            onUseAsBase = { onAddWorkout("base") },
         )
     }
 }
@@ -529,29 +479,3 @@ private fun WorkoutCard(
     }
 }
 
-/** One tappable choice in the add-workout overlay (icon + title + one-line explanation). */
-@Composable
-private fun AddWorkoutOption(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(icon, contentDescription = null)
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}

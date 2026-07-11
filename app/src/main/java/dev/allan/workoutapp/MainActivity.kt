@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -262,6 +263,20 @@ fun AppRoot() {
                 onBack = { navController.popBackStack() },
             )
         }
+        // Archive add-target variant of the add-workout screen (no plan involved).
+        composable(
+            "addWorkoutArchive/{mode}",
+            arguments = listOf(navArgument("mode") { type = NavType.StringType }),
+        ) { entry ->
+            val mode = if (entry.arguments!!.getString("mode") == "import")
+                dev.allan.workoutapp.ui.plans.AddWorkoutMode.IMPORT
+            else dev.allan.workoutapp.ui.plans.AddWorkoutMode.BASE
+            dev.allan.workoutapp.ui.plans.AddWorkoutScreen(
+                planId = null,
+                mode = mode,
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable("archivePlans") {
             dev.allan.workoutapp.ui.plans.ArchivePlansScreen(
                 onBack = { navController.popBackStack() },
@@ -273,6 +288,7 @@ fun AppRoot() {
                 onBack = { navController.popBackStack() },
                 onOpenWorkout = { navController.navigate("view/$it") },
                 onEditWorkout = { navController.navigate("workout/$it") },
+                onAddToArchive = { mode -> navController.navigate("addWorkoutArchive/$mode") },
             )
         }
         composable("bodyweight") {
@@ -446,6 +462,7 @@ private fun MainScaffold(
 ) {
     val selected = selectedTab
     var showNewPlan by remember { mutableStateOf(false) }
+    var showReactivate by remember { mutableStateOf(false) }
 
     val activePlan by vm.activePlan.collectAsState()
     val activePlanWorkouts by vm.activePlanWorkouts.collectAsState()
@@ -510,14 +527,29 @@ private fun MainScaffold(
             }
         },
     ) { padding ->
+        // Tab switches are state changes (not NavHost destinations), so they need their own
+        // horizontal slide to match the drill-in transition; direction follows the tab order.
+        androidx.compose.animation.AnimatedContent(
+            targetState = selected,
+            transitionSpec = {
+                val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(260)
+                if (targetState > initialState)
+                    androidx.compose.animation.slideInHorizontally(spec) { it } togetherWith
+                        androidx.compose.animation.slideOutHorizontally(spec) { -it / 3 }
+                else
+                    androidx.compose.animation.slideInHorizontally(spec) { -it } togetherWith
+                        androidx.compose.animation.slideOutHorizontally(spec) { it / 3 }
+            },
+            modifier = Modifier.fillMaxSize().padding(padding),
+            label = "tabContent",
+        ) { tabIndex ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            when (Tab.entries[selected]) {
+            when (Tab.entries[tabIndex]) {
                 Tab.Home -> {
                     runningSession?.let { session ->
                         item {
@@ -660,10 +692,12 @@ private fun MainScaffold(
                 }
             }
         }
+        }
     }
 
     if (showNewPlan) {
-        NewPlanDialog(
+        val inactivePlans by vm.inactivePlans.collectAsState()
+        dev.allan.workoutapp.ui.plans.NewPlanDialog(
             onDismiss = { showNewPlan = false },
             onCreateBlank = { name, weeks ->
                 vm.createBlankPlan(name, weeks) { onOpenPlan(it) }
@@ -677,6 +711,17 @@ private fun MainScaffold(
                 showNewPlan = false
                 importPlanLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
             },
+            onReactivate = if (inactivePlans.isEmpty()) null else {
+                { showNewPlan = false; showReactivate = true }
+            },
+        )
+    }
+    if (showReactivate) {
+        val inactivePlans by vm.inactivePlans.collectAsState()
+        dev.allan.workoutapp.ui.plans.ReactivateCycleDialog(
+            plans = inactivePlans,
+            onPick = { vm.setPlanActive(it, true) },
+            onDismiss = { showReactivate = false },
         )
     }
     PlanImportDialogs(settingsVm)
@@ -770,77 +815,3 @@ private fun PlanCard(
     }
 }
 
-@Composable
-private fun NewPlanDialog(
-    onDismiss: () -> Unit,
-    onCreateBlank: (String, Int?) -> Unit,
-    onCreateWizard: (String, Int?, List<Pair<String, Int>>) -> Unit,
-    onImport: () -> Unit,
-) {
-    var name by remember { mutableStateOf("") }
-    var cycleWeeksText by remember { mutableStateOf("") }
-    var useWizard by remember { mutableStateOf(true) }
-    var daysPerWeek by remember { mutableFloatStateOf(3f) }
-
-    val suggestion = SplitWizard.generate(daysPerWeek.toInt())
-    val resolvedDays = suggestion.map { stringResource(it.labelRes) + it.suffix to it.isoDay }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.new_plan)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.plan_name)) },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = cycleWeeksText,
-                    onValueChange = { cycleWeeksText = it },
-                    label = { Text(stringResource(R.string.cycle_weeks_optional)) },
-                    singleLine = true,
-                )
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.suggest_split))
-                    Switch(checked = useWizard, onCheckedChange = { useWizard = it })
-                }
-                if (useWizard) {
-                    Text(stringResource(R.string.days_per_week, daysPerWeek.toInt()))
-                    Slider(
-                        value = daysPerWeek,
-                        onValueChange = { daysPerWeek = it },
-                        valueRange = 1f..7f,
-                        steps = 5,
-                    )
-                    Text(
-                        resolvedDays.joinToString { it.first },
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                // Same import as Settings — second entry point so a file can seed the cycle.
-                OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.import_plan))
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isBlank()) return@TextButton
-                    val weeks = cycleWeeksText.toIntOrNull()?.coerceIn(1, 52)
-                    if (useWizard) onCreateWizard(name.trim(), weeks, resolvedDays)
-                    else onCreateBlank(name.trim(), weeks)
-                }
-            ) { Text(stringResource(R.string.ok)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-        },
-    )
-}

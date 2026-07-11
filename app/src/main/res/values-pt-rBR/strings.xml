@@ -124,6 +124,7 @@
     <string name="settings">Configurações</string>
     <string name="plans_transfer">Planos de treino</string>
     <string name="import_plan">Importar plano (JSON)</string>
+    <string name="reactivate_cycle">Repetir um ciclo arquivado</string>
     <string name="export_plan">Exportar plano (JSON)</string>
     <string name="history_export">Exportar histórico</string>
     <string name="export_sets_csv">Exportar séries (CSV)</string>
@@ -218,6 +219,8 @@
     <string name="mode_isolation">Isolados</string>
     <string name="approx_duration">≈ %1$d min</string>
     <string name="tempo_label">Cadência (ex. 4-0-2-0)</string>
+    <string name="edit_cadence">Editar cadência</string>
+    <string name="cadence_value">Cadência: %1$s</string>
     <string name="tempo_info_title">Cadência</string>
     <string name="tempo_info_body">Os quatro números são segundos por fase: excêntrica (descida) – pausa – concêntrica (subida) – pausa. Ex.: 4-0-2-0 = 4s descendo, sem pausa, 2s subindo, sem pausa.</string>
     <string name="keep_plan_changes_title">Manter alterações no plano?</string>
@@ -261,8 +264,8 @@
     <string name="swap_keep_config">Manter a configuração atual</string>
     <string name="swap_incoming_config">Usar a última configuração deste exercício</string>
     <string name="swap_default_config">Padrão (3 × 10, 60 s de descanso)</string>
-    <string name="muscles_worked">Músculos trabalhados (experimental)</string>
-    <string name="muscles_worked_cycle">Músculos trabalhados no ciclo (experimental)</string>
+    <string name="muscles_worked">Músculos trabalhados</string>
+    <string name="muscles_worked_cycle">Músculos trabalhados no ciclo</string>
     <string name="muscle_legend_header">Tom = volume de treino</string>
     <string name="muscle_legend_unit">exercícios</string>
 </resources>
