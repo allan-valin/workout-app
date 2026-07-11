@@ -537,29 +537,37 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             }
         }
 
-        // Cadence/tempo for the current set — big, between the clock and the sets. Tapping it
-        // (or the edit button when none is set) opens the SAME 4-box overlay as the editor.
+        // Cadence/tempo for the current set — the SAME row as the editor (centered outlined
+        // pill = visibly tappable, info (i) on the right) opening the shared 4-box overlay.
         val tempoSet = ex.sets.firstOrNull { state.currentStep == page to it.templateId }
             ?: ex.sets.firstOrNull { it.tempo.isNotBlank() }
             ?: ex.sets.firstOrNull()
         var showTempoEdit by remember { mutableStateOf(false) }
+        var showTempoInfo by remember { mutableStateOf(false) }
         if (tempoSet != null) {
-            if (tempoSet.tempo.isNotBlank()) {
-                Text(
-                    tempoSet.tempo,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showTempoEdit = true }
-                        .padding(vertical = 2.dp),
-                )
-            } else {
-                TextButton(
-                    onClick = { showTempoEdit = true },
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                ) { Text(stringResource(R.string.edit_cadence)) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                // Left spacer balances the (i) so the pill sits truly centered.
+                Box(Modifier.width(48.dp))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    OutlinedButton(onClick = { showTempoEdit = true }) {
+                        Text(
+                            if (tempoSet.tempo.isBlank()) stringResource(R.string.edit_cadence)
+                            else stringResource(R.string.cadence_value, tempoSet.tempo),
+                            style = if (tempoSet.tempo.isBlank()) MaterialTheme.typography.labelLarge
+                            else MaterialTheme.typography.titleMedium,
+                            fontWeight = if (tempoSet.tempo.isBlank()) null else FontWeight.Bold,
+                        )
+                    }
+                }
+                IconButton(onClick = { showTempoInfo = true }) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Default.Info,
+                        contentDescription = stringResource(R.string.tempo_info_title),
+                    )
+                }
             }
         }
         if (showTempoEdit && tempoSet != null) {
@@ -567,6 +575,16 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 initial = tempoSet.tempo,
                 onConfirm = { vm.setSetTempo(tempoSet, it) },
                 onDismiss = { showTempoEdit = false },
+            )
+        }
+        if (showTempoInfo) {
+            AlertDialog(
+                onDismissRequest = { showTempoInfo = false },
+                title = { Text(stringResource(R.string.tempo_info_title)) },
+                text = { Text(stringResource(R.string.tempo_info_body)) },
+                confirmButton = {
+                    TextButton(onClick = { showTempoInfo = false }) { Text(stringResource(R.string.ok)) }
+                },
             )
         }
 

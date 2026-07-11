@@ -617,3 +617,30 @@ Cadence (tempo) editor redesign:
 
 DEMO DEBT still open (07-10 + 07-11 batches + this one) — deferred by Allan, do NOT spend
 resources yet.
+
+EMULATOR-VERIFIED 2026-07-11 (AVD testphone via run.sh, debug build, pt-BR dark; screenshots in
+session scratchpad). RULE CLARIFIED by Allan: only the REAL Redmi is deferred until 1.0 —
+emulator verification is expected EVERY batch (the 07-09→11 "off-device" readings were wrong).
+- Set-row weights: check/✗ each in own cell, spread across row, header aligned ✓
+- Tab switch: horizontal slide + parallax captured mid-frame via screenrecord ✓
+- Archive > Treinos: FAB + same 3-option overlay; import-as-is moved Pernas to archive
+  ("Adicionar ao plano" appeared), re-linked back — round-trip clean ✓
+- Archive > Planos: FAB + full new-cycle dialog (reactivate entry correctly absent there) ✓
+- Active FAB: deactivated Teste → FAB reappears → "Repetir um ciclo arquivado" → picker →
+  Teste reactivated, workouts intact ✓
+- Muscle titles without "(experimental)" ✓ (Ativos + workout view)
+- Cadence overlay: 4 boxes prefilled, ▲/▼ steppers, OK same row; session write-through
+  5-0-2-0 → reverted; edit correctly triggers the keep-vs-one-time prompt at session end ✓
+- Session cadence AFFORDANCE FIX after Allan feedback mid-session: the big bare tempo text
+  didn't read as tappable and had no (i) — replaced by the editor's exact row (centered
+  outlined pill "Cadência: 4-0-2-0" / "Editar cadência" + info (i) opening the legend).
+  Verified on emulator. RULE recorded: tappable = container/icon, bare Text never;
+  "mirror X" = whole pattern incl. (i).
+
+Drawn-body asset hunt (Allan asked status): xray body still in place. Best candidate found:
+melihcolpan/MuscleMap (MIT) — flat segmented vector body, friendly, per-muscle paths, but
+SwiftUI path data (port = convert paths to Android). Runner-up: HichamELBSI/
+react-native-body-highlighter (MIT, 249★) — same flat style, SVG path strings in TS, easily
+converted to per-muscle overlay SVGs feeding the EXISTING BodyMap pipeline; muscle slugs need a
+map to wger ids. Neither is wger-style line-art; both beat the xray on friendliness. Decision
++ port = own session; screenshots shown to Allan 2026-07-11.
