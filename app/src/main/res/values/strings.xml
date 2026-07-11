@@ -125,6 +125,9 @@
     <string name="plans_transfer">Workout plans</string>
     <string name="import_plan">Import plan (JSON)</string>
     <string name="reactivate_cycle">Repeat an archived cycle</string>
+    <string name="activate_new_cycle">Activate the new cycle?</string>
+    <string name="keep_archived">Keep in archive</string>
+    <string name="no_cycles_linked">No cycles linked</string>
     <string name="export_plan">Export plan (JSON)</string>
     <string name="history_export">History export</string>
     <string name="export_sets_csv">Export sets (CSV)</string>

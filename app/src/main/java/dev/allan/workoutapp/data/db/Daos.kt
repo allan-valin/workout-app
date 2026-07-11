@@ -254,6 +254,10 @@ interface PlanDao {
     @Query("SELECT * FROM plan_workout")
     suspend fun allPlanWorkouts(): List<PlanWorkout>
 
+    /** Live membership rows — the Archive screens expand plans↔workouts from this. */
+    @Query("SELECT * FROM plan_workout ORDER BY planId, orderIndex")
+    fun allPlanWorkoutsFlow(): Flow<List<PlanWorkout>>
+
     @Query("SELECT COALESCE(MAX(orderIndex) + 1, 0) FROM plan_workout WHERE planId = :planId")
     suspend fun nextWorkoutOrder(planId: Long): Int
 
@@ -292,6 +296,13 @@ interface PlanDao {
 
     @Query("SELECT * FROM plan WHERE name = :name COLLATE NOCASE LIMIT 1")
     suspend fun planByName(name: String): Plan?
+
+    // Uniqueness checks for new cycle/workout names.
+    @Query("SELECT name FROM plan")
+    suspend fun planNames(): List<String>
+
+    @Query("SELECT name FROM workout")
+    suspend fun workoutNames(): List<String>
 
     @Query("SELECT * FROM workout ORDER BY id")
     suspend fun allWorkoutsList(): List<Workout>

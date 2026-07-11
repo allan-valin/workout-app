@@ -28,6 +28,11 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
     val inactivePlans: StateFlow<List<Plan>> = db.planDao().plans(false)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Every plan, active first — the Archive workout expander lists memberships from this. */
+    val allPlans: StateFlow<List<Plan>> =
+        kotlinx.coroutines.flow.combine(activePlans, inactivePlans) { a, b -> a + b }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     /** The single active plan (one-active-plan rule) — drives the Active tab. */
     val activePlan: StateFlow<Plan?> = db.planDao().activePlanFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -104,7 +109,13 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
     /** Create a standalone workout straight into the Archive (no plan link, archived=true). */
     fun createArchivedWorkout(name: String, onCreated: (Long) -> Unit) {
         viewModelScope.launch {
-            val id = db.planDao().insertWorkout(Workout(name = name, daysOfWeek = emptyList(), archived = true))
+            val id = db.planDao().insertWorkout(
+                Workout(
+                    name = dev.allan.workoutapp.data.PlanRepo.uniqueWorkoutName(db, name),
+                    daysOfWeek = emptyList(),
+                    archived = true,
+                )
+            )
             onCreated(id)
         }
     }
@@ -147,6 +158,19 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
         .map { rows -> rows.associate { it.workoutId to it.lastAt } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
+    /** planId -> ordered member workoutIds; drives the Archive expanders + plan last-trained. */
+    val planWorkoutIds: StateFlow<Map<Long, List<Long>>> = db.planDao().allPlanWorkoutsFlow()
+        .map { rows -> rows.groupBy({ it.planId }, { it.workoutId }) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** planId -> last trained millis = max over its member workouts. */
+    val planLastTrained: StateFlow<Map<Long, Long>> =
+        kotlinx.coroutines.flow.combine(planWorkoutIds, lastTrained) { members, trained ->
+            members.mapNotNull { (planId, ids) ->
+                ids.mapNotNull { trained[it] }.maxOrNull()?.let { planId to it }
+            }.toMap()
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     /** ISO days (1=Mon..7=Sun) of the current week with a finished session — week circles. */
     val completedWeekDays: StateFlow<Set<Int>> = db.sessionDao().finishedSessionsFlow()
         .map { sessions ->
@@ -159,12 +183,22 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
-    /** A newly created plan becomes THE active one (one-active-plan rule). */
-    fun createBlankPlan(name: String, cycleWeeks: Int?, onCreated: (Long) -> Unit) {
+    /**
+     * A newly created plan becomes THE active one (one-active-plan rule) unless
+     * [activate] is false (Archive → Cycles creation keeps it archived on request).
+     * Names are made unique ("MM/yy" suffix on collision).
+     */
+    fun createBlankPlan(name: String, cycleWeeks: Int?, activate: Boolean = true, onCreated: (Long) -> Unit) {
         viewModelScope.launch {
-            db.planDao().deactivateAllPlans()
+            if (activate) db.planDao().deactivateAllPlans()
             val id = db.planDao().insertPlan(
-                Plan(name = name, cycleWeeks = cycleWeeks, startedAt = System.currentTimeMillis(), createdAt = System.currentTimeMillis())
+                Plan(
+                    name = dev.allan.workoutapp.data.PlanRepo.uniquePlanName(db, name),
+                    isActive = activate,
+                    cycleWeeks = cycleWeeks,
+                    startedAt = System.currentTimeMillis(),
+                    createdAt = System.currentTimeMillis(),
+                )
             )
             onCreated(id)
         }
@@ -175,15 +209,26 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
         name: String,
         cycleWeeks: Int?,
         days: List<Pair<String, Int>>, // resolved label -> iso day
+        activate: Boolean = true,
         onCreated: (Long) -> Unit,
     ) {
         viewModelScope.launch {
-            db.planDao().deactivateAllPlans()
+            if (activate) db.planDao().deactivateAllPlans()
             val planId = db.planDao().insertPlan(
-                Plan(name = name, cycleWeeks = cycleWeeks, startedAt = System.currentTimeMillis(), createdAt = System.currentTimeMillis())
+                Plan(
+                    name = dev.allan.workoutapp.data.PlanRepo.uniquePlanName(db, name),
+                    isActive = activate,
+                    cycleWeeks = cycleWeeks,
+                    startedAt = System.currentTimeMillis(),
+                    createdAt = System.currentTimeMillis(),
+                )
             )
+            // Workout names must be unique too — including within this batch.
+            val taken = db.planDao().workoutNames().toMutableList()
             days.forEachIndexed { index, (label, isoDay) ->
-                val wId = db.planDao().insertWorkout(Workout(name = label, daysOfWeek = listOf(isoDay)))
+                val wName = dev.allan.workoutapp.data.PlanRepo.uniqueName(taken, label)
+                taken += wName
+                val wId = db.planDao().insertWorkout(Workout(name = wName, daysOfWeek = listOf(isoDay)))
                 db.planDao().insertPlanWorkout(
                     dev.allan.workoutapp.data.db.PlanWorkout(planId = planId, workoutId = wId, orderIndex = index)
                 )

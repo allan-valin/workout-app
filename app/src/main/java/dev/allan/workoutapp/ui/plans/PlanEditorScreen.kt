@@ -327,6 +327,13 @@ fun PlanEditorScreen(
                     }
                 }
             }
+            // Add-workout entry sits above the list (Allan: below the weeks box, above the hint).
+            item {
+                Button(onClick = { showAddWorkout = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Text(stringResource(R.string.add_workout), modifier = Modifier.padding(start = 6.dp))
+                }
+            }
             if (workouts.isNotEmpty()) {
                 item {
                     Text(
@@ -351,12 +358,6 @@ fun PlanEditorScreen(
                         selected = if (w.id in selected) selected - w.id else selected + w.id
                     },
                 )
-            }
-            item {
-                Button(onClick = { showAddWorkout = true }) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Text(stringResource(R.string.add_workout), modifier = Modifier.padding(start = 6.dp))
-                }
             }
             if (archived.isNotEmpty()) {
                 item {

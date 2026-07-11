@@ -16,6 +16,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -75,12 +77,21 @@ private fun BigSquare(label: String, modifier: Modifier, onClick: () -> Unit) {
 /** Archive → Plans: every inactive plan; activate (one-active rule), delete, or create new. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArchivePlansScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit) {
+fun ArchivePlansScreen(
+    onBack: () -> Unit,
+    onOpenPlan: (Long) -> Unit,
+    onOpenWorkout: (Long) -> Unit = {},
+) {
     val vm: PlansViewModel = viewModel()
     val plans by vm.inactivePlans.collectAsState()
     val counts by vm.workoutCounts.collectAsState()
+    val planWorkoutIds by vm.planWorkoutIds.collectAsState()
+    val planLastTrained by vm.planLastTrained.collectAsState()
+    val allWorkouts by vm.allWorkouts.collectAsState()
+    var expanded by remember { mutableStateOf(setOf<Long>()) }
     var confirmDelete by remember { mutableStateOf<Plan?>(null) }
     var showNewPlan by remember { mutableStateOf(false) }
+    var pendingCreate by remember { mutableStateOf<PendingCycle?>(null) }
 
     // Same new-cycle overlay (and import pipeline) as the Active tab FAB.
     val settingsVm: dev.allan.workoutapp.ui.settings.SettingsViewModel = viewModel()
@@ -107,21 +118,54 @@ fun ArchivePlansScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit) {
         ) {
             if (plans.isEmpty()) item { Text(stringResource(R.string.no_inactive_plans), Modifier.padding(top = 16.dp)) }
             items(plans, key = { it.id }) { plan ->
+                val isExpanded = plan.id in expanded
                 Card(onClick = { onOpenPlan(plan.id) }, modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(plan.name, style = MaterialTheme.typography.titleMedium)
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(plan.name, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    stringResource(R.string.plan_workout_count, counts[plan.id] ?: 0),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            FilledTonalButton(onClick = { vm.setPlanActive(plan, true); onBack() }) {
+                                Text(stringResource(R.string.activate))
+                            }
+                            IconButton(onClick = { confirmDelete = plan }) {
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                            }
+                            ExpandChevron(isExpanded) {
+                                expanded = if (isExpanded) expanded - plan.id else expanded + plan.id
+                            }
+                        }
+                        planLastTrained[plan.id]?.let { millis ->
                             Text(
-                                stringResource(R.string.plan_workout_count, counts[plan.id] ?: 0),
+                                stringResource(R.string.last_trained, dev.allan.workoutapp.formatDateShort(millis)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        FilledTonalButton(onClick = { vm.setPlanActive(plan, true); onBack() }) {
-                            Text(stringResource(R.string.activate))
-                        }
-                        IconButton(onClick = { confirmDelete = plan }) {
-                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                        // Expanded: the plan's workouts, each a button into that workout.
+                        if (isExpanded) {
+                            val members = planWorkoutIds[plan.id].orEmpty()
+                                .mapNotNull { id -> allWorkouts.firstOrNull { it.id == id } }
+                            if (members.isEmpty()) {
+                                Text(
+                                    stringResource(R.string.no_workouts_yet),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                )
+                            }
+                            members.forEach { w ->
+                                OutlinedButton(
+                                    onClick = { onOpenWorkout(w.id) },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                ) { Text(w.name) }
+                            }
                         }
                     }
                 }
@@ -146,11 +190,11 @@ fun ArchivePlansScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit) {
         NewPlanDialog(
             onDismiss = { showNewPlan = false },
             onCreateBlank = { name, weeks ->
-                vm.createBlankPlan(name, weeks) { onOpenPlan(it) }
+                pendingCreate = PendingCycle(name, weeks, null)
                 showNewPlan = false
             },
             onCreateWizard = { name, weeks, days ->
-                vm.createWizardPlan(name, weeks, days) { onOpenPlan(it) }
+                pendingCreate = PendingCycle(name, weeks, days)
                 showNewPlan = false
             },
             onImport = {
@@ -162,8 +206,35 @@ fun ArchivePlansScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit) {
             onReactivate = null,
         )
     }
+    // Created from the ARCHIVE: don't silently steal the active slot — ask first.
+    pendingCreate?.let { pending ->
+        val create = { activate: Boolean ->
+            if (pending.days == null)
+                vm.createBlankPlan(pending.name, pending.weeks, activate) { onOpenPlan(it) }
+            else
+                vm.createWizardPlan(pending.name, pending.weeks, pending.days, activate) { onOpenPlan(it) }
+            pendingCreate = null
+        }
+        AlertDialog(
+            onDismissRequest = { pendingCreate = null },
+            title = { Text(stringResource(R.string.activate_new_cycle)) },
+            confirmButton = {
+                TextButton(onClick = { create(true) }) { Text(stringResource(R.string.activate)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { create(false) }) { Text(stringResource(R.string.keep_archived)) }
+            },
+        )
+    }
     dev.allan.workoutapp.ui.settings.PlanImportDialogs(settingsVm)
 }
+
+/** A cycle configured in the new-cycle overlay, awaiting the activate-or-archive choice. */
+private data class PendingCycle(
+    val name: String,
+    val weeks: Int?,
+    val days: List<Pair<String, Int>>?,
+)
 
 /**
  * Archive → Workouts: every workout (independent of plans). Those already in the active plan
@@ -176,12 +247,17 @@ fun ArchiveWorkoutsScreen(
     onOpenWorkout: (Long) -> Unit,
     onEditWorkout: (Long) -> Unit = {},
     onAddToArchive: (mode: String) -> Unit = {},
+    onOpenPlan: (Long) -> Unit = {},
 ) {
     val vm: PlansViewModel = viewModel()
     val workouts by vm.allWorkouts.collectAsState()
     val activeIds by vm.activeWorkoutIds.collectAsState()
     val exerciseCounts by vm.exerciseCounts.collectAsState()
     val hasActivePlan by vm.activePlan.collectAsState()
+    val lastTrained by vm.lastTrained.collectAsState()
+    val planWorkoutIds by vm.planWorkoutIds.collectAsState()
+    val allPlans by vm.allPlans.collectAsState()
+    var expanded by remember { mutableStateOf(setOf<Long>()) }
     var showAdd by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -205,20 +281,53 @@ fun ArchiveWorkoutsScreen(
             if (workouts.isEmpty()) item { Text(stringResource(R.string.no_workouts_yet), Modifier.padding(top = 16.dp)) }
             items(workouts, key = { it.id }) { w ->
                 val inActive = w.id in activeIds
+                val isExpanded = w.id in expanded
                 Card(onClick = { onOpenWorkout(w.id) }, modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ExerciseCountBadge(exerciseCounts[w.id] ?: 0)
-                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(w.name, style = MaterialTheme.typography.titleMedium)
-                            if (inActive) Text(
-                                stringResource(R.string.in_active_plan),
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ExerciseCountBadge(exerciseCounts[w.id] ?: 0)
+                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                Text(w.name, style = MaterialTheme.typography.titleMedium)
+                                if (inActive) Text(
+                                    stringResource(R.string.in_active_plan),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            if (!inActive && hasActivePlan != null) {
+                                OutlinedButton(onClick = { vm.addWorkoutsToActivePlan(setOf(w.id), asCopy = false) }) {
+                                    Text(stringResource(R.string.add_to_plan))
+                                }
+                            }
+                            ExpandChevron(isExpanded) {
+                                expanded = if (isExpanded) expanded - w.id else expanded + w.id
+                            }
+                        }
+                        lastTrained[w.id]?.let { millis ->
+                            Text(
+                                stringResource(R.string.last_trained, dev.allan.workoutapp.formatDateShort(millis)),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        if (!inActive && hasActivePlan != null) {
-                            OutlinedButton(onClick = { vm.addWorkoutsToActivePlan(setOf(w.id), asCopy = false) }) {
-                                Text(stringResource(R.string.add_to_plan))
+                        // Expanded: cycles this workout belongs to, each a button into that cycle.
+                        if (isExpanded) {
+                            val cycles = allPlans.filter { p -> w.id in planWorkoutIds[p.id].orEmpty() }
+                            if (cycles.isEmpty()) {
+                                Text(
+                                    stringResource(R.string.no_cycles_linked),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                )
+                            }
+                            cycles.forEach { p ->
+                                OutlinedButton(
+                                    onClick = { onOpenPlan(p.id) },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                ) { Text(p.name) }
                             }
                         }
                     }
@@ -337,5 +446,16 @@ fun AddWorkoutScreen(planId: Long?, mode: AddWorkoutMode, onBack: () -> Unit) {
 private fun BackButton(onBack: () -> Unit) {
     IconButton(onClick = onBack) {
         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+    }
+}
+
+/** Down/up chevron marking an expandable archive row. */
+@Composable
+private fun ExpandChevron(expanded: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(
+            if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+            contentDescription = null,
+        )
     }
 }

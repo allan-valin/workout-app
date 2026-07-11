@@ -10,6 +10,30 @@ import java.util.UUID
 /** Shared plan-editing operations used by the workout editor and the exercise picker. */
 object PlanRepo {
 
+    /**
+     * Names must be unique per kind (cycle / workout). On collision the current "MM/yy" is
+     * appended (e.g. "Pernas 08/27"), then "(2)", "(3)"… if that month suffix collides too.
+     */
+    fun uniqueName(existing: Collection<String>, base: String): String {
+        val taken = existing.toHashSet()
+        if (base !in taken) return base
+        val suffix = java.time.LocalDate.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("MM/yy"))
+        var candidate = "$base $suffix"
+        var n = 2
+        while (candidate in taken) {
+            candidate = "$base $suffix ($n)"
+            n++
+        }
+        return candidate
+    }
+
+    suspend fun uniquePlanName(db: AppDatabase, base: String): String =
+        uniqueName(db.planDao().planNames(), base)
+
+    suspend fun uniqueWorkoutName(db: AppDatabase, base: String): String =
+        uniqueName(db.planDao().workoutNames(), base)
+
     /** Adds an exercise to a workout with 3 default sets. Returns the WorkoutExercise id. */
     suspend fun addExerciseToWorkout(db: AppDatabase, workoutId: Long, exerciseId: String): Long {
         val weId = db.planDao().insertWorkoutExercise(
@@ -95,7 +119,12 @@ object PlanRepo {
     suspend fun copyWorkout(db: AppDatabase, sourceWorkoutId: Long, targetPlanId: Long?): Long? {
         val source = db.planDao().workout(sourceWorkoutId) ?: return null
         val newWorkoutId = db.planDao().insertWorkout(
-            source.copy(id = 0, archived = targetPlanId == null, daysOfWeek = source.daysOfWeek)
+            source.copy(
+                id = 0,
+                name = uniqueWorkoutName(db, source.name),
+                archived = targetPlanId == null,
+                daysOfWeek = source.daysOfWeek,
+            )
         )
         if (targetPlanId != null) db.planDao().insertPlanWorkout(
             dev.allan.workoutapp.data.db.PlanWorkout(
@@ -116,7 +145,10 @@ object PlanRepo {
     /** Creates a fresh empty workout and links it into [planId]. Returns the new id. */
     suspend fun createWorkout(db: AppDatabase, planId: Long, name: String, daysOfWeek: List<Int>): Long {
         val id = db.planDao().insertWorkout(
-            dev.allan.workoutapp.data.db.Workout(name = name, daysOfWeek = daysOfWeek)
+            dev.allan.workoutapp.data.db.Workout(
+                name = uniqueWorkoutName(db, name),
+                daysOfWeek = daysOfWeek,
+            )
         )
         db.planDao().insertPlanWorkout(
             dev.allan.workoutapp.data.db.PlanWorkout(

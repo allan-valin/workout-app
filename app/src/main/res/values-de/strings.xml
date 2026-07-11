@@ -125,6 +125,9 @@
     <string name="plans_transfer">Trainingspläne</string>
     <string name="import_plan">Plan importieren (JSON)</string>
     <string name="reactivate_cycle">Archivierten Zyklus wiederholen</string>
+    <string name="activate_new_cycle">Neuen Zyklus aktivieren?</string>
+    <string name="keep_archived">Im Archiv behalten</string>
+    <string name="no_cycles_linked">Keine Zyklen verknüpft</string>
     <string name="export_plan">Plan exportieren (JSON)</string>
     <string name="history_export">Verlauf exportieren</string>
     <string name="export_sets_csv">Sätze exportieren (CSV)</string>

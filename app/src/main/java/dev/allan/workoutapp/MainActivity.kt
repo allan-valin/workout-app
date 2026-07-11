@@ -163,8 +163,29 @@ private fun flagFor(lang: String): String = when (lang) {
     else -> "🇬🇧"
 }
 
+// Material shared-axis X (motion spec): 300ms total, ~30dp slide (≈ width/13), outgoing
+// fades out in 90ms, incoming fades in over 210ms after that. Used by the NavHost and the
+// bottom-nav tab switch so every screen change feels the same.
+private const val NAV_MS = 300
+private const val FADE_OUT_MS = 90
+private const val FADE_IN_MS = 210
+
+internal fun sharedAxisEnter(forward: Boolean): androidx.compose.animation.EnterTransition =
+    androidx.compose.animation.fadeIn(
+        androidx.compose.animation.core.tween(FADE_IN_MS, delayMillis = FADE_OUT_MS)
+    ) + androidx.compose.animation.slideInHorizontally(
+        androidx.compose.animation.core.tween(NAV_MS)
+    ) { full -> (if (forward) 1 else -1) * (full / 13) }
+
+internal fun sharedAxisExit(forward: Boolean): androidx.compose.animation.ExitTransition =
+    androidx.compose.animation.fadeOut(
+        androidx.compose.animation.core.tween(FADE_OUT_MS)
+    ) + androidx.compose.animation.slideOutHorizontally(
+        androidx.compose.animation.core.tween(NAV_MS)
+    ) { full -> (if (forward) -1 else 1) * (full / 13) }
+
 /** Localized short date (dd.MM.yy / dd/MM/yyyy / …) per the device language pattern. */
-private fun formatDateShort(millis: Long): String =
+internal fun formatDateShort(millis: Long): String =
     java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         .format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.SHORT))
 
@@ -208,29 +229,14 @@ fun AppRoot() {
             navController = navController,
             startDestination = "main",
             modifier = Modifier.padding(barPadding),
-            // Clean horizontal swipe (no fade — the crossfade made content pop in top-to-bottom).
-            // Forward: new screen slides fully in from the right, old parallaxes 1/3 left. Back
-            // mirrors it. Both screens are opaque and move as whole units.
-            enterTransition = {
-                androidx.compose.animation.slideInHorizontally(
-                    animationSpec = androidx.compose.animation.core.tween(260),
-                ) { it }
-            },
-            exitTransition = {
-                androidx.compose.animation.slideOutHorizontally(
-                    animationSpec = androidx.compose.animation.core.tween(260),
-                ) { -it / 3 }
-            },
-            popEnterTransition = {
-                androidx.compose.animation.slideInHorizontally(
-                    animationSpec = androidx.compose.animation.core.tween(260),
-                ) { -it / 3 }
-            },
-            popExitTransition = {
-                androidx.compose.animation.slideOutHorizontally(
-                    animationSpec = androidx.compose.animation.core.tween(260),
-                ) { it }
-            },
+            // Material "shared axis X": both screens slide only ~30dp while the outgoing one
+            // fades out fast (90ms) and the incoming one fades in after it (210ms, delayed).
+            // Two opaque screens are never on screen at once — kills the overlap/clunky feel
+            // the full-width slide had (Allan 2026-07-11, matches other apps' seamless feel).
+            enterTransition = { sharedAxisEnter(forward = true) },
+            exitTransition = { sharedAxisExit(forward = true) },
+            popEnterTransition = { sharedAxisEnter(forward = false) },
+            popExitTransition = { sharedAxisExit(forward = false) },
         ) {
         composable("main") {
             MainScaffold(
@@ -281,6 +287,7 @@ fun AppRoot() {
             dev.allan.workoutapp.ui.plans.ArchivePlansScreen(
                 onBack = { navController.popBackStack() },
                 onOpenPlan = { navController.navigate("plan/$it") },
+                onOpenWorkout = { navController.navigate("view/$it") },
             )
         }
         composable("archiveWorkouts") {
@@ -289,6 +296,7 @@ fun AppRoot() {
                 onOpenWorkout = { navController.navigate("view/$it") },
                 onEditWorkout = { navController.navigate("workout/$it") },
                 onAddToArchive = { mode -> navController.navigate("addWorkoutArchive/$mode") },
+                onOpenPlan = { navController.navigate("plan/$it") },
             )
         }
         composable("bodyweight") {
@@ -528,17 +536,12 @@ private fun MainScaffold(
         },
     ) { padding ->
         // Tab switches are state changes (not NavHost destinations), so they need their own
-        // horizontal slide to match the drill-in transition; direction follows the tab order.
+        // transition — the same shared-axis X as the NavHost; direction follows tab order.
         androidx.compose.animation.AnimatedContent(
             targetState = selected,
             transitionSpec = {
-                val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(260)
-                if (targetState > initialState)
-                    androidx.compose.animation.slideInHorizontally(spec) { it } togetherWith
-                        androidx.compose.animation.slideOutHorizontally(spec) { -it / 3 }
-                else
-                    androidx.compose.animation.slideInHorizontally(spec) { -it } togetherWith
-                        androidx.compose.animation.slideOutHorizontally(spec) { it / 3 }
+                val forward = targetState > initialState
+                sharedAxisEnter(forward) togetherWith sharedAxisExit(forward)
             },
             modifier = Modifier.fillMaxSize().padding(padding),
             label = "tabContent",

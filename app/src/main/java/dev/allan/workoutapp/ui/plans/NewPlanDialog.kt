@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -119,7 +120,10 @@ fun NewPlanDialog(
     )
 }
 
-/** Picker behind "reactivate an archived cycle": tap one to make it THE active cycle. */
+/**
+ * Picker behind "reactivate an archived cycle": tap one to make it THE active cycle.
+ * Lazy + height-capped so it stays usable with dozens of archived cycles.
+ */
 @Composable
 fun ReactivateCycleDialog(
     plans: List<Plan>,
@@ -130,11 +134,12 @@ fun ReactivateCycleDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.reactivate_cycle)) },
         text = {
-            Column(
-                Modifier.verticalScroll(rememberScrollState()),
+            androidx.compose.foundation.lazy.LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.heightIn(max = 420.dp),
             ) {
-                plans.forEach { plan ->
+                items(plans.size, key = { plans[it].id }) { i ->
+                    val plan = plans[i]
                     Card(
                         onClick = { onPick(plan); onDismiss() },
                         modifier = Modifier.fillMaxWidth(),

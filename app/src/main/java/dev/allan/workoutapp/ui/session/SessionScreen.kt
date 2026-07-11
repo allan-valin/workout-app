@@ -680,10 +680,11 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                             }
                         }
                     }
-                    // − weight + quick-steppers around the tap-to-edit weight button.
+                    // − weight + quick-steppers around the tap-to-edit weight button. The
+                    // horizontal padding keeps the wider column from crowding its neighbours.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(RowWeights.WEIGHT),
+                        modifier = Modifier.weight(RowWeights.WEIGHT).padding(horizontal = 6.dp),
                     ) {
                         IconButton(
                             onClick = { vm.updateWeight(page, set, (set.weightKg - 1.0).coerceAtLeast(0.0)) },
@@ -867,11 +868,11 @@ private fun SessionHeader(text: String, modifier: Modifier = Modifier) {
  */
 private object RowWeights {
     const val TYPE = 0.7f
-    const val WEIGHT = 3.4f
+    const val WEIGHT = 4.2f
     const val VALUE = 1.2f
     const val TARGET = 1.0f
-    const val PLAY = 0.9f
-    const val CHECK = 0.9f
+    const val PLAY = 0.6f
+    const val CHECK = 0.8f
     const val DELETE = 0.7f
 }
 
