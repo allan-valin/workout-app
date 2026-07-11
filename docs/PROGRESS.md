@@ -659,7 +659,8 @@ the app); PORTED same day, see Phase 13.
 - [x] Unique names per kind (cycle / workout): collision appends "MM/yy", then "(2)"… —
       PlanRepo.uniqueName/uniquePlanName/uniqueWorkoutName; applied to blank+wizard cycle
       create (wizard batch-aware), editor from-scratch (createWorkout), createArchivedWorkout,
-      copyWorkout. NOT yet enforced on RENAME (editor/plan-editor name fields) — future item.
+      copyWorkout. RENAME enforcement done 2026-07-11 (see Phase 14) — the "future item"
+      label here was wrong; it was always part of the plan.
 - [x] Archive: "last trained" on workout rows AND plan rows (planLastTrained = max over member
       workouts via new allPlanWorkoutsFlow + planWorkoutIds map).
 - [x] Archive expandable rows (chevron right): plan rows expand to member-workout buttons
@@ -680,3 +681,39 @@ The 07-09 export in emulator Downloads predates its exercises, so the 2 exercise
 unrecoverable; Pernas recreated empty in the Teste cycle. Junk cycles/workouts deleted.
 LESSON (also in memory): on destructive UI automation, re-screenshot and verify the exact
 target before EVERY tap — list positions shift after each mutation.
+
+## Phase 14 — rename uniqueness + set-row polish (2026-07-11 night; EMULATOR-VERIFIED)
+
+- [x] Unique-name rule now enforced on RENAME (was mislabeled "future item" in Phase 13 —
+      it was always in scope): new DAO queries planNamesExcept/workoutNamesExcept (a name
+      only collides with OTHER rows of the same kind); PlanEditorViewModel.finalizeName +
+      WorkoutEditorViewModel.finalizeName dedupe the final name on exit (silent, same
+      "MM/yy" → "(2)" scheme as create). Plan editor: back arrow + new BackHandler both
+      route through finalizeName (renames persist per keystroke there). Workout editor:
+      Save button + keep-changes exit route through it (discard path needs none — it
+      restores the opening snapshot).
+- [x] Workout rename UI existed nowhere (renameWorkout was dead code since the editor
+      rework) — added a "Workout name" OutlinedTextField as the first editor list item,
+      mirroring the cycle-name field in the plan editor; hidden in single-exercise
+      quick-edit from a running session (focusExerciseId != null). Renames flow through
+      edit{} so they're undoable.
+- [x] Set-row polish (Allan mid-session): TintedDropdown (set-type letter + Rep/Sec unit)
+      raised 40→56 dp to match the OutlinedTextFields sharing the row; each set (details +
+      cadence rows) wrapped in ONE 12dp-rounded outlineVariant border so a set reads as a
+      unit; row weights rebalanced (target 1.6→1.4, rest 0.8→1.0) after the border padding
+      clipped "90" in the rest field.
+- [x] EMULATOR-VERIFIED (AVD testphone, debug, pt-BR dark; screenshots in session
+      scratchpad): workout "Pernas"→"Empurrar (Push)" saved as "Empurrar (Push) 07/26"
+      (list + DB), rename back to "Pernas" passes untouched; cycle "Teste"→"CicloB" backed
+      out as "CicloB 07/26" (DB), restored; bordered set rows + equal-height controls + "90"
+      unclipped; name field renders; bonus re-verified: archive-Planos FAB → new-cycle
+      dialog → "Ativar o novo ciclo?" prompt → keep-in-archive; archive plan row
+      Ativar/trash/chevron; plan delete confirm. Test cycle CicloB deleted; DB back to
+      pre-test state.
+- [x] Phase-10 retro-mark audit (Allan questioned it): all 7 Active/plan-management items
+      confirmed present in code (ArchiveHubContent, AddWorkoutScreen, archiveWorkoutFully,
+      deactivateAllPlans, AppBottomBar/showBottomBar, per-row ▶) — the unchecked boxes were
+      stale doc, the features shipped in 09c/09e.
+- Known minor: WorkoutViewScreen title shows a stale name right after an editor rename
+  (name loaded once, not collected); refreshes on re-entry. Polish later.
+- DEMO DEBT unchanged (deferred by Allan).

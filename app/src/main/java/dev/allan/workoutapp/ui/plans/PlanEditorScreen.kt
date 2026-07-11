@@ -97,6 +97,24 @@ class PlanEditorViewModel(app: Application, private val planId: Long) : AndroidV
 
     fun rename(name: String) = update { it.copy(name = name) }
 
+    /** Exit path: names are unique per kind — dedupe the final cycle name before leaving. */
+    fun finalizeName(onDone: () -> Unit) {
+        viewModelScope.launch {
+            val current = _plan.value
+            if (current != null) {
+                val unique = dev.allan.workoutapp.data.PlanRepo.uniqueName(
+                    db.planDao().planNamesExcept(current.id), current.name,
+                )
+                if (unique != current.name) {
+                    val next = current.copy(name = unique)
+                    _plan.value = next
+                    db.planDao().updatePlan(next)
+                }
+            }
+            onDone()
+        }
+    }
+
     fun setCycleWeeks(weeks: Int?) = update { it.copy(cycleWeeks = weeks) }
 
     fun setActive(active: Boolean) = update { it.copy(isActive = active) }
@@ -206,6 +224,10 @@ fun PlanEditorScreen(
     val counts by vm.exerciseCounts.collectAsState()
     var showAddWorkout by remember { mutableStateOf(false) }
 
+    // Every exit runs the unique-name check (rename happens live, per keystroke).
+    val exit = { vm.finalizeName(onBack) }
+    androidx.activity.compose.BackHandler(enabled = true) { exit() }
+
     // Checkbox selection: no one-tap delete anywhere on this screen.
     var selected by remember { mutableStateOf(setOf<Long>()) }
     val selectionMode = selected.isNotEmpty()
@@ -263,7 +285,7 @@ fun PlanEditorScreen(
                 TopAppBar(
                     title = { Text(plan?.name ?: "") },
                     navigationIcon = {
-                        IconButton(onClick = onBack) {
+                        IconButton(onClick = exit) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
                     },

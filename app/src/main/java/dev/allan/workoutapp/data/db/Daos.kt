@@ -304,6 +304,13 @@ interface PlanDao {
     @Query("SELECT name FROM workout")
     suspend fun workoutNames(): List<String>
 
+    // Rename-path variants: a name only collides with OTHER rows of the same kind.
+    @Query("SELECT name FROM plan WHERE id != :id")
+    suspend fun planNamesExcept(id: Long): List<String>
+
+    @Query("SELECT name FROM workout WHERE id != :id")
+    suspend fun workoutNamesExcept(id: Long): List<String>
+
     @Query("SELECT * FROM workout ORDER BY id")
     suspend fun allWorkoutsList(): List<Workout>
 

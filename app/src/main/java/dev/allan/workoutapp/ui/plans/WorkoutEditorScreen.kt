@@ -379,6 +379,22 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         edit { db.planDao().updateWorkout(w.copy(name = name)) }
     }
 
+    /** Keep-exit path: names are unique per kind — dedupe the final name before leaving. */
+    fun finalizeName(onDone: () -> Unit) {
+        viewModelScope.launch {
+            editMutex.withLock {
+                val w = _workout.value ?: return@withLock
+                val unique = PlanRepo.uniqueName(db.planDao().workoutNamesExcept(w.id), w.name)
+                if (unique != w.name) {
+                    val next = w.copy(name = unique)
+                    _workout.value = next
+                    db.planDao().updateWorkout(next)
+                }
+            }
+            onDone()
+        }
+    }
+
     fun removeExercise(item: EditorExercise) {
         edit { db.planDao().deleteWorkoutExercise(item.we.id) }
     }
@@ -620,7 +636,7 @@ fun WorkoutEditorScreen(
                     }
                     // Save = persist-and-exit; the DB already holds the live edits, so this
                     // just leaves the screen (and drops the undo history with it).
-                    TextButton(onClick = onBack) { Text(stringResource(R.string.save)) }
+                    TextButton(onClick = { vm.finalizeName(onBack) }) { Text(stringResource(R.string.save)) }
                 },
             )
         }
@@ -632,6 +648,19 @@ fun WorkoutEditorScreen(
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            // Rename lives here (mirrors the cycle-name field in the plan editor); hidden in
+            // single-exercise quick-edit from a running session.
+            if (focusExerciseId == null) {
+                item {
+                    OutlinedTextField(
+                        value = workout?.name ?: "",
+                        onValueChange = vm::renameWorkout,
+                        label = { Text(stringResource(R.string.workout_name)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
+            }
             if (exercises.isEmpty()) {
                 item {
                     Column(
@@ -743,7 +772,7 @@ fun WorkoutEditorScreen(
             title = { Text(stringResource(R.string.unsaved_title)) },
             text = { Text(stringResource(R.string.unsaved_message)) },
             confirmButton = {
-                TextButton(onClick = { confirmExit = false; onBack() }) {
+                TextButton(onClick = { confirmExit = false; vm.finalizeName(onBack) }) {
                     Text(stringResource(R.string.keep_changes))
                 }
             },
@@ -1175,7 +1204,14 @@ private fun HeaderText(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: () -> Unit) {
-  Column(Modifier.fillMaxWidth()) {
+  // One bordered box per set (details + cadence) so each set reads as a unit.
+  Column(
+      Modifier
+          .fillMaxWidth()
+          .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+          // Keep horizontal padding tight — the rest field already runs at minimum width.
+          .padding(horizontal = 4.dp, vertical = 6.dp)
+  ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1204,14 +1240,14 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
                 onCommit = { min, max ->
                     onUpdate(set.copy(targetValue = min, targetValueMax = max?.takeIf { it > min }))
                 },
-                modifier = Modifier.weight(1.6f),
+                modifier = Modifier.weight(1.4f),
             )
         } else {
             IntField(
                 value = set.targetValue,
                 label = "s",
                 onCommit = { onUpdate(set.copy(targetValue = it)) },
-                modifier = Modifier.weight(1.6f),
+                modifier = Modifier.weight(1.4f),
             )
         }
         // Unit toggle: "Rep"/"Sec" spelled out enough to read, tinted+bordered = changeable.
@@ -1229,7 +1265,7 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
             value = set.restSecs,
             label = "s",
             onCommit = { onUpdate(set.copy(restSecs = it)) },
-            modifier = Modifier.weight(0.8f),
+            modifier = Modifier.weight(1f),
         )
         // Single-set delete is cheap to redo — no confirmation dialog.
         IconButton(onClick = onDelete, modifier = Modifier.width(28.dp)) {
@@ -1305,7 +1341,8 @@ private fun <T> TintedDropdown(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp)
+                // Same height as the OutlinedTextFields sharing the row.
+                .height(56.dp)
                 .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(10.dp))
                 // Border marks "this is a control", not a static label.
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
