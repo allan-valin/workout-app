@@ -348,6 +348,10 @@ interface PlanDao {
     @Query("SELECT * FROM workout WHERE id = :id")
     suspend fun workout(id: Long): Workout?
 
+    // Reactive variant: keeps view titles fresh after renames elsewhere.
+    @Query("SELECT * FROM workout WHERE id = :id")
+    fun workoutFlow(id: Long): Flow<Workout?>
+
     @Query(
         """
         SELECT w.* FROM workout w

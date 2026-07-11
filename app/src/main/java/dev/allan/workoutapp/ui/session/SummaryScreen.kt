@@ -122,12 +122,11 @@ fun SummaryScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.summary)) }) }
     ) { padding ->
-        Column(
+        dev.allan.workoutapp.ui.common.ScrollbarColumn(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Card(Modifier.fillMaxWidth()) {

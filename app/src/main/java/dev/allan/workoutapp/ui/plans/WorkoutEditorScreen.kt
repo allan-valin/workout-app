@@ -641,7 +641,7 @@ fun WorkoutEditorScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        dev.allan.workoutapp.ui.common.ScrollbarLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)

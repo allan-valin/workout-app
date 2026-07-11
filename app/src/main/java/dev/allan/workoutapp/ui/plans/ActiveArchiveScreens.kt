@@ -112,7 +112,7 @@ fun ArchivePlansScreen(
             }
         },
     ) { padding ->
-        LazyColumn(
+        dev.allan.workoutapp.ui.common.ScrollbarLazyColumn(
             Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -274,7 +274,7 @@ fun ArchiveWorkoutsScreen(
             }
         },
     ) { padding ->
-        LazyColumn(
+        dev.allan.workoutapp.ui.common.ScrollbarLazyColumn(
             Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -385,7 +385,7 @@ fun AddWorkoutScreen(planId: Long?, mode: AddWorkoutMode, onBack: () -> Unit) {
         )
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            LazyColumn(
+            dev.allan.workoutapp.ui.common.ScrollbarLazyColumn(
                 Modifier.weight(1f).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {

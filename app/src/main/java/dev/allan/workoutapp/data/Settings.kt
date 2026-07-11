@@ -65,6 +65,17 @@ object Settings {
         context.dataStore.edit { it[THEME_MODE] = value }
     }
 
+    private val BODY_FEMALE =
+        androidx.datastore.preferences.core.booleanPreferencesKey("body_model_female")
+
+    /** Muscle-map body model: false = male (default), true = female. */
+    fun bodyFemale(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[BODY_FEMALE] ?: false }
+
+    suspend fun setBodyFemale(context: Context, value: Boolean) {
+        context.dataStore.edit { it[BODY_FEMALE] = value }
+    }
+
     fun heightCm(context: Context): Flow<Double?> =
         context.dataStore.data.map { it[HEIGHT_CM] }
 

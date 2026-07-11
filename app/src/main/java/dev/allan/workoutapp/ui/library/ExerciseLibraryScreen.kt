@@ -135,21 +135,30 @@ fun ExerciseLibraryScreen(
                     stringResource(R.string.no_results),
                     modifier = Modifier.padding(24.dp),
                 )
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(state.results, key = { it.id }) { hit ->
-                        ExerciseRow(
-                            hit = hit,
-                            appLang = appLang,
-                            altLine = state.altNames[hit.id],
-                            muscleName = { id ->
-                                muscles.firstOrNull { it.id == id }
-                                    ?.let { MuscleNames.display(it.nameEn, appLang) } ?: ""
-                            },
-                            onClick = { vm.openDetail(hit) },
-                            onAdd = onAdd,
-                            swapMode = swapMode,
-                            isFavorite = hit.id in favoriteIds,
-                            onToggleFavorite = { vm.toggleFavorite(hit.id) },
+                else -> {
+                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    androidx.compose.foundation.layout.Box {
+                        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(state.results, key = { it.id }) { hit ->
+                                ExerciseRow(
+                                    hit = hit,
+                                    appLang = appLang,
+                                    altLine = state.altNames[hit.id],
+                                    muscleName = { id ->
+                                        muscles.firstOrNull { it.id == id }
+                                            ?.let { MuscleNames.display(it.nameEn, appLang) } ?: ""
+                                    },
+                                    onClick = { vm.openDetail(hit) },
+                                    onAdd = onAdd,
+                                    swapMode = swapMode,
+                                    isFavorite = hit.id in favoriteIds,
+                                    onToggleFavorite = { vm.toggleFavorite(hit.id) },
+                                )
+                            }
+                        }
+                        dev.allan.workoutapp.ui.common.LazyScrollbar(
+                            listState,
+                            Modifier.align(Alignment.TopEnd),
                         )
                     }
                 }

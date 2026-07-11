@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Pause
@@ -158,7 +160,14 @@ fun SessionScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(state.workoutName + "  ·  " + fmt(state.elapsedSecs) + "  /  ≈" + fmt(state.estimatedTotalSecs))
+                        Column {
+                            Text(state.workoutName + "  ·  " + fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs))
+                            Text(
+                                stringResource(R.string.estimated_time),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = onExit) {
@@ -175,40 +184,57 @@ fun SessionScreen(
                     .padding(horizontal = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.exercises, key = { it.workoutExerciseId }) { ex ->
-                        val index = state.exercises.indexOf(ex)
-                        Card(onClick = { vm.openExercise(index) }, modifier = Modifier.fillMaxWidth()) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(ex.name, style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        "${ex.sets.count { it.done }}/${ex.sets.size}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                                IconButton(onClick = { onEditExercise(ex.workoutExerciseId) }) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = stringResource(R.string.edit_training),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                if (ex.sets.isNotEmpty() && ex.sets.all { it.done }) {
-                                    Icon(Icons.Default.Check, contentDescription = null)
+                Text(
+                    stringResource(R.string.tap_to_log_sets),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                Box(Modifier.weight(1f)) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(state.exercises, key = { it.workoutExerciseId }) { ex ->
+                            val index = state.exercises.indexOf(ex)
+                            Card(onClick = { vm.openExercise(index) }, modifier = Modifier.fillMaxWidth()) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(ex.name, style = MaterialTheme.typography.titleMedium)
+                                        Text(
+                                            "${ex.sets.count { it.done }}/${ex.sets.size}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                    // Editing already works inside the session — the slot shows
+                                    // the exercise info (image + description/video/note) instead.
+                                    IconButton(onClick = { vm.openDescription(ex.exerciseId) }) {
+                                        Icon(
+                                            Icons.Default.KeyboardArrowDown,
+                                            contentDescription = stringResource(R.string.info_note),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    if (ex.sets.isNotEmpty() && ex.sets.all { it.done }) {
+                                        Icon(Icons.Default.Check, contentDescription = null)
+                                    }
                                 }
                             }
                         }
                     }
+                    dev.allan.workoutapp.ui.common.LazyScrollbar(
+                        listState,
+                        Modifier.align(Alignment.TopEnd),
+                    )
                 }
                 Button(
                     onClick = { confirmEnd = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                        // Keep clear of the gesture/nav area (was too easy to fat-finger).
+                        .navigationBarsPadding()
+                        .padding(bottom = 28.dp),
                 ) { Text(stringResource(R.string.end_workout)) }
             }
         }
@@ -290,15 +316,33 @@ fun SessionScreen(
 
     state.descriptionSheet?.let { desc ->
         // Same detail sheet as the library/editor: editable link + watch/open, so a video
-        // can be added straight from the exercise mid-session.
+        // can be added straight from the exercise mid-session. Resolved by exercise id, not
+        // the pager index — the list-mode chevron opens it for any exercise.
+        val sheetEx = state.exercises.firstOrNull { it.exerciseId == state.descriptionExerciseId }
         dev.allan.workoutapp.ui.common.ExerciseInfoSheet(
-            name = state.exercises.getOrNull(state.currentIndex)?.name ?: "",
+            name = sheetEx?.name ?: state.exercises.getOrNull(state.currentIndex)?.name ?: "",
             description = desc,
             videoUrl = state.descriptionVideoUrl,
             onSaveLink = { url -> state.descriptionExerciseId?.let { vm.saveVideoLink(it, url) } },
             onDismiss = vm::closeDescription,
             note = state.descriptionNote,
             onSaveNote = { txt -> state.descriptionExerciseId?.let { vm.saveNote(it, txt) } },
+            extraContent = {
+                val file = sheetEx?.imagePath?.let { java.io.File(it) }?.takeIf { it.exists() }
+                if (file != null) {
+                    coil.compose.AsyncImage(
+                        model = file,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                RoundedCornerShape(12.dp),
+                            ),
+                    )
+                }
+            },
         )
     }
 
@@ -374,7 +418,14 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
 
     TopAppBar(
         title = {
-            if (showClock) Text(fmt(state.elapsedSecs) + "  /  ≈" + fmt(state.estimatedTotalSecs))
+            if (showClock) Column {
+                Text(fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs))
+                Text(
+                    stringResource(R.string.estimated_time),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         },
         navigationIcon = {
             IconButton(onClick = vm::showList) {
@@ -382,10 +433,11 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
             }
         },
         actions = {
-            // Info sheet hosts description + persistent note + video, so one button covers all.
+            // Info sheet hosts description + persistent note + video, so one button covers
+            // all — the label says so (Allan: "note" alone hid the merged functions).
             TextButton(onClick = { current?.let { vm.openDescription(it.exerciseId) } }) {
                 Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.note), modifier = Modifier.padding(start = 4.dp))
+                Text(stringResource(R.string.info_note), modifier = Modifier.padding(start = 4.dp))
             }
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Default.MoreVert, contentDescription = null)
@@ -445,11 +497,9 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             }
             if (mediaFile != null) {
                 val context = androidx.compose.ui.platform.LocalContext.current
-                // GIF-capable loader (minSdk 29 ⇒ ImageDecoder is always available).
+                // Shared GIF/SVG-capable loader — one memory cache across all screens.
                 val gifLoader = remember {
-                    coil.ImageLoader.Builder(context)
-                        .components { add(coil.decode.ImageDecoderDecoder.Factory()) }
-                        .build()
+                    dev.allan.workoutapp.ui.common.AppImageLoader.get(context)
                 }
                 coil.compose.AsyncImage(
                     model = mediaFile,
@@ -589,9 +639,10 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
         }
 
         // Sets table — the only scrollable part of the page.
+        Box(Modifier.weight(1f)) {
         Column(
             Modifier
-                .weight(1f)
+                .fillMaxSize()
                 .nestedScroll(tableScrollConnection)
                 .verticalScroll(tableScroll),
         ) {
@@ -779,6 +830,11 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.add_set), modifier = Modifier.padding(start = 6.dp))
             }
+        }
+        dev.allan.workoutapp.ui.common.ColumnScrollbar(
+            tableScroll,
+            Modifier.align(Alignment.TopEnd),
+        )
         }
 
         // Bottom action row: timer panel toggle + log next undone set.

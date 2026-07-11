@@ -295,7 +295,7 @@ fun PlanEditorScreen(
     ) { padding ->
         val p = plan ?: return@Scaffold
         val (active, archived) = workouts.partition { !it.archived }
-        LazyColumn(
+        dev.allan.workoutapp.ui.common.ScrollbarLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)

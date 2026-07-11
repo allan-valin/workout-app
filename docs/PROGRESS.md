@@ -717,3 +717,44 @@ target before EVERY tap — list positions shift after each mutation.
 - Known minor: WorkoutViewScreen title shows a stale name right after an editor rename
   (name loaded once, not collected); refreshes on re-entry. Polish later.
 - DEMO DEBT unchanged (deferred by Allan).
+
+## Phase 15 — Allan feedback batch (2026-07-11 late; EMULATOR-VERIFIED same session)
+
+- [x] First-load pop-in (perf): every BodyMap/session-image composition built its OWN Coil
+      ImageLoader, so each screen's first visit re-decoded the body SVGs from scratch.
+      New ui/common/AppImageLoader singleton (SVG + GIF decoders, 150ms crossfade) shared
+      by BodyMap + session image slot — one memory cache process-wide; late arrivals fade
+      instead of popping.
+- [x] In-session ℹ button relabeled "Info & notes" (info_note, 3 langs) — it merged
+      description/video AND note-taking without saying so.
+- [x] Muscle map "Switch model" (switch_model, 3 langs) TextButton on the legend row:
+      toggles male/female body, persisted (Settings.bodyFemale). Female path data vendored
+      (bodyFemaleFront/Back.ts, same MIT repo); convert.py regenerates BOTH sets
+      (female = -f suffix, viewBoxes from SvgFemaleWrapper: front -50 -40 734 1538,
+      back 756 0 774 1448). Male SVGs byte-identical to before. Verified: toggle swaps to
+      female with correct blue overlays front+back, toggles back.
+- [x] WorkoutViewScreen: when a session is RUNNING, an outlined "End workout" button sits
+      under "Resume workout" → green-Save / red-Discard dialog (mirrors the session's "…"
+      dialog); VM.endRunningSession mirrors SessionViewModel.endSession (books timers, stops
+      TimerService, drops drafts); Save → summary (new onSummary nav). Verified: discard
+      ends the session, button row flips back to "Start workout", session row DISCARDED in DB.
+- [x] Session top bars: "≈" dropped; small "estimated time" caption under the clock line
+      (estimated_time, 3 langs; list + pager bars).
+- [x] Session exercise list: caption "Tap an exercise to log its sets" (tap_to_log_sets,
+      3 langs) above the rows; per-row ✎ replaced by a chevron-down opening the shared info
+      sheet (image + description + video + note — sheet now resolves the exercise by id, not
+      pager index, and gains an image slot via extraContent); End-workout button raised off
+      the gesture area (navigationBarsPadding + 28dp). All verified on emulator.
+- [x] Fast scrollbar app-wide (ui/common/FastScrollbar.kt): thin 3dp thumb always visible
+      when content overflows; grows to 10dp draggable handle while scrolling/touching;
+      pressing the track above/below the thumb creeps steadily in that direction (never
+      jumps). LazyScrollbar/ColumnScrollbar overlays + ScrollbarLazyColumn/ScrollbarColumn
+      drop-in wrappers. Applied: main tab content, exercise library results, Active/Archive
+      lists, AddWorkout screen, plan editor, workout editor, workout view, session list +
+      sets table, Settings, Summary, Bodyweight + Progression screens. Verified: library
+      "a" search (hundreds of rows) thumb-drag jumped A→E instantly.
+- [x] Polish: WorkoutViewScreen title no longer stales after an editor rename (planDao
+      .workoutFlow + stateIn replaces the one-shot load).
+- Compile + unit tests + assembleRelease green. Test session discarded; DB left clean.
+- DEMO DEBT unchanged (deferred by Allan) — now also behind on: body-model switch, session
+  list rework, scrollbars, end-from-view.

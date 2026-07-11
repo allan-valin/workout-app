@@ -88,6 +88,9 @@
     <string name="end_save">Training speichern</string>
     <string name="end_discard">Training verwerfen</string>
     <string name="end_incomplete_warning">%1$d von %2$d Sätzen nicht abgeschlossen.</string>
+    <string name="info_note">Info &amp; Notizen</string>
+    <string name="estimated_time">geschätzte Zeit</string>
+    <string name="tap_to_log_sets">Übung antippen, um Sätze zu erfassen</string>
     <string name="note">Notiz</string>
     <string name="rest">Pause</string>
     <string name="set_timer">Satz-Timer</string>
@@ -271,5 +274,6 @@
     <string name="muscles_worked">Trainierte Muskeln</string>
     <string name="muscles_worked_cycle">Muskeln in diesem Zyklus</string>
     <string name="muscle_legend_header">Farbton = Trainingsvolumen</string>
+    <string name="switch_model">Modell wechseln</string>
     <string name="muscle_legend_unit">Übungen</string>
 </resources>

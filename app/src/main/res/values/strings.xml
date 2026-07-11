@@ -88,6 +88,9 @@
     <string name="end_save">Save workout</string>
     <string name="end_discard">Discard workout</string>
     <string name="end_incomplete_warning">%1$d of %2$d sets not completed.</string>
+    <string name="info_note">Info &amp; notes</string>
+    <string name="estimated_time">estimated time</string>
+    <string name="tap_to_log_sets">Tap an exercise to log its sets</string>
     <string name="note">Note</string>
     <string name="rest">Rest</string>
     <string name="set_timer">Set timer</string>
@@ -271,5 +274,6 @@
     <string name="muscles_worked">Muscles worked</string>
     <string name="muscles_worked_cycle">Muscles worked this cycle</string>
     <string name="muscle_legend_header">Shade = training volume</string>
+    <string name="switch_model">Switch model</string>
     <string name="muscle_legend_unit">exercises</string>
 </resources>

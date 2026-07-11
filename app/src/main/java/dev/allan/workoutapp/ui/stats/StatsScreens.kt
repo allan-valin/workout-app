@@ -148,12 +148,11 @@ fun BodyweightScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
             )
         }
     ) { padding ->
-        Column(
+        dev.allan.workoutapp.ui.common.ScrollbarColumn(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             RangeChips(range) { range = it }
@@ -234,12 +233,11 @@ fun ProgressionScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
             )
         }
     ) { padding ->
-        Column(
+        dev.allan.workoutapp.ui.common.ScrollbarColumn(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             RangeChips(range) { range = it }

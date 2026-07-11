@@ -316,6 +316,9 @@ fun AppRoot() {
                 onBack = { navController.popBackStack() },
                 onEdit = { navController.navigate("workout/$workoutId") },
                 onStart = { navController.navigate("session/$workoutId") },
+                onSummary = { sessionId ->
+                    navController.navigate("summary/$sessionId") { popUpTo("main") }
+                },
             )
         }
         composable(
@@ -546,7 +549,10 @@ private fun MainScaffold(
             modifier = Modifier.fillMaxSize().padding(padding),
             label = "tabContent",
         ) { tabIndex ->
+        val tabListState = androidx.compose.foundation.lazy.rememberLazyListState()
+        Box(Modifier.fillMaxSize()) {
         LazyColumn(
+            state = tabListState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
@@ -694,6 +700,11 @@ private fun MainScaffold(
                     )
                 }
             }
+        }
+        dev.allan.workoutapp.ui.common.LazyScrollbar(
+            tabListState,
+            Modifier.align(Alignment.TopEnd),
+        )
         }
         }
     }

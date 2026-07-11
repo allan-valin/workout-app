@@ -49,6 +49,9 @@ import dev.allan.workoutapp.R
 import dev.allan.workoutapp.WorkoutApp
 import dev.allan.workoutapp.data.PlanRepo
 import dev.allan.workoutapp.data.db.ExerciseTranslation
+import dev.allan.workoutapp.data.db.SessionStatus
+import dev.allan.workoutapp.session.SessionManager
+import dev.allan.workoutapp.session.TimerService
 import dev.allan.workoutapp.data.db.SetTemplate
 import dev.allan.workoutapp.data.db.ValueUnit
 import dev.allan.workoutapp.data.db.Workout
@@ -74,8 +77,9 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
 
     private val db = (app as WorkoutApp).db
 
-    private val _workout = MutableStateFlow<Workout?>(null)
-    val workout: StateFlow<Workout?> = _workout
+    // Reactive: an editor rename elsewhere must not leave a stale title here.
+    val workout: StateFlow<Workout?> = db.planDao().workoutFlow(workoutId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     data class Detail(
         val exerciseId: String,
@@ -124,8 +128,31 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    init {
-        viewModelScope.launch { _workout.value = db.planDao().workout(workoutId) }
+    /**
+     * End the running session from the workout view — mirrors SessionViewModel.endSession
+     * (no keep-vs-one-time prompt: template edits only happen inside the session UI).
+     * onDone receives the sessionId when saved, null when discarded.
+     */
+    fun endRunningSession(save: Boolean, onDone: (Long?) -> Unit) {
+        viewModelScope.launch {
+            val session = db.sessionDao().runningSessionFlow().first()
+                ?.takeIf { it.workoutId == workoutId } ?: return@launch onDone(null)
+            SessionManager.stopRest()
+            SessionManager.consumeStopwatch()?.let { SessionManager.addActiveSecs(it) }
+            val timers = SessionManager.state.value
+            db.sessionDao().updateSession(
+                session.copy(
+                    endedAt = System.currentTimeMillis(),
+                    status = if (save) SessionStatus.FINISHED else SessionStatus.DISCARDED,
+                    activeSecs = timers.activeSecs,
+                    restSecs = timers.restSecs,
+                )
+            )
+            db.sessionDao().deleteDrafts(session.id)
+            SessionManager.clear()
+            TimerService.stop(getApplication())
+            onDone(if (save) session.id else null)
+        }
     }
 
     private fun summarize(sets: List<SetTemplate>): String {
@@ -219,6 +246,8 @@ fun WorkoutViewScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onStart: () -> Unit,
+    /** Open the summary screen after ending-with-save from here. */
+    onSummary: (Long) -> Unit = {},
 ) {
     val app = LocalContext.current.applicationContext as Application
     val vm: WorkoutViewViewModel = viewModel(
@@ -232,6 +261,7 @@ fun WorkoutViewScreen(
     val muscleLoad by vm.muscleLoad.collectAsState()
     var showArchive by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
+    var showEndRunning by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -280,27 +310,70 @@ fun WorkoutViewScreen(
                     modifier = Modifier.padding(start = 6.dp),
                 )
             }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(exercises, key = { it.workoutExerciseId }) { ex ->
-                    Card(onClick = { vm.openDetail(ex.exerciseId) }, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(ex.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            Text(ex.summary, style = MaterialTheme.typography.bodyMedium)
+            if (hasRunningSession) {
+                // End from here too — same save/discard prompt as the session's "…" menu.
+                androidx.compose.material3.OutlinedButton(
+                    onClick = { showEndRunning = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.end_workout)) }
+            }
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+                LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(exercises, key = { it.workoutExerciseId }) { ex ->
+                        Card(onClick = { vm.openDetail(ex.exerciseId) }, modifier = Modifier.fillMaxWidth()) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(ex.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                                Text(ex.summary, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                    // Muscle map: blue = targeted, deeper = more exercises hitting it.
+                    if (muscleLoad.isNotEmpty()) {
+                        item {
+                            dev.allan.workoutapp.ui.common.BodyMap(
+                                load = muscleLoad,
+                                title = stringResource(R.string.muscles_worked),
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            )
                         }
                     }
                 }
-                // EXPERIMENTAL muscle map: orange = targeted, deeper = more exercises hitting it.
-                if (muscleLoad.isNotEmpty()) {
-                    item {
-                        dev.allan.workoutapp.ui.common.BodyMap(
-                            load = muscleLoad,
-                            title = stringResource(R.string.muscles_worked),
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                        )
-                    }
-                }
+                dev.allan.workoutapp.ui.common.LazyScrollbar(
+                    listState,
+                    Modifier.align(Alignment.TopEnd),
+                )
             }
         }
+    }
+
+    if (showEndRunning) {
+        AlertDialog(
+            onDismissRequest = { showEndRunning = false },
+            title = { Text(stringResource(R.string.end_workout)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEndRunning = false
+                    vm.endRunningSession(save = true) { id -> id?.let(onSummary) }
+                }) {
+                    Text(
+                        stringResource(R.string.save),
+                        color = androidx.compose.ui.graphics.Color(0xFF43A047),
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showEndRunning = false
+                    vm.endRunningSession(save = false) {}
+                }) {
+                    Text(
+                        stringResource(R.string.end_discard),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+        )
     }
 
     detail?.let { d ->
