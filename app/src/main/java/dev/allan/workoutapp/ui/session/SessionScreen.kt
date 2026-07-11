@@ -160,7 +160,8 @@ fun SessionScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
+                        // Caption right-aligned so it sits under the numbers it labels.
+                        Column(horizontalAlignment = Alignment.End) {
                             Text(state.workoutName + "  ·  " + fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs))
                             Text(
                                 stringResource(R.string.estimated_time),
@@ -226,6 +227,7 @@ fun SessionScreen(
                     dev.allan.workoutapp.ui.common.LazyScrollbar(
                         listState,
                         Modifier.align(Alignment.TopEnd),
+                        edgePadding = 12.dp,
                     )
                 }
                 Button(
@@ -329,7 +331,7 @@ fun SessionScreen(
             onSaveNote = { txt -> state.descriptionExerciseId?.let { vm.saveNote(it, txt) } },
             extraContent = {
                 val file = sheetEx?.imagePath?.let { java.io.File(it) }?.takeIf { it.exists() }
-                if (file != null) {
+                if (state.descriptionWithImage && file != null) {
                     coil.compose.AsyncImage(
                         model = file,
                         contentDescription = null,
@@ -418,7 +420,7 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
 
     TopAppBar(
         title = {
-            if (showClock) Column {
+            if (showClock) Column(horizontalAlignment = Alignment.End) {
                 Text(fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs))
                 Text(
                     stringResource(R.string.estimated_time),
@@ -435,7 +437,7 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
         actions = {
             // Info sheet hosts description + persistent note + video, so one button covers
             // all — the label says so (Allan: "note" alone hid the merged functions).
-            TextButton(onClick = { current?.let { vm.openDescription(it.exerciseId) } }) {
+            TextButton(onClick = { current?.let { vm.openDescription(it.exerciseId, withImage = false) } }) {
                 Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.info_note), modifier = Modifier.padding(start = 4.dp))
             }
@@ -834,6 +836,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
         dev.allan.workoutapp.ui.common.ColumnScrollbar(
             tableScroll,
             Modifier.align(Alignment.TopEnd),
+            edgePadding = 12.dp,
         )
         }
 

@@ -115,6 +115,7 @@ fun ArchivePlansScreen(
         dev.allan.workoutapp.ui.common.ScrollbarLazyColumn(
             Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            edgePadding = 16.dp,
         ) {
             if (plans.isEmpty()) item { Text(stringResource(R.string.no_inactive_plans), Modifier.padding(top = 16.dp)) }
             items(plans, key = { it.id }) { plan ->
@@ -215,11 +216,19 @@ fun ArchivePlansScreen(
                 vm.createWizardPlan(pending.name, pending.weeks, pending.days, activate) { onOpenPlan(it) }
             pendingCreate = null
         }
+        // With a cycle already active, "activate" actually swaps: say so (Allan — the
+        // behavior was right, the wording confused).
+        val activePlan by vm.activePlan.collectAsState()
         AlertDialog(
             onDismissRequest = { pendingCreate = null },
             title = { Text(stringResource(R.string.activate_new_cycle)) },
+            text = if (activePlan != null) {
+                { Text(stringResource(R.string.swap_cycle_msg)) }
+            } else null,
             confirmButton = {
-                TextButton(onClick = { create(true) }) { Text(stringResource(R.string.activate)) }
+                TextButton(onClick = { create(true) }) {
+                    Text(stringResource(if (activePlan != null) R.string.swap_cycle else R.string.activate))
+                }
             },
             dismissButton = {
                 TextButton(onClick = { create(false) }) { Text(stringResource(R.string.keep_archived)) }
@@ -277,6 +286,7 @@ fun ArchiveWorkoutsScreen(
         dev.allan.workoutapp.ui.common.ScrollbarLazyColumn(
             Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            edgePadding = 16.dp,
         ) {
             if (workouts.isEmpty()) item { Text(stringResource(R.string.no_workouts_yet), Modifier.padding(top = 16.dp)) }
             items(workouts, key = { it.id }) { w ->
@@ -388,6 +398,7 @@ fun AddWorkoutScreen(planId: Long?, mode: AddWorkoutMode, onBack: () -> Unit) {
             dev.allan.workoutapp.ui.common.ScrollbarLazyColumn(
                 Modifier.weight(1f).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
+                edgePadding = 16.dp,
             ) {
                 item {
                     Text(

@@ -305,6 +305,7 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            edgePadding = 16.dp,
         ) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

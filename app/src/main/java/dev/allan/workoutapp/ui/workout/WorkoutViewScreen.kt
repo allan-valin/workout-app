@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -87,6 +88,7 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
         val description: String,
         val videoUrl: String?,
         val note: String,
+        val imagePath: String? = null,
     )
 
     private val _detail = MutableStateFlow<Detail?>(null)
@@ -175,6 +177,7 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
                 description = best?.description.orEmpty(),
                 videoUrl = db.exerciseDao().videoLink(exerciseId),
                 note = db.sessionDao().noteText(exerciseId) ?: "",
+                imagePath = db.exerciseDao().exercise(exerciseId)?.imagePath,
             )
         }
     }
@@ -301,22 +304,30 @@ fun WorkoutViewScreen(
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Text(
-                    stringResource(
-                        if (hasRunningSession) R.string.resume_workout_button else R.string.start_workout
-                    ),
-                    modifier = Modifier.padding(start = 6.dp),
-                )
+            // Start + End belong together: tighter gap than the page rhythm (Allan).
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Text(
+                        stringResource(
+                            if (hasRunningSession) R.string.resume_workout_button else R.string.start_workout
+                        ),
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+                if (hasRunningSession) {
+                    // End from here too — same save/discard prompt as the session's "…" menu.
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { showEndRunning = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.end_workout)) }
+                }
             }
-            if (hasRunningSession) {
-                // End from here too — same save/discard prompt as the session's "…" menu.
-                androidx.compose.material3.OutlinedButton(
-                    onClick = { showEndRunning = true },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.end_workout)) }
-            }
+            Text(
+                stringResource(R.string.tap_for_info),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             val listState = androidx.compose.foundation.lazy.rememberLazyListState()
             androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
                 LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -342,6 +353,7 @@ fun WorkoutViewScreen(
                 dev.allan.workoutapp.ui.common.LazyScrollbar(
                     listState,
                     Modifier.align(Alignment.TopEnd),
+                    edgePadding = 12.dp,
                 )
             }
         }
@@ -385,6 +397,19 @@ fun WorkoutViewScreen(
             onDismiss = vm::closeDetail,
             note = d.note,
             onSaveNote = { txt -> vm.saveNote(d.exerciseId, txt) },
+            extraContent = {
+                // Same info everywhere: active AND archived workout views show the image.
+                val file = d.imagePath?.let { java.io.File(it) }?.takeIf { it.exists() }
+                if (file != null) {
+                    coil.compose.AsyncImage(
+                        model = file,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                    )
+                }
+            },
         )
     }
 

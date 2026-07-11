@@ -301,6 +301,7 @@ fun PlanEditorScreen(
                 .padding(padding)
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            edgePadding = 12.dp,
         ) {
             item {
                 OutlinedTextField(

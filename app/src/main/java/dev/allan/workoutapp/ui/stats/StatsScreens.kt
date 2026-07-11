@@ -154,6 +154,7 @@ fun BodyweightScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            edgePadding = 16.dp,
         ) {
             RangeChips(range) { range = it }
             val shown = windowed(series, range)
@@ -239,7 +240,21 @@ fun ProgressionScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            edgePadding = 16.dp,
         ) {
+            // Averages block moved here from the stats card (the card stays light).
+            if (averages.sessions > 0) {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        StatLine(stringResource(R.string.sessions_count), averages.sessions.toString())
+                        StatLine(stringResource(R.string.avg_session_duration), fmtHm(averages.avgDurationSecs))
+                        StatLine(stringResource(R.string.avg_volume), "%.1f kg".format(averages.avgVolumeKg))
+                        StatLine(stringResource(R.string.active_time), fmtHm(averages.avgActiveSecs))
+                        StatLine(stringResource(R.string.rest_time), fmtHm(averages.avgRestSecs))
+                        StatLine(stringResource(R.string.idle_time), fmtHm(averages.avgIdleSecs))
+                    }
+                }
+            }
             RangeChips(range) { range = it }
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -89,7 +89,12 @@
     <string name="end_discard">Discard workout</string>
     <string name="end_incomplete_warning">%1$d of %2$d sets not completed.</string>
     <string name="info_note">Info &amp; notes</string>
-    <string name="estimated_time">estimated time</string>
+    <string name="tap_for_info">Tap an exercise for details</string>
+    <string name="swap_cycle">Swap</string>
+    <string name="swap_cycle_msg">The current active cycle will be archived.</string>
+    <string name="choose_image">Choose an image</string>
+    <string name="add_own_image">Add your own image reference</string>
+    <string name="estimated_time">elapsed / estimated</string>
     <string name="tap_to_log_sets">Tap an exercise to log its sets</string>
     <string name="note">Note</string>
     <string name="rest">Rest</string>

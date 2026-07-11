@@ -85,6 +85,8 @@ data class SessionUiState(
     val swipeToken: Int = 0,
     /** Exercise description shown in the bottom sheet, null = hidden. */
     val descriptionSheet: String? = null,
+    /** Show the exercise image inside the sheet (false when the pager already shows it). */
+    val descriptionWithImage: Boolean = true,
     /** Exercise the sheet belongs to + its user-saved video link. */
     val descriptionExerciseId: String? = null,
     val descriptionVideoUrl: String? = null,
@@ -491,13 +493,14 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     /** Show the current exercise's description (localized, en fallback) in a sheet. */
-    fun openDescription(exerciseId: String) {
+    fun openDescription(exerciseId: String, withImage: Boolean = true) {
         viewModelScope.launch {
             val translations = db.exerciseDao().translations(exerciseId)
             val best = translations.firstOrNull { it.lang == lang }
                 ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
             _state.value = _state.value.copy(
                 descriptionSheet = best?.description.orEmpty(),
+                descriptionWithImage = withImage,
                 descriptionExerciseId = exerciseId,
                 descriptionVideoUrl = db.exerciseDao().videoLink(exerciseId),
                 descriptionNote = db.sessionDao().noteText(exerciseId) ?: "",

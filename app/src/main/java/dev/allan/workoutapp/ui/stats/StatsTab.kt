@@ -137,7 +137,7 @@ class StatsViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-private fun fmtHm(secs: Int): String = "%d:%02d".format(secs / 60, secs % 60)
+internal fun fmtHm(secs: Int): String = "%d:%02d".format(secs / 60, secs % 60)
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -169,16 +169,25 @@ fun StatsTab(
                 if (bodyMetrics.isEmpty()) {
                     Text(stringResource(R.string.no_data_yet))
                 } else {
-                    val monthCutoff = LocalDate.now().minusDays(30).toEpochDay()
-                    PointAreaChart(
-                        points = bodyMetrics
-                            .filter { it.epochDay >= monthCutoff }
-                            .map { it.epochDay * 86_400_000L to it.weightKg }
-                            .ifEmpty { listOf(bodyMetrics.last().let { it.epochDay * 86_400_000L to it.weightKg }) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(140.dp),
+                    // Card stays light: current weight + 30-day delta. The graph (already
+                    // duplicated inside with finer ranges) lives on the detail page only.
+                    val latest = bodyMetrics.last()
+                    Text(
+                        "%.1f kg".format(latest.weightKg),
+                        style = MaterialTheme.typography.headlineMedium,
                     )
+                    val cutoff = LocalDate.now().minusDays(30).toEpochDay()
+                    val baseline = bodyMetrics.lastOrNull { it.epochDay <= cutoff }
+                        ?: bodyMetrics.first().takeIf { it.epochDay < latest.epochDay }
+                    if (baseline != null) {
+                        val delta = latest.weightKg - baseline.weightKg
+                        Text(
+                            (if (delta >= 0) "+" else "−") + "%.1f kg".format(kotlin.math.abs(delta)) +
+                                "  ·  30d",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
                         stringResource(R.string.tap_for_details),
                         style = MaterialTheme.typography.labelSmall,
@@ -193,12 +202,9 @@ fun StatsTab(
                 if (averages.sessions == 0) {
                     Text(stringResource(R.string.no_data_yet))
                 } else {
+                    // Light card: one line; the averages block moved to the top of the
+                    // Progression detail page (Allan).
                     StatLine(stringResource(R.string.sessions_count), averages.sessions.toString())
-                    StatLine(stringResource(R.string.avg_session_duration), fmtHm(averages.avgDurationSecs))
-                    StatLine(stringResource(R.string.avg_volume), "%.1f kg".format(averages.avgVolumeKg))
-                    StatLine(stringResource(R.string.active_time), fmtHm(averages.avgActiveSecs))
-                    StatLine(stringResource(R.string.rest_time), fmtHm(averages.avgRestSecs))
-                    StatLine(stringResource(R.string.idle_time), fmtHm(averages.avgIdleSecs))
                     Text(
                         stringResource(R.string.tap_for_details),
                         style = MaterialTheme.typography.labelSmall,
@@ -269,7 +275,7 @@ fun StatsTab(
 }
 
 @Composable
-private fun StatLine(label: String, value: String) {
+internal fun StatLine(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label)
         Text(value, fontWeight = FontWeight.Medium)

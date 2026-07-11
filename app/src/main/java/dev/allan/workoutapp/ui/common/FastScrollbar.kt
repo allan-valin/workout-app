@@ -66,6 +66,7 @@ fun ScrollbarLazyColumn(
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    edgePadding: androidx.compose.ui.unit.Dp = 0.dp,
     content: LazyListScope.() -> Unit,
 ) {
     Box(modifier) {
@@ -75,7 +76,7 @@ fun ScrollbarLazyColumn(
             verticalArrangement = verticalArrangement,
             content = content,
         )
-        LazyScrollbar(state, Modifier.align(Alignment.TopEnd))
+        LazyScrollbar(state, Modifier.align(Alignment.TopEnd), edgePadding = edgePadding)
     }
 }
 
@@ -85,6 +86,7 @@ fun ScrollbarColumn(
     modifier: Modifier = Modifier,
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     state: ScrollState = rememberScrollState(),
+    edgePadding: androidx.compose.ui.unit.Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(modifier) {
@@ -93,12 +95,17 @@ fun ScrollbarColumn(
             verticalArrangement = verticalArrangement,
             content = content,
         )
-        ColumnScrollbar(state, Modifier.align(Alignment.TopEnd))
+        ColumnScrollbar(state, Modifier.align(Alignment.TopEnd), edgePadding = edgePadding)
     }
 }
 
 @Composable
-fun LazyScrollbar(state: LazyListState, modifier: Modifier = Modifier) {
+fun LazyScrollbar(
+    state: LazyListState,
+    modifier: Modifier = Modifier,
+    /** Content's right padding to cancel out so the bar hugs the screen edge. */
+    edgePadding: androidx.compose.ui.unit.Dp = 0.dp,
+) {
     val info = state.layoutInfo
     val total = info.totalItemsCount
     val visible = info.visibleItemsInfo
@@ -115,7 +122,7 @@ fun LazyScrollbar(state: LazyListState, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
 
     ScrollbarTrack(
-        modifier = modifier,
+        modifier = modifier.offset(x = edgePadding),
         thumbFrac = thumbFrac,
         offsetFrac = offsetFrac,
         scrolling = state.isScrollInProgress,
@@ -127,7 +134,12 @@ fun LazyScrollbar(state: LazyListState, modifier: Modifier = Modifier) {
 
 /** Same behavior for plain scrollable Columns. */
 @Composable
-fun ColumnScrollbar(state: ScrollState, modifier: Modifier = Modifier) {
+fun ColumnScrollbar(
+    state: ScrollState,
+    modifier: Modifier = Modifier,
+    /** Content's right padding to cancel out so the bar hugs the screen edge. */
+    edgePadding: androidx.compose.ui.unit.Dp = 0.dp,
+) {
     if (state.maxValue <= 0 || state.maxValue == Int.MAX_VALUE) return
     var viewportPx by remember { mutableFloatStateOf(0f) }
     val estContentPx = state.maxValue + viewportPx
@@ -136,7 +148,7 @@ fun ColumnScrollbar(state: ScrollState, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
 
     ScrollbarTrack(
-        modifier = modifier.onSizeChanged { viewportPx = it.height.toFloat() },
+        modifier = modifier.offset(x = edgePadding).onSizeChanged { viewportPx = it.height.toFloat() },
         thumbFrac = thumbFrac,
         offsetFrac = offsetFrac,
         scrolling = state.isScrollInProgress,
@@ -161,7 +173,12 @@ private fun ScrollbarTrack(
     var interacting by remember { mutableStateOf(false) }
     val big = interacting || scrolling
     val width by animateDpAsState(if (big) 10.dp else 3.dp, label = "sbWidth")
-    val alpha by animateFloatAsState(if (big) 0.9f else 0.35f, label = "sbAlpha")
+    // Idle thumb fades to a faint hint; slow tween so it visibly recedes after scrolling.
+    val alpha by animateFloatAsState(
+        if (big) 0.9f else 0.15f,
+        animationSpec = androidx.compose.animation.core.tween(600),
+        label = "sbAlpha",
+    )
     val density = LocalDensity.current
     var trackHeightPx by remember { mutableIntStateOf(0) }
 

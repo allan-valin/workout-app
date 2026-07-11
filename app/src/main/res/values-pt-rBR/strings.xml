@@ -89,7 +89,12 @@
     <string name="end_discard">Descartar treino</string>
     <string name="end_incomplete_warning">%1$d de %2$d séries não concluídas.</string>
     <string name="info_note">Info e notas</string>
-    <string name="estimated_time">tempo estimado</string>
+    <string name="tap_for_info">Toque em um exercício para ver detalhes</string>
+    <string name="swap_cycle">Trocar</string>
+    <string name="swap_cycle_msg">O ciclo ativo atual será arquivado.</string>
+    <string name="choose_image">Escolha uma imagem</string>
+    <string name="add_own_image">Adicione sua própria imagem de referência</string>
+    <string name="estimated_time">decorrido / estimado</string>
     <string name="tap_to_log_sets">Toque em um exercício para registrar as séries</string>
     <string name="note">Nota</string>
     <string name="rest">Descanso</string>

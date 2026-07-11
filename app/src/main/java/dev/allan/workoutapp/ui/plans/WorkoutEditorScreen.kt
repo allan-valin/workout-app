@@ -647,6 +647,7 @@ fun WorkoutEditorScreen(
                 .padding(padding)
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
+            edgePadding = 12.dp,
         ) {
             // Rename lives here (mirrors the cycle-name field in the plan editor); hidden in
             // single-exercise quick-edit from a running session.
