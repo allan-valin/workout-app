@@ -137,12 +137,10 @@ workout_exercise.supersetWithPrev, set_template.targetValueMax — additive, his
 - [x] Commit + push (c6bb546, 2026-07-07)
 - [ ] Allan: real-device pass on the Redmi (`winstall`), incl. session superset flow + PDF export
 
-## Status: Phases 0-9 complete; Phase 10 (second QA batch) mostly done through SESSION
-2026-07-09e (DB v6, versionCode 4 / 0.4.0 — favorites, global bottom nav, demo import/export
-+ full demo sync). Remaining Phase-10 open items: any leftover sub-items in the Active/plan-
-management block (most done in 09c). Real-device test on the Redmi
-intentionally deferred until a trusted 1.0 (Allan). Everything post-emulator is unit-test +
-build green, NOT emulator-verified.
+## Status: Phases 0-13 complete (Phase-10 Active/plan-management block closed by 09c/09e —
+checkboxes retro-marked 2026-07-11). Real-device test on the Redmi intentionally deferred
+until a trusted 1.0 (Allan); emulator verification required every batch. Open: DEMO DEBT
+(deferred by Allan), unique-name enforcement on RENAME (future item).
 
 Phase 7 EMULATOR-VERIFIED 2026-07-07 (AVD testphone, debug build, pt-BR; screenshots in session scratchpad):
 - pt batch: search "testa" → 5 "Tríceps Testa …" generated names; still present after wger sync (re-merge works)
@@ -279,28 +277,28 @@ Suggestion flow (workout editor ✨):
       are session-only extra injuries merged with the persisted Settings ones.
 
 Active screen / plan management rework:
-- [ ] Only ONE plan active at a time. Tapping the Active tab goes straight to the
-      workout-selection / day-assignment page of that plan (no plan list).
-- [ ] Drop the left checkbox there; tapping a workout opens the same page "today's workout"
+- [x] Only ONE plan active at a time. Tapping the Active tab goes straight to the
+      workout-selection / day-assignment page of that plan (no plan list). (done 09c)
+- [x] Drop the left checkbox there; tapping a workout opens the same page "today's workout"
       opens from the main screen. That page gains, next to the edit icon, the actions the
-      checkbox selection used to expose: download, archive, delete.
-- [ ] The 4 bottom nav buttons stay visible on Active (and everywhere) — they only disappear
-      during an in-progress workout.
+      checkbox selection used to expose: download, archive, delete. (done 09c)
+- [x] The 4 bottom nav buttons stay visible on Active (and everywhere) — they only disappear
+      during an in-progress workout. (done 09e global bottom nav)
 - [x] Plan editor, workout checked: share icon swapped for a download (arrow-down) icon.
-- [ ] Archiving a workout: ask confirmation, then DETACH it from the parent plan and move it
-      to Archive (today it stays listed under the same screen, which makes no sense).
-- [ ] "Add workout" overlay won't scale to dozens of workouts: replace with a button opening
+- [x] Archiving a workout: ask confirmation, then DETACH it from the parent plan and move it
+      to Archive. (done 09c; Phase 12 archiveWorkoutFully detaches from EVERY plan)
+- [x] "Add workout" overlay won't scale to dozens of workouts: replace with a button opening
       a full screen (back arrow) listing ALL workouts, active and inactive, multi-select to
       add several. Two add modes, visually unmistakable: (a) link the existing workout —
       single copy shown in several plans, edits propagate everywhere; (b) use as base — an
-      independent copy is created. Wording must make the difference explicit.
-- [ ] Each workout row on the Active page gets a right-side button to start that workout
-      immediately (opens the training-summary page).
-- [ ] Archive screen: two big square buttons splitting the space evenly — "Plans" and
+      independent copy is created. (done 09c AddWorkoutScreen; reworked Phase 11 into the
+      3-option chooser, "link" renamed "Import")
+- [x] Each workout row on the Active page gets a right-side button to start that workout
+      immediately (opens the training-summary page). (done 09c ▶)
+- [x] Archive screen: two big square buttons splitting the space evenly — "Plans" and
       "Workouts". Plans → all inactive plans. Workouts → ALL workouts including active ones
       (label the active ones), independent of plans; from there a workout can be added to the
-      active plan. This replaces the activate-toggle + archive dual mechanism: everything is
-      archive-based now.
+      active plan. Everything archive-based now. (done 09c ArchiveHubContent)
 
 Workout editor (sets/pauses table):
 - [x] Editor: per-exercise trash removed; checkbox left of the name multi-selects; top bar
@@ -643,4 +641,42 @@ SwiftUI path data (port = convert paths to Android). Runner-up: HichamELBSI/
 react-native-body-highlighter (MIT, 249★) — same flat style, SVG path strings in TS, easily
 converted to per-muscle overlay SVGs feeding the EXISTING BodyMap pipeline; muscle slugs need a
 map to wger ids. Neither is wger-style line-art; both beat the xray on friendliness. Decision
-+ port = own session; screenshots shown to Allan 2026-07-11.
++ port = own session; screenshots shown to Allan 2026-07-11. → Allan picked react (blue fits
+the app); PORTED same day, see Phase 13.
+
+## Phase 13 — Allan feedback on Phase 12 + body port (2026-07-11 evening)
+
+- [x] Session set row: kg·total column widened (weight 3.4→4.2 + 6dp side padding), play cell
+      slimmed (0.9→0.6), check 0.8 — closes the gap Allan disliked between goal and check/x.
+- [x] Nav transitions replaced by Material SHARED-AXIS X (300ms, ~30dp slide = width/13,
+      90ms fade-out then 210ms fade-in): two opaque screens never overlap — this was the
+      "clunky/overlapping" complaint with the full-width slide. Same spec on the NavHost AND
+      the bottom-nav tab AnimatedContent (helpers sharedAxisEnter/Exit in MainActivity).
+- [x] Plan editor: Add-workout button moved above the workout list (below weeks box).
+- [x] ReactivateCycleDialog: LazyColumn + 420dp height cap (scales to dozens of cycles).
+- [x] Archive > Cycles create now asks "Activate the new cycle?" [Activate / Keep in archive]
+      (PendingCycle holder; createBlankPlan/createWizardPlan gained activate: Boolean).
+- [x] Unique names per kind (cycle / workout): collision appends "MM/yy", then "(2)"… —
+      PlanRepo.uniqueName/uniquePlanName/uniqueWorkoutName; applied to blank+wizard cycle
+      create (wizard batch-aware), editor from-scratch (createWorkout), createArchivedWorkout,
+      copyWorkout. NOT yet enforced on RENAME (editor/plan-editor name fields) — future item.
+- [x] Archive: "last trained" on workout rows AND plan rows (planLastTrained = max over member
+      workouts via new allPlanWorkoutsFlow + planWorkoutIds map).
+- [x] Archive expandable rows (chevron right): plan rows expand to member-workout buttons
+      (open workout view); workout rows expand to containing-cycle buttons (open plan editor)
+      or "No cycles linked". ExpandChevron in ActiveArchiveScreens.
+- [x] BODY MAP PORTED to react-native-body-highlighter art (MIT, vendored TS + LICENSE +
+      tools/body-highlighter/convert.py which regenerates assets/body/*.svg): flat vector
+      body, muscles tinted BLUE by load (Blue 200→800; matches app accent — Allan's pick over
+      MuscleMap's orange). Slug→wger-id approximations: serratus(3)→obliques,
+      brachialis(13)→forearm, soleus(15)+gastrocnemius(7)→calves, lats(12)→upper-back.
+      viewBox 724x1448 per view (back offset x+724). Settings gains body_attribution line.
+      EMULATOR-VERIFIED: blue body renders front+back with sensible loads on the Teste cycle.
+
+INCIDENT (2026-07-11, owned by Claude): tap automation mis-created 2 junk wizard cycles ("a")
+with 6 empty duplicate workouts, and during cleanup a coordinate tap on a reshuffled list
+deleted the REAL "Pernas" workout (2 exercises, never trained — no session history lost).
+The 07-09 export in emulator Downloads predates its exercises, so the 2 exercise entries are
+unrecoverable; Pernas recreated empty in the Teste cycle. Junk cycles/workouts deleted.
+LESSON (also in memory): on destructive UI automation, re-screenshot and verify the exact
+target before EVERY tap — list positions shift after each mutation.

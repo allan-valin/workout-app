@@ -453,6 +453,7 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                 }
             }
             Text(stringResource(R.string.wger_attribution), style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.body_attribution), style = MaterialTheme.typography.labelSmall)
         }
     }
 

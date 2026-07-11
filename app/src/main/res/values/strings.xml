@@ -21,6 +21,7 @@
     <string name="secondary_muscles">Secondary muscles</string>
     <string name="also_known_as">Also known as</string>
     <string name="wger_attribution">Exercise data: wger.de (CC-BY-SA 4.0)</string>
+    <string name="body_attribution">Body art: react-native-body-highlighter (MIT)</string>
     <string name="no_workouts_today">No workouts assigned for today.</string>
     <string name="plan_name">Cycle name</string>
     <string name="cycle_weeks">Cycle weeks</string>

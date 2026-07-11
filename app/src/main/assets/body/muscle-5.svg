@@ -1,72 +1,8 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
-<svg
-   xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://creativecommons.org/ns#"
-   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="200"
-   height="369.0256"
-   id="svg2"
-   version="1.1"
-   inkscape:version="0.48.3.1 r9886"
-   sodipodi:docname="muscular_system_back.svg">
-  <defs
-     id="defs4" />
-  <sodipodi:namedview
-     id="base"
-     pagecolor="#ffffff"
-     bordercolor="#666666"
-     borderopacity="1.0"
-     inkscape:pageopacity="0.0"
-     inkscape:pageshadow="2"
-     inkscape:zoom="0.7"
-     inkscape:cx="420.23066"
-     inkscape:cy="94.1613"
-     inkscape:document-units="px"
-     inkscape:current-layer="layer1"
-     showgrid="false"
-     fit-margin-top="0"
-     fit-margin-left="0"
-     fit-margin-right="0"
-     fit-margin-bottom="0"
-     inkscape:window-width="844"
-     inkscape:window-height="577"
-     inkscape:window-x="318"
-     inkscape:window-y="157"
-     inkscape:window-maximized="0" />
-  <metadata
-     id="metadata7">
-    <rdf:RDF>
-      <cc:Work
-         rdf:about="">
-        <dc:format>image/svg+xml</dc:format>
-        <dc:type
-           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
-      </cc:Work>
-    </rdf:RDF>
-  </metadata>
-  <g
-     inkscape:label="Ebene 1"
-     inkscape:groupmode="layer"
-     id="layer1"
-     transform="translate(-54.28571,-335.71932)">
-    <path
-       style="opacity:0.52424239;fill:#fc0000;fill-opacity:1;stroke:none;display:inline"
-       d="m 191.55063,438.91472 c -0.3625,2.35132 -0.62211,10.687 0.0856,13.02164 3.8465,9.09699 3.62452,11.21449 7.14787,12.86388 6.10219,2.85662 4.81236,1.08698 6.92525,0.15576 2.05497,-0.9057 4.7139,-2.75842 4.43256,-5.07359 -0.87122,-7.16941 1.00012,-14.25906 -1.07998,-20.8601 -16.47188,-16.75749 -16.00743,-10.16063 -17.51127,-0.10759 z"
-       id="path2992-9-5"
-       inkscape:connector-curvature="0"
-       sodipodi:nodetypes="ccsascc" />
-    <path
-       style="opacity:0.52424239;fill:#fc0000;fill-opacity:1;stroke:none;display:inline"
-       d="m 116.92894,439.13084 c 0.3625,2.35132 0.62211,10.687 -0.0856,13.02164 -3.8465,9.09699 -3.62452,11.21449 -7.14787,12.86388 -6.10219,2.85662 -4.81236,1.08698 -6.92525,0.15576 -2.05497,-0.9057 -4.713898,-2.75842 -4.432558,-5.07359 0.87122,-7.16941 -1.00012,-14.25906 1.07998,-20.8601 16.471878,-16.75749 16.007428,-10.16063 17.511268,-0.10759 z"
-       id="path2992-9-5-1"
-       inkscape:connector-curvature="0"
-       sodipodi:nodetypes="ccsascc" />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="724 0 724 1448">
+  <path d="M931.03 442.29c-2.01 2.57-6.52 9.71-10.12 9.17q-.52-.08-.8-.52-1.35-2.09-1.84-4.44c-2.25-10.87-3.28-22.88 1.35-33.38 5.45-12.33 18.27-23.68 29.61-31.2a.47.46 68.7 01.71.32l6.42 38.52q.09.54-.26.97c-.47.58-1.12 1.52-1.71 1.94q-9.11 6.58-18.08 13.36-2.9 2.2-5.28 5.26z" fill="#000"/>
+  <path d="M958.15 427.11a.41.41 0 01.55.27q4.44 16.16-2.23 31.41-3.37 7.73-5.91 19.98c-1.51 7.28-8.93 12.21-11.81 18.82-2.42 5.56-2.41 12.5-3.51 16.66-2.14 8.06-8.51 14.15-13.91 20.13a.93.93 0 01-1.54-.25q-.57-1.3-.75-2.89c-1.93-16.91 2.52-33.52 5.71-49.99 2.16-11.21-1.54-24.15 9.68-34.59q9.54-8.86 19.55-17.23c1.3-1.08 2.7-1.72 4.17-2.32z" fill="#000"/>
+  <path d="M903.57 519.67a1.84 1.82-5.4 01-1.12-.92q-3.54-6.97-3.68-15.19c-.37-21.2 3.8-42.53 9.5-63.44q.33-1.23.92-.1 4.64 8.78 8.6 18.67c2.88 7.21 4.19 12.98 1.88 20.57q-6.07 19.96-14.02 39.23-.65 1.58-2.08 1.18z" fill="#000"/>
+  <path d="M1213.94 424.56q-2.02-1.5-3.08-3.02-.31-.46-.22-1 3.32-19.22 6.42-38.46.09-.56.56-.25 14.9 9.82 24.8 22.71c9.8 12.75 9.72 30.37 5.41 45.13a2.62 2.62 0 01-3.76 1.57c-3.26-1.77-6.22-6.71-8.62-9.67-5.24-6.46-14.75-12-21.51-17.01z" fill="#000"/>
+  <path d="M1246.2 534.5q-.95-.3-1.75-1.22c-4.65-5.4-9.13-9.88-11.46-15.51-2.96-7.13-1.37-15.5-5.64-22.09-4.06-6.26-8.72-9.91-10.89-17.58-1.62-5.68-2.81-11.46-4.97-17.02-4.56-11.69-6.45-20.86-3.33-33.56a.59.58-74 01.75-.42q1.69.56 3.22 1.79 11.23 9.08 21.54 19.18c5.39 5.28 6.92 10.13 7.24 18.16.9 22.52 10.62 44.97 6.59 67.49a1.01 1 13.9 01-1.3.78z" fill="#000"/>
+  <path d="M1258.43 439.96q2.01 5.38 3.1 10.68c3.58 17.36 7.13 34.77 6.89 52.61q-.11 8.3-3.94 15.61a1.61 1.6 33.4 01-2.44.5c-1.45-1.19-1.9-3.58-2.43-4.94q-9.23-23.41-13.19-38.15c-2.63-9.81 6.82-27.63 11.53-36.35q.28-.5.48.04z" fill="#000"/>
 </svg>

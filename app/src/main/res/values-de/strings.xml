@@ -21,6 +21,7 @@
     <string name="secondary_muscles">Sekundäre Muskeln</string>
     <string name="also_known_as">Auch bekannt als</string>
     <string name="wger_attribution">Übungsdaten: wger.de (CC-BY-SA 4.0)</string>
+    <string name="body_attribution">Body art: react-native-body-highlighter (MIT)</string>
     <string name="no_workouts_today">Kein Training für heute geplant.</string>
     <string name="plan_name">Zyklusname</string>
     <string name="cycle_weeks">Zykluswochen</string>
