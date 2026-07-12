@@ -812,7 +812,29 @@ scratchpad; versionCode 5 / 0.5.0; testDebug+testRelease+assembleRelease green; 
 - OPEN (small): no UI to remove/unlink a user gallery image once added — needs a delete
   affordance on the gallery add/manage page someday. Demo debt still deferred.
 
-PHASE 16 (queued by Allan, start AFTER this batch, after session reset ~midnight):
-research free exercise-image/GIF datasets in the 3D-body-orange-muscle style
-(yuhonas/free-exercise-db, MuscleWiki-style sources): licensing, size, wger-id mapping
-feasibility. If adopted: multi-source images feed the SAME gallery/pref pipeline (v7).
+## Phase 16 — exercise-image/GIF dataset research (DONE 2026-07-12, research only)
+
+Question: a free dataset in the 3D-body-orange-muscle style (MuscleWiki/Gymvisual look)?
+Answer: NO genuinely open one exists — that style IS Gymvisual's commercial catalog.
+
+- yuhonas/free-exercise-db: Unlicense (public-domain claim), 800+ exercises, JSON w/
+  primary/secondary muscles + instructions, 2 static JPEGs each (~850x567, ~70 KB → ~115 MB
+  total, download-on-add only). Style = real-gym PHOTOS (sample checked), NOT the wanted 3D
+  style; photos look like bodybuilding.com shots — provenance dubious despite the license
+  claim. Name-based wger mapping feasible (pt-aliases-style fuzzy match). NOT recommended.
+- hasaneyldrm/exercises-dataset (1,324 GIFs) + ExerciseDB/Kaggle (1,500+): EXACTLY the wanted
+  style, but the media is (c) Gymvisual — that repo has special permission at 180x180 only;
+  downstream reuse needs YOUR OWN Gymvisual license. Every other repo with these GIFs is
+  pirating them.
+- MuscleWiki itself: proprietary videos, no open dataset/API.
+- Gymvisual direct (gymvisual.com): royalty-free per-item purchase — GIFs ~$0.90/item (10+),
+  illustrations <$0.75, videos ~$6; pack discounts on request. Buying GIFs only for the
+  exercises Allan actually trains (~30-50 => ~$30-45) is the legit path to that style.
+- RECOMMENDATION: keep wger art as the base; if Allan wants the 3D style, buy the handful of
+  Gymvisual GIFs he uses — the v7 gallery (user images + pref, GIF-capable Coil loader)
+  already lets them be attached per exercise with ZERO new code (gallery + button). A bulk
+  importer would only make sense after a pack purchase; fuzzy name→wger-id mapping is proven
+  (pt-aliases) if that day comes.
+
+Sources: github.com/yuhonas/free-exercise-db, github.com/hasaneyldrm/exercises-dataset,
+gymvisual.com, github.com/exercemus/exercises (MIT list curated from wger/exercises.json).
