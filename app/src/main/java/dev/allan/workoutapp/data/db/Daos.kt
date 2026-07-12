@@ -112,6 +112,35 @@ interface ExerciseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun restoreFavorites(items: List<ExerciseFavorite>)
 
+    // ---- user-linked exercise images (v7) ----
+    @Query("SELECT * FROM exercise_user_image WHERE exerciseId = :exerciseId ORDER BY id")
+    fun userImagesFlow(exerciseId: String): Flow<List<ExerciseUserImage>>
+
+    @Insert
+    suspend fun insertUserImage(img: ExerciseUserImage): Long
+
+    @Query("DELETE FROM exercise_user_image WHERE id = :id")
+    suspend fun deleteUserImage(id: Long)
+
+    @Query("SELECT path FROM exercise_image_pref WHERE exerciseId = :exerciseId")
+    fun imagePrefFlow(exerciseId: String): Flow<String?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertImagePref(pref: ExerciseImagePref)
+
+    // Full-backup support.
+    @Query("SELECT * FROM exercise_user_image")
+    suspend fun allUserImages(): List<ExerciseUserImage>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreUserImages(items: List<ExerciseUserImage>)
+
+    @Query("SELECT * FROM exercise_image_pref")
+    suspend fun allImagePrefs(): List<ExerciseImagePref>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreImagePrefs(items: List<ExerciseImagePref>)
+
     /**
      * Deferred search. lang = null searches all languages; muscleId filters primary OR
      * secondary; query matches name or aliases, case-insensitive.

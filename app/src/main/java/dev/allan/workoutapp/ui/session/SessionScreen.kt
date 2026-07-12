@@ -330,18 +330,12 @@ fun SessionScreen(
             note = state.descriptionNote,
             onSaveNote = { txt -> state.descriptionExerciseId?.let { vm.saveNote(it, txt) } },
             extraContent = {
-                val file = sheetEx?.imagePath?.let { java.io.File(it) }?.takeIf { it.exists() }
-                if (state.descriptionWithImage && file != null) {
-                    coil.compose.AsyncImage(
-                        model = file,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .background(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                RoundedCornerShape(12.dp),
-                            ),
+                // Gallery (wger + user photos, last viewed wins) — except from the pager's
+                // top-bar button, where the image is already on screen.
+                if (state.descriptionWithImage && sheetEx != null) {
+                    dev.allan.workoutapp.ui.common.ExerciseImageGallery(
+                        exerciseId = sheetEx.exerciseId,
+                        wgerPath = sheetEx.imagePath,
                     )
                 }
             },
@@ -494,24 +488,43 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            val mediaFile = remember(ex.imagePath) {
-                ex.imagePath?.let { java.io.File(it) }?.takeIf { it.exists() }
-            }
-            if (mediaFile != null) {
+            // Representative image: gallery pref first, then wger, then user photos.
+            val (_, displayPath) =
+                dev.allan.workoutapp.ui.common.rememberExerciseImages(ex.exerciseId, ex.imagePath)
+            if (displayPath != null) {
                 val context = androidx.compose.ui.platform.LocalContext.current
                 // Shared GIF/SVG-capable loader — one memory cache across all screens.
                 val gifLoader = remember {
                     dev.allan.workoutapp.ui.common.AppImageLoader.get(context)
                 }
                 coil.compose.AsyncImage(
-                    model = mediaFile,
+                    model = java.io.File(displayPath),
                     imageLoader = gifLoader,
                     contentDescription = ex.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                 )
             } else {
-                Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(48.dp))
+                // No image at all: big centered + linking a photo from the device gallery.
+                val pick = dev.allan.workoutapp.ui.common.rememberUserImagePicker(ex.exerciseId)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    androidx.compose.material3.FilledIconButton(
+                        onClick = pick,
+                        modifier = Modifier.size(64.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = stringResource(R.string.add_own_image),
+                            modifier = Modifier.size(32.dp),
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.add_own_image),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
             }
         }
 

@@ -46,6 +46,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -110,17 +113,26 @@ fun ExerciseLibraryScreen(
             OutlinedTextField(
                 value = state.query,
                 onValueChange = vm::setQuery,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Filters drop down from the search bar the moment it's focused, and
+                    // never block typing or the Search button (Allan: the old bottom sheet
+                    // made search and filters fight each other).
+                    .onFocusChanged { if (it.isFocused) showFilters = true },
                 label = { Text(stringResource(R.string.search_exercises)) },
                 singleLine = true,
             )
+            androidx.compose.animation.AnimatedVisibility(visible = showFilters) {
+                FilterPanel(vm = vm, state = state, muscles = muscles, appLang = appLang)
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = { showCustomsSheet = true }) {
+                // Real buttons, not clickable text (Allan).
+                androidx.compose.material3.OutlinedButton(onClick = { showCustomsSheet = true }) {
                     Text(stringResource(R.string.custom_exercises))
                 }
                 // Deferred search: explicit button, no per-keystroke queries.
                 if (state.query.isNotBlank() || state.selectedMuscleId != null) {
-                    TextButton(onClick = { vm.search(appLang) }) {
+                    Button(onClick = { showFilters = false; vm.search(appLang) }) {
                         Text(stringResource(R.string.search_button))
                     }
                 }
@@ -137,6 +149,9 @@ fun ExerciseLibraryScreen(
                 )
                 else -> {
                     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    // Images collapsed by default (no pop-in while results load); the
+                    // chevron reveals them per row.
+                    var expandedImages by remember { mutableStateOf(setOf<String>()) }
                     androidx.compose.foundation.layout.Box {
                         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             items(state.results, key = { it.id }) { hit ->
@@ -153,12 +168,19 @@ fun ExerciseLibraryScreen(
                                     swapMode = swapMode,
                                     isFavorite = hit.id in favoriteIds,
                                     onToggleFavorite = { vm.toggleFavorite(hit.id) },
+                                    showImage = hit.id in expandedImages,
+                                    onToggleImage = {
+                                        expandedImages =
+                                            if (hit.id in expandedImages) expandedImages - hit.id
+                                            else expandedImages + hit.id
+                                    },
                                 )
                             }
                         }
                         dev.allan.workoutapp.ui.common.LazyScrollbar(
                             listState,
                             Modifier.align(Alignment.TopEnd),
+                            edgePadding = 12.dp,
                         )
                     }
                 }
@@ -166,66 +188,6 @@ fun ExerciseLibraryScreen(
         }
     }
 
-    if (showFilters) {
-        ModalBottomSheet(onDismissRequest = { showFilters = false }) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.muscle_group), fontWeight = FontWeight.Bold)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = state.selectedMuscleId == null,
-                        onClick = { vm.setMuscle(null) },
-                        label = { Text(stringResource(R.string.all)) },
-                    )
-                    muscles.forEach { m ->
-                        FilterChip(
-                            selected = state.selectedMuscleId == m.id,
-                            onClick = { vm.setMuscle(m.id) },
-                            label = { Text(MuscleNames.display(m.nameEn, appLang)) },
-                        )
-                    }
-                }
-                Text(stringResource(R.string.search_language), fontWeight = FontWeight.Bold)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SearchLang.entries.forEach { lang ->
-                        FilterChip(
-                            selected = state.searchLang == lang,
-                            onClick = { vm.setSearchLang(lang) },
-                            label = {
-                                Text(
-                                    when (lang) {
-                                        SearchLang.APP -> stringResource(R.string.lang_app_default)
-                                        SearchLang.EN -> "English"
-                                        SearchLang.PT -> "Português (BR)"
-                                        SearchLang.DE -> "Deutsch"
-                                        SearchLang.ALL -> stringResource(R.string.all)
-                                    }
-                                )
-                            },
-                        )
-                    }
-                }
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.show_alt_names))
-                    Switch(checked = state.showAltNames, onCheckedChange = vm::setShowAltNames)
-                }
-                val injured by vm.injuredMuscles.collectAsState()
-                if (injured.isNotEmpty()) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(stringResource(R.string.hide_injured))
-                        Switch(checked = state.excludeInjured, onCheckedChange = vm::setExcludeInjured)
-                    }
-                }
-            }
-        }
-    }
 
     if (showCustomsSheet) {
         val customs by vm.customs.collectAsState()
@@ -418,6 +380,78 @@ private fun CustomExerciseDialog(
     )
 }
 
+/**
+ * Inline filter panel dropping down from the search bar (replaces the old bottom sheet so
+ * typing, filtering and the Search button all work together).
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun FilterPanel(
+    vm: ExerciseLibraryViewModel,
+    state: LibraryUiState,
+    muscles: List<dev.allan.workoutapp.data.db.Muscle>,
+    appLang: String,
+) {
+    androidx.compose.material3.Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.muscle_group), fontWeight = FontWeight.Bold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = state.selectedMuscleId == null,
+                    onClick = { vm.setMuscle(null) },
+                    label = { Text(stringResource(R.string.all)) },
+                )
+                muscles.forEach { m ->
+                    FilterChip(
+                        selected = state.selectedMuscleId == m.id,
+                        onClick = { vm.setMuscle(m.id) },
+                        label = { Text(MuscleNames.display(m.nameEn, appLang)) },
+                    )
+                }
+            }
+            Text(stringResource(R.string.search_language), fontWeight = FontWeight.Bold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SearchLang.entries.forEach { lang ->
+                    FilterChip(
+                        selected = state.searchLang == lang,
+                        onClick = { vm.setSearchLang(lang) },
+                        label = {
+                            Text(
+                                when (lang) {
+                                    SearchLang.APP -> stringResource(R.string.lang_app_default)
+                                    SearchLang.EN -> "English"
+                                    SearchLang.PT -> "Português (BR)"
+                                    SearchLang.DE -> "Deutsch"
+                                    SearchLang.ALL -> stringResource(R.string.all)
+                                }
+                            )
+                        },
+                    )
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.show_alt_names))
+                Switch(checked = state.showAltNames, onCheckedChange = vm::setShowAltNames)
+            }
+            val injured by vm.injuredMuscles.collectAsState()
+            if (injured.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.hide_injured))
+                    Switch(checked = state.excludeInjured, onCheckedChange = vm::setExcludeInjured)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ExerciseRow(
     hit: ExerciseHit,
@@ -429,13 +463,15 @@ private fun ExerciseRow(
     swapMode: Boolean = false,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
+    showImage: Boolean = false,
+    onToggleImage: (() -> Unit)? = null,
 ) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            // Same illustration the session shows — above the title (downloaded file
-            // first, wger URL as fallback when the media pipeline hasn't run yet).
+            // Illustration hidden until the chevron opens it (downloaded file first,
+            // wger URL fallback when the media pipeline hasn't run yet).
             val model = hit.imagePath ?: hit.imageUrl
-            if (model != null) {
+            if (showImage && model != null) {
                 coil.compose.AsyncImage(
                     model = model,
                     contentDescription = null,
@@ -448,6 +484,15 @@ private fun ExerciseRow(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(hit.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (onToggleImage != null && (hit.imagePath != null || hit.imageUrl != null)) {
+                    IconButton(onClick = onToggleImage) {
+                        Icon(
+                            if (showImage) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 if (hit.lang != appLang) {
                     Text("(${hit.lang})", style = MaterialTheme.typography.labelSmall)
                 }

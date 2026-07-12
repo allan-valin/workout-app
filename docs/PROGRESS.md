@@ -758,3 +758,40 @@ target before EVERY tap — list positions shift after each mutation.
 - Compile + unit tests + assembleRelease green. Test session discarded; DB left clean.
 - DEMO DEBT unchanged (deferred by Allan) — now also behind on: body-model switch, session
   list rework, scrollbars, end-from-view.
+
+## Phase 15b — Allan corrections on 15 (2026-07-11 ~23:00; CHECKPOINT at 94% session usage)
+
+COMMITTED (part 1, pushed earlier this session): stats cards slimmed (bodyweight = current
+weight + 30d delta, graph only on detail page; progression = one line, averages block moved
+to detail top), archive-create "Swap" wording when a cycle is active, clock caption
+right-aligned + renamed "elapsed / estimated" (3 langs), sheet-image rules (pager top-bar
+sheet = no image; workout view active+archived = image), workout-view start/end gap 2dp +
+tap-for-details caption, scrollbar idle fade (alpha 0.15) + edgePadding wired at every site
+so the bar hugs the screen edge (clears the set-delete ✕).
+
+COMMITTED (part 2, 2026-07-12 session: compile fixed — missing `setValue` import in
+ExerciseImageGallery.kt — then compile + unit tests green, committed + pushed):
+- Library rework: filters now an inline FilterPanel dropping from the search bar (opens on
+  search-field focus; old ModalBottomSheet removed); Search = filled Button, Custom
+  exercises = OutlinedButton; result images hidden behind per-row chevron (default
+  collapsed, no load pop-in). ExerciseRow gained showImage/onToggleImage.
+- DB v7 (MIGRATION_6_7): exercise_user_image + exercise_image_pref tables (+ DAO flows +
+  full-backup fields userImages/imagePrefs).
+- ui/common/ExerciseImageGallery.kt: rememberExerciseImages (wger + user photos, pref
+  wins), rememberUserImagePicker (PickVisualMedia → copy to filesDir/exercise_media →
+  insert + prefer), ExerciseImageGallery (◀ ▶ wrap-around pager, "Choose an image" caption,
+  last page = big circular + w/ "Add your own image reference"; last-viewed image becomes
+  the representative). Wired into: session sheet (only when descriptionWithImage), workout
+  view sheet, editor sheet (wgerPath resolved in-component); session pager image slot now
+  shows the representative image, or the big centered + when the exercise has none.
+
+STILL OPEN in 15b after commit: emulator pass for the whole batch (incl. in-session
+scrollbar only-first-page bug — REPRODUCE on a multi-exercise workout, suspect
+ColumnScrollbar viewportPx/maxValue init on lazily-composed pager pages); "buttons
+everywhere" sweep beyond the library (check remaining TextButton action sites);
+versionCode/versionName bump + release build; demo debt (deferred).
+
+PHASE 16 (queued by Allan, start AFTER this batch, after session reset ~midnight):
+research free exercise-image/GIF datasets in the 3D-body-orange-muscle style
+(yuhonas/free-exercise-db, MuscleWiki-style sources): licensing, size, wger-id mapping
+feasibility. If adopted: multi-source images feed the SAME gallery/pref pipeline (v7).

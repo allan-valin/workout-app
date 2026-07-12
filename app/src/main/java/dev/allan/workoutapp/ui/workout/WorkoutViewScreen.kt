@@ -398,17 +398,11 @@ fun WorkoutViewScreen(
             note = d.note,
             onSaveNote = { txt -> vm.saveNote(d.exerciseId, txt) },
             extraContent = {
-                // Same info everywhere: active AND archived workout views show the image.
-                val file = d.imagePath?.let { java.io.File(it) }?.takeIf { it.exists() }
-                if (file != null) {
-                    coil.compose.AsyncImage(
-                        model = file,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
-                    )
-                }
+                // Same info everywhere: active AND archived workout views show the gallery.
+                dev.allan.workoutapp.ui.common.ExerciseImageGallery(
+                    exerciseId = d.exerciseId,
+                    wgerPath = d.imagePath,
+                )
             },
         )
     }

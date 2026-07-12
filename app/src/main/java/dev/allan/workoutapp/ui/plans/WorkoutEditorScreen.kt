@@ -716,6 +716,14 @@ fun WorkoutEditorScreen(
             onDismiss = vm::closeDescription,
             note = info.note,
             onSaveNote = { txt -> vm.saveNote(info.exerciseId, txt) },
+            extraContent = {
+                // Gallery: pick/add the representative image from the editor too
+                // (wger path resolved inside the component).
+                dev.allan.workoutapp.ui.common.ExerciseImageGallery(
+                    exerciseId = info.exerciseId,
+                    wgerPath = null,
+                )
+            },
         )
     }
 

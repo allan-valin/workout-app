@@ -14,8 +14,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Plan::class, Workout::class, PlanWorkout::class, WorkoutExercise::class, SetTemplate::class,
         Session::class, SetLog::class, ExerciseNote::class, BodyMetric::class,
         SessionSetDraft::class, ExerciseLink::class, ExerciseFavorite::class,
+        ExerciseUserImage::class, ExerciseImagePref::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -124,6 +125,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v7: user-linked exercise images + chosen representative image. */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS exercise_user_image (
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        exerciseId TEXT NOT NULL,
+                        path TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS exercise_image_pref (
+                        exerciseId TEXT NOT NULL PRIMARY KEY,
+                        path TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -131,7 +155,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "workout.db",
                 ).addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                 )
                     .build().also { instance = it }
             }

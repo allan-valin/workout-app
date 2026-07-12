@@ -205,6 +205,23 @@ data class ExerciseFavorite(
     @PrimaryKey val exerciseId: String,
 )
 
+/** User-linked gallery image for an exercise (own table, survives wger refresh). */
+@kotlinx.serialization.Serializable
+@Entity(tableName = "exercise_user_image")
+data class ExerciseUserImage(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val exerciseId: String,
+    val path: String,
+)
+
+/** The image chosen to represent the exercise (last viewed in the gallery wins). */
+@kotlinx.serialization.Serializable
+@Entity(tableName = "exercise_image_pref")
+data class ExerciseImagePref(
+    @PrimaryKey val exerciseId: String,
+    val path: String,
+)
+
 @Serializable
 @Entity(tableName = "exercise_note", indices = [Index("exerciseId")])
 data class ExerciseNote(
