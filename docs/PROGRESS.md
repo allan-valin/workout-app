@@ -785,11 +785,32 @@ ExerciseImageGallery.kt — then compile + unit tests green, committed + pushed)
   view sheet, editor sheet (wgerPath resolved in-component); session pager image slot now
   shows the representative image, or the big centered + when the exercise has none.
 
-STILL OPEN in 15b after commit: emulator pass for the whole batch (incl. in-session
-scrollbar only-first-page bug — REPRODUCE on a multi-exercise workout, suspect
-ColumnScrollbar viewportPx/maxValue init on lazily-composed pager pages); "buttons
-everywhere" sweep beyond the library (check remaining TextButton action sites);
-versionCode/versionName bump + release build; demo debt (deferred).
+15b CLOSED 2026-07-12 (EMULATOR-VERIFIED, AVD testphone, pt-BR dark, screenshots in session
+scratchpad; versionCode 5 / 0.5.0; testDebug+testRelease+assembleRelease green; committed+pushed):
+- v6→v7 migration clean over real data. Library rework verified: FilterPanel drops on
+  search-field focus, filled Buscar + outlined Custom exercises, per-row chevron expands the
+  image (wger URL load), favorite star round-trip. Gallery verified: info-sheet gallery pages
+  wger image ↔ add-page, photo-picker pick links + prefers a user image, session pager shows
+  the representative image ("last viewed wins").
+- Scrollbar "only-first-page" bug NOT reproducible — bar present on pager page 2 with
+  overflow (pixel-scan proof). Real defect found instead: the thumb sat 13dp off the screen
+  edge EVERYWHERE (left-aligned inside its 16dp touch box; the part-1 edgePadding only moved
+  the box). Fixed: thumb right-aligned (align TopEnd) in FastScrollbar — verified idle at the
+  edge + grows/brightens while scrolling.
+- Buttons sweep: dialog confirm/cancel TextButtons kept (Material convention); icon'd
+  TextButtons kept (satisfy the container/icon rule); upgraded the two bare-text sites —
+  library "New custom exercise" and BodyMap "Switch model" → OutlinedButton.
+- BUG found by the emulator pass + FIXED (DB v8, MIGRATION_7_8): templatesChanged flag and
+  templateSnapshot lived only in VM memory, so a process death mid-session (HyperOS kill!)
+  silently kept in-session plan edits — no keep-vs-one-time prompt, no restore. Now the
+  pre-edit snapshot is persisted as session.templateSnapshotJson on the FIRST in-session plan
+  edit, recovered on resume, cleared at session end (both end paths). Verified: add set →
+  am kill → resume → end → "Manter alterações no plano?" appears; Descartar restored 3 sets
+  (DB-checked), snapshot column cleared. v7→v8 migration clean.
+- Emulator DB repaired after tests (junk sets + test image rows removed via run-as sqlite;
+  Voador back to 3×10; test photo deleted).
+- OPEN (small): no UI to remove/unlink a user gallery image once added — needs a delete
+  affordance on the gallery add/manage page someday. Demo debt still deferred.
 
 PHASE 16 (queued by Allan, start AFTER this batch, after session reset ~midnight):
 research free exercise-image/GIF datasets in the 3D-body-orange-muscle style

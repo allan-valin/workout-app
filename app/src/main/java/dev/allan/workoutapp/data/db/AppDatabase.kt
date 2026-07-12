@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SessionSetDraft::class, ExerciseLink::class, ExerciseFavorite::class,
         ExerciseUserImage::class, ExerciseImagePref::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -148,6 +148,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v8: persist the pre-edit template snapshot with the running session (see Session). */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE session ADD COLUMN templateSnapshotJson TEXT")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -156,6 +163,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "workout.db",
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                    MIGRATION_7_8,
                 )
                     .build().also { instance = it }
             }

@@ -25,7 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.OutlinedButton
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -151,7 +152,11 @@ private fun Legend(onSwitchModel: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onSwitchModel) {
+            OutlinedButton(
+                onClick = onSwitchModel,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                modifier = Modifier.heightIn(min = 28.dp),
+            ) {
                 Text(
                     androidx.compose.ui.res.stringResource(R.string.switch_model),
                     style = MaterialTheme.typography.labelSmall,

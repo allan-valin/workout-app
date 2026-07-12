@@ -149,6 +149,12 @@ data class Session(
     val status: SessionStatus = SessionStatus.RUNNING,
     val activeSecs: Int = 0,
     val restSecs: Int = 0,
+    /**
+     * Pre-edit set templates (JSON), written on the first mid-session plan edit and cleared
+     * at session end. Persisted with the session so the keep-vs-one-time end prompt — and
+     * the one-time restore — survive process death. Null = plan untouched this session.
+     */
+    val templateSnapshotJson: String? = null,
 )
 
 @Serializable

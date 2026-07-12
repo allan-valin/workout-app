@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -220,7 +221,7 @@ fun ExerciseLibraryScreen(
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = { showCustomDialog = true }) {
+                    OutlinedButton(onClick = { showCustomDialog = true }) {
                         Text(stringResource(R.string.new_custom_exercise))
                     }
                     if (onAdd != null && selectedCustoms.isNotEmpty()) {

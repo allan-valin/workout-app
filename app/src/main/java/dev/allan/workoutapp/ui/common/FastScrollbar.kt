@@ -216,6 +216,9 @@ private fun ScrollbarTrack(
         val thumbOffsetPx = (offsetFrac * (1f - thumbFrac) * trackHeightPx).toInt()
         Box(
             Modifier
+                // Right-aligned so the visual bar hugs the screen edge; the 16dp Box
+                // stays the touch target.
+                .align(Alignment.TopEnd)
                 .offset { IntOffset(0, thumbOffsetPx) }
                 .width(width)
                 .height(thumbHeightDp)

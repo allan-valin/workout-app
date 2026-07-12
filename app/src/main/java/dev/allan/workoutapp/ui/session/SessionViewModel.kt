@@ -213,6 +213,12 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
 
         val wes = db.planDao().workoutExercises(workoutId).first()
         val templates = db.planDao().setTemplatesForWorkout(workoutId).first()
+        // A persisted snapshot means the plan was edited mid-session before a process death —
+        // recover the pre-edit templates (and the changed flag below) from the session row,
+        // not from the already-edited live tables.
+        session.templateSnapshotJson?.let { json ->
+            templateSnapshot = kotlinx.serialization.json.Json.decodeFromString(json)
+        }
         if (templateSnapshot.isEmpty()) templateSnapshot = templates
         val loggedSets = db.sessionDao().setLogs(session.id)
         val drafts = db.sessionDao().drafts(session.id).associateBy { it.templateId }
@@ -264,6 +270,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             exercises = exercises,
             currentStep = SupersetOrder.nextStep(exercises),
             estimatedTotalSecs = estimateWorkoutSecs(exercises),
+            templatesChanged = _state.value.templatesChanged || session.templateSnapshotJson != null,
         )
         // Backfill any missing images (e.g. exercise added before the media pipeline existed).
         exercises.filter { it.imagePath == null }.forEach { ex ->
@@ -569,9 +576,26 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         viewModelScope.launch {
             val t = db.planDao().setTemplatesForWorkout(workoutId).first().firstOrNull { it.id == templateId } ?: return@launch
             db.planDao().updateSetTemplate(transform(t))
-            _state.value = _state.value.copy(templatesChanged = true)
+            markTemplatesChanged()
             startOrResume()
         }
+    }
+
+    /** Persist the pre-edit snapshot with the session on the FIRST plan edit, so the
+     *  keep-vs-one-time end prompt (and the one-time restore) survive process death. */
+    private suspend fun markTemplatesChanged() {
+        _state.value.sessionId?.let { sessionId ->
+            val session = db.sessionDao().session(sessionId)
+            if (session != null && session.templateSnapshotJson == null) {
+                db.sessionDao().updateSession(
+                    session.copy(
+                        templateSnapshotJson =
+                            kotlinx.serialization.json.Json.encodeToString(templateSnapshot)
+                    )
+                )
+            }
+        }
+        _state.value = _state.value.copy(templatesChanged = true)
     }
 
     fun setSetType(set: SessionSet, type: SetType) = editTemplate(set.templateId) { it.copy(type = type) }
@@ -602,7 +626,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     )
                 )
             }
-            _state.value = _state.value.copy(templatesChanged = true)
+            markTemplatesChanged()
             startOrResume()
         }
     }
@@ -610,7 +634,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     fun removeSessionSet(set: SessionSet) {
         viewModelScope.launch {
             db.planDao().deleteSetTemplate(set.templateId)
-            _state.value = _state.value.copy(templatesChanged = true)
+            markTemplatesChanged()
             startOrResume()
         }
     }
@@ -639,7 +663,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 if (t.setIndex != newIdx) db.planDao().updateSetTemplate(t.copy(setIndex = newIdx))
                 logsByOld[t.setIndex]?.let { db.sessionDao().insertSetLog(it.copy(id = 0, setIndex = newIdx)) }
             }
-            _state.value = _state.value.copy(templatesChanged = true)
+            markTemplatesChanged()
             startOrResume()
         }
     }
@@ -665,6 +689,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     status = if (save) SessionStatus.FINISHED else SessionStatus.DISCARDED,
                     activeSecs = timers.activeSecs,
                     restSecs = timers.restSecs,
+                    // The keep-vs-one-time decision was just made — the snapshot is spent.
+                    templateSnapshotJson = null,
                 )
             )
             db.sessionDao().deleteDrafts(sessionId)

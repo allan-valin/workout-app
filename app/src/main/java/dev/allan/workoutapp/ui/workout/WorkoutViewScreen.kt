@@ -148,6 +148,8 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
                     status = if (save) SessionStatus.FINISHED else SessionStatus.DISCARDED,
                     activeSecs = timers.activeSecs,
                     restSecs = timers.restSecs,
+                    // Ending from here keeps any mid-session plan edits; drop the spent snapshot.
+                    templateSnapshotJson = null,
                 )
             )
             db.sessionDao().deleteDrafts(session.id)
