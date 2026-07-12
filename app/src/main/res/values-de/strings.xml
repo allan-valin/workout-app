@@ -290,4 +290,10 @@
     <string name="collapse">Einklappen</string>
     <string name="database_filter">Datenbank</string>
     <string name="fed_attribution">Übungsdaten: free-exercise-db (gemeinfrei)</string>
+    <string name="structured_filters">Namensfilter</string>
+    <string name="filter_equipment">Gerät</string>
+    <string name="filter_position">Position</string>
+    <string name="filter_pattern">Bewegung</string>
+    <string name="filter_variant">Variante (Griff, Winkel…) — optional</string>
+    <string name="custom_option">Eigene…</string>
 </resources>

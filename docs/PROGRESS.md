@@ -915,3 +915,43 @@ Grip Barbell Bench Press" → "Close-Grip Barbell Bench Press"; "Barbell Reverse
 "Reverse Barbell Curl"). With fed searchable directly, the map only feeds wger-exercise
 movement pages — exact-match stays. Hand-review of the ~40 near-misses remains the safe
 coverage path if wanted.
+
+## Phase 19 — Allan feedback (2026-07-13 ~00:00; EMULATOR-VERIFIED same session;
+testDebug+testRelease+assembleRelease green)
+
+Filter panel UX (Allan's report):
+- Panel header row w/ RETRACT arrow (˄) — collapsible any time, not only after a search.
+- Panel body capped at 400dp with internal scroll + scrollbar: the Custom/Search row never
+  gets shoved off screen again regardless of source section mix (wger vs fed).
+- Re-tap reliability fixed: panel now opens on EVERY press of the search field via an
+  interactionSource PressInteraction listener — onFocusChanged alone missed re-taps while
+  the field was still focused after a search.
+- BUG found while testing the new filters: DAO search LIMIT 400 + alphabetical ORDER BY
+  truncated blank-query results before the letter R, so post-filters (favorites float was
+  also affected in theory) could see a truncated set → "Rosca" filter returned zero.
+  LIMIT raised to 2000 (818 wger exercises; the list is lazy anyway).
+
+Structured name filters (Allan: names describe equipment / body position / movement):
+- data/NameFilters.kt: canonical keys with en/pt/de token variants for EQUIPMENT (7),
+  POSITION (7), PATTERN (14) + localized labels. Three dropdowns in the filter panel
+  ("Name filters"); VM post-filters hits by token-matching the localized name. Works on
+  both databases. Verified: Movimento=Rosca → only curls (incl. "Nordic Curl" via the
+  en token).
+
+Custom-exercise structured builder:
+- CustomExerciseDialog: Movement/Equipment/Position dropdown slots (each with "Custom…"
+  free-text mode + dropdown-icon to return to presets), optional Variant field (grip,
+  angle…), auto-composed name in an EDITABLE field (stops auto-updating once hand-edited;
+  pt order "Rosca Sentado com Halteres", en/de "Seated Dumbbell Curl"-style; bodyweight
+  contributes no equipment word). Verified composition on emulator.
+
+Auto-translation research (Allan's question): best fit = ML Kit on-device Translation
+(com.google.mlkit:translate) — free, unlimited, offline after a one-time ~30MB model
+download per language pair, en→pt/de supported. Alternatives rejected: DeepL/Google Cloud
+(paid/API keys), LibreTranslate public instances (rate limits, availability), MyMemory
+(5k chars/day). Plan if wanted: "Translate" button on description sheets → translate +
+cache into exercise_translation as lang rows (marked machine-translated), model download
+over Wi-Fi w/ consent. NOT implemented yet — awaiting Allan's go.
+
+Allan note: emulator data is expendable during testing — blind taps acceptable (bug-finding
+value); keep the pre-session DB snapshot habit for cheap repairs.

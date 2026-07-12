@@ -183,7 +183,7 @@ interface ExerciseDao {
                OR (',' || e.secondaryMuscles || ',') LIKE :muscleCsv)
         GROUP BY e.id
         ORDER BY t.name
-        LIMIT 400
+        LIMIT 2000
         """
     )
     suspend fun search(query: String, lang: String?, muscleCsv: String?): List<ExerciseHit>

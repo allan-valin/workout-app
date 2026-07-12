@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.verticalScroll
@@ -114,20 +117,29 @@ fun ExerciseLibraryScreen(
                 .padding(padding)
                 .padding(horizontal = 12.dp),
         ) {
+            // EVERY press on the field opens the panel — onFocusChanged alone missed the
+            // re-tap while the field was still focused after a search (Allan).
+            val searchFieldInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            androidx.compose.runtime.LaunchedEffect(searchFieldInteraction) {
+                searchFieldInteraction.interactions.collect {
+                    if (it is androidx.compose.foundation.interaction.PressInteraction.Release) showFilters = true
+                }
+            }
             OutlinedTextField(
                 value = state.query,
                 onValueChange = vm::setQuery,
+                interactionSource = searchFieldInteraction,
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Filters drop down from the search bar the moment it's focused, and
-                    // never block typing or the Search button (Allan: the old bottom sheet
-                    // made search and filters fight each other).
                     .onFocusChanged { if (it.isFocused) showFilters = true },
                 label = { Text(stringResource(R.string.search_exercises)) },
                 singleLine = true,
             )
             androidx.compose.animation.AnimatedVisibility(visible = showFilters) {
-                FilterPanel(vm = vm, state = state, muscles = muscles, appLang = appLang)
+                FilterPanel(
+                    vm = vm, state = state, muscles = muscles, appLang = appLang,
+                    onCollapse = { showFilters = false },
+                )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 // Real buttons, not clickable text (Allan).
@@ -338,9 +350,41 @@ private fun CustomExerciseDialog(
     onCreate: (name: String, description: String, muscleId: Int?, isCardio: Boolean) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
+    // The composed name stops auto-updating once the user edits it by hand.
+    var nameEdited by remember { mutableStateOf(false) }
     var description by remember { mutableStateOf("") }
     var muscleId by remember { mutableStateOf<Int?>(null) }
     var cardio by remember { mutableStateOf(false) }
+    // Structured name builder (Allan): movement + equipment + position (+ variant) compose
+    // the name; every dropdown also offers a free-text "Custom…" for anything missing.
+    var patternText by remember { mutableStateOf("") }
+    var patternCustom by remember { mutableStateOf(false) }
+    var equipmentText by remember { mutableStateOf("") }
+    var equipmentCustom by remember { mutableStateOf(false) }
+    var positionText by remember { mutableStateOf("") }
+    var positionCustom by remember { mutableStateOf(false) }
+    var variant by remember { mutableStateOf("") }
+    val bodyweightLabel = dev.allan.workoutapp.data.NameFilters.label("bodyweight", appLang)
+    fun recomposeName() {
+        if (nameEdited) return
+        // Bodyweight = no equipment word in the name (the movement says it all).
+        val eq = equipmentText.takeIf { it.isNotBlank() && it != bodyweightLabel }
+        val parts = when (appLang) {
+            // pt reads pattern-first: "Rosca Sentado com Halteres (pegada aberta)".
+            "pt" -> listOfNotNull(
+                patternText.ifBlank { null },
+                positionText.ifBlank { null },
+                eq?.let { "com $it" },
+            )
+            else -> listOfNotNull(
+                positionText.ifBlank { null },
+                eq,
+                patternText.ifBlank { null },
+            )
+        }
+        val base = parts.joinToString(" ")
+        name = if (variant.isBlank()) base else "$base (${variant.trim()})".trim()
+    }
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
@@ -350,11 +394,43 @@ private fun CustomExerciseDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
             ) {
+                NamePartSlot(
+                    labelText = stringResource(R.string.filter_pattern),
+                    table = dev.allan.workoutapp.data.NameFilters.PATTERN,
+                    appLang = appLang,
+                    value = patternText,
+                    customMode = patternCustom,
+                    onValue = { t, c -> patternText = t; patternCustom = c; recomposeName() },
+                )
+                NamePartSlot(
+                    labelText = stringResource(R.string.filter_equipment),
+                    table = dev.allan.workoutapp.data.NameFilters.EQUIPMENT,
+                    appLang = appLang,
+                    value = equipmentText,
+                    customMode = equipmentCustom,
+                    onValue = { t, c -> equipmentText = t; equipmentCustom = c; recomposeName() },
+                )
+                NamePartSlot(
+                    labelText = stringResource(R.string.filter_position),
+                    table = dev.allan.workoutapp.data.NameFilters.POSITION,
+                    appLang = appLang,
+                    value = positionText,
+                    customMode = positionCustom,
+                    onValue = { t, c -> positionText = t; positionCustom = c; recomposeName() },
+                )
+                OutlinedTextField(
+                    value = variant,
+                    onValueChange = { variant = it; recomposeName() },
+                    label = { Text(stringResource(R.string.filter_variant)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { name = it; nameEdited = true },
                     label = { Text(stringResource(R.string.exercise_name)) },
                     singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = description,
@@ -394,6 +470,59 @@ private fun CustomExerciseDialog(
 }
 
 /**
+ * One structured-name part: dropdown over preset options, "Custom…" flips the slot into a
+ * free-text field (with a dropdown icon to get the presets back).
+ */
+@Composable
+private fun NamePartSlot(
+    labelText: String,
+    table: Map<String, List<String>>,
+    appLang: String,
+    value: String,
+    customMode: Boolean,
+    onValue: (text: String, customMode: Boolean) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth()) {
+        if (customMode) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { onValue(it, true) },
+                label = { Text(labelText) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    IconButton(onClick = { open = true }) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                    }
+                },
+            )
+        } else {
+            OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("$labelText: " + value.ifBlank { "—" }, maxLines = 1)
+            }
+        }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text("—") },
+                onClick = { open = false; onValue("", false) },
+            )
+            table.keys.forEach { key ->
+                val label = dev.allan.workoutapp.data.NameFilters.label(key, appLang)
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = { open = false; onValue(label, false) },
+                )
+            }
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(stringResource(R.string.custom_option)) },
+                onClick = { open = false; onValue("", true) },
+            )
+        }
+    }
+}
+
+/**
  * Inline filter panel dropping down from the search bar (replaces the old bottom sheet so
  * typing, filtering and the Search button all work together).
  */
@@ -404,9 +533,31 @@ private fun FilterPanel(
     state: LibraryUiState,
     muscles: List<dev.allan.workoutapp.data.db.Muscle>,
     appLang: String,
+    onCollapse: () -> Unit,
 ) {
     androidx.compose.material3.Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Column(Modifier.padding(12.dp)) {
+        // Collapse handle — before, the panel only left when a search ran (Allan).
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.filters),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onCollapse) {
+                Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.collapse))
+            }
+        }
+        // Capped height + inner scroll so the panel never shoves the Custom/Search row
+        // off screen, whatever the source's section mix is.
+        val panelScroll = androidx.compose.foundation.rememberScrollState()
+        androidx.compose.foundation.layout.Box {
+        Column(
+            Modifier
+                .heightIn(max = 400.dp)
+                .verticalScroll(panelScroll),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             // One database at a time — searching both would double the load time.
             Text(stringResource(R.string.database_filter), fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -421,6 +572,29 @@ private fun FilterPanel(
                     label = { Text("Free Exercise DB") },
                 )
             }
+            // Structured filters: names describe equipment / position / movement (Allan).
+            Text(stringResource(R.string.structured_filters), fontWeight = FontWeight.Bold)
+            NameFilterDropdown(
+                labelText = stringResource(R.string.filter_equipment),
+                current = state.equipmentKey,
+                table = dev.allan.workoutapp.data.NameFilters.EQUIPMENT,
+                appLang = appLang,
+                onSelect = vm::setEquipment,
+            )
+            NameFilterDropdown(
+                labelText = stringResource(R.string.filter_position),
+                current = state.positionKey,
+                table = dev.allan.workoutapp.data.NameFilters.POSITION,
+                appLang = appLang,
+                onSelect = vm::setPosition,
+            )
+            NameFilterDropdown(
+                labelText = stringResource(R.string.filter_pattern),
+                current = state.patternKey,
+                table = dev.allan.workoutapp.data.NameFilters.PATTERN,
+                appLang = appLang,
+                onSelect = vm::setPattern,
+            )
             Text(stringResource(R.string.muscle_group), fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(
@@ -476,6 +650,47 @@ private fun FilterPanel(
                     Text(stringResource(R.string.hide_injured))
                     Switch(checked = state.excludeInjured, onCheckedChange = vm::setExcludeInjured)
                 }
+            }
+        }
+        dev.allan.workoutapp.ui.common.ColumnScrollbar(
+            panelScroll,
+            Modifier.align(Alignment.TopEnd),
+        )
+        }
+      }
+    }
+}
+
+/** One structured-name filter: an outlined dropdown over NameFilters' canonical keys. */
+@Composable
+private fun NameFilterDropdown(
+    labelText: String,
+    current: String?,
+    table: Map<String, List<String>>,
+    appLang: String,
+    onSelect: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                "$labelText: " + (current
+                    ?.let { dev.allan.workoutapp.data.NameFilters.label(it, appLang) }
+                    ?: stringResource(R.string.all)),
+                maxLines = 1,
+            )
+        }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(stringResource(R.string.all)) },
+                onClick = { open = false; onSelect(null) },
+            )
+            table.keys.forEach { key ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(dev.allan.workoutapp.data.NameFilters.label(key, appLang)) },
+                    onClick = { open = false; onSelect(key) },
+                )
             }
         }
     }

@@ -290,4 +290,10 @@
     <string name="collapse">Collapse</string>
     <string name="database_filter">Database</string>
     <string name="fed_attribution">Exercise data: free-exercise-db (public domain)</string>
+    <string name="structured_filters">Name filters</string>
+    <string name="filter_equipment">Equipment</string>
+    <string name="filter_position">Position</string>
+    <string name="filter_pattern">Movement</string>
+    <string name="filter_variant">Variant (grip, angle…) — optional</string>
+    <string name="custom_option">Custom…</string>
 </resources>

@@ -29,6 +29,10 @@ data class LibraryUiState(
     val selectedMuscleId: Int? = null,
     val searchLang: SearchLang = SearchLang.APP,
     val source: SearchSource = SearchSource.WGER,
+    /** Structured name filters (canonical keys from NameFilters), null = All. */
+    val equipmentKey: String? = null,
+    val positionKey: String? = null,
+    val patternKey: String? = null,
     val showAltNames: Boolean = false,
     /** When on, exercises hitting an injured muscle (primary or secondary) are hidden. */
     val excludeInjured: Boolean = true,
@@ -120,6 +124,21 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.searched) search(appLang())
     }
 
+    fun setEquipment(key: String?) {
+        _state.value = _state.value.copy(equipmentKey = key)
+        if (_state.value.searched) search(appLang())
+    }
+
+    fun setPosition(key: String?) {
+        _state.value = _state.value.copy(positionKey = key)
+        if (_state.value.searched) search(appLang())
+    }
+
+    fun setPattern(key: String?) {
+        _state.value = _state.value.copy(patternKey = key)
+        if (_state.value.searched) search(appLang())
+    }
+
     fun setShowAltNames(show: Boolean) {
         _state.value = _state.value.copy(showAltNames = show)
         if (_state.value.searched) search(appLang())
@@ -166,6 +185,13 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
                             hit.secondaryMuscles.none(injured::contains)
                     }
                 }
+            }
+            // Structured name filters: token match against the localized hit name.
+            val nf = dev.allan.workoutapp.data.NameFilters
+            hits = hits.filter { hit ->
+                nf.matches(hit.name, s.equipmentKey, nf.EQUIPMENT) &&
+                    nf.matches(hit.name, s.positionKey, nf.POSITION) &&
+                    nf.matches(hit.name, s.patternKey, nf.PATTERN)
             }
             // Favorites float to the top (stable — name order kept within each group).
             val favs = db.exerciseDao().favoriteIds().toSet()

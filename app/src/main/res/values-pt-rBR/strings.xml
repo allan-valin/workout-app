@@ -290,4 +290,10 @@
     <string name="collapse">Recolher</string>
     <string name="database_filter">Banco de dados</string>
     <string name="fed_attribution">Dados de exercícios: free-exercise-db (domínio público)</string>
+    <string name="structured_filters">Filtros por nome</string>
+    <string name="filter_equipment">Equipamento</string>
+    <string name="filter_position">Posição</string>
+    <string name="filter_pattern">Movimento</string>
+    <string name="filter_variant">Variação (pegada, ângulo…) — opcional</string>
+    <string name="custom_option">Personalizado…</string>
 </resources>
