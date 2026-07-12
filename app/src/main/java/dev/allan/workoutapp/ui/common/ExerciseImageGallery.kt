@@ -16,7 +16,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.allan.workoutapp.R
 import dev.allan.workoutapp.WorkoutApp
+import dev.allan.workoutapp.data.FedMedia
 import dev.allan.workoutapp.data.db.ExerciseImagePref
 import dev.allan.workoutapp.data.db.ExerciseUserImage
 import kotlinx.coroutines.Dispatchers
@@ -110,7 +114,11 @@ fun ExerciseImageGallery(exerciseId: String, wgerPath: String?, modifier: Modifi
     val scope = rememberCoroutineScope()
     val (images, display) = rememberExerciseImages(exerciseId, wgerPath)
     val pick = rememberUserImagePicker(exerciseId)
-    val pageCount = images.size + 1 // + trailing add-page
+    // Movement page (2-frame animation from free-exercise-db) for mapped exercises,
+    // between the still images and the trailing add-page.
+    val fedSlug = remember(exerciseId) { FedMedia.slugFor(context, exerciseId) }
+    val movementIndex = if (fedSlug != null) images.size else -1
+    val pageCount = images.size + (if (fedSlug != null) 1 else 0) + 1 // + trailing add-page
     var page by remember(images.size, display) {
         mutableIntStateOf(images.indexOf(display).coerceAtLeast(0))
     }
@@ -151,6 +159,8 @@ fun ExerciseImageGallery(exerciseId: String, wgerPath: String?, modifier: Modifi
                         contentDescription = null,
                         modifier = Modifier.fillMaxWidth().height(180.dp),
                     )
+                } else if (page == movementIndex) {
+                    MovementPage(exerciseId)
                 } else {
                     // Trailing add-page: big circular +.
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -174,6 +184,85 @@ fun ExerciseImageGallery(exerciseId: String, wgerPath: String?, modifier: Modifi
                 IconButton(onClick = { page = (page + 1) % pageCount }) {
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * 2-frame movement animation from free-exercise-db: alternates the start/end photos every
+ * second; the pause button keeps the motion from getting annoying (Allan). Frames download
+ * on demand and stay offline.
+ */
+@Composable
+private fun MovementPage(exerciseId: String) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var frames by remember(exerciseId) {
+        androidx.compose.runtime.mutableStateOf(FedMedia.localFrames(context, exerciseId))
+    }
+    var fetching by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var failed by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    val current = frames
+    if (current == null) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (fetching) {
+                androidx.compose.material3.CircularProgressIndicator()
+            } else {
+                FilledIconButton(
+                    onClick = {
+                        scope.launch {
+                            fetching = true
+                            frames = FedMedia.fetchFrames(context, exerciseId)
+                            failed = frames == null
+                            fetching = false
+                        }
+                    },
+                    modifier = Modifier.size(64.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = stringResource(R.string.movement_download),
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+                Text(
+                    stringResource(
+                        if (failed) R.string.movement_failed else R.string.movement_download
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
+    } else {
+        var playing by remember { androidx.compose.runtime.mutableStateOf(true) }
+        var frame by remember { mutableIntStateOf(0) }
+        LaunchedEffect(playing) {
+            while (playing) {
+                kotlinx.coroutines.delay(1000)
+                frame = (frame + 1) % current.size
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(180.dp)) {
+            AsyncImage(
+                model = File(current[frame]),
+                imageLoader = AppImageLoader.get(context),
+                contentDescription = stringResource(R.string.movement),
+                modifier = Modifier.fillMaxWidth().height(180.dp),
+            )
+            androidx.compose.material3.FilledTonalIconButton(
+                onClick = { playing = !playing },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
+            ) {
+                Icon(
+                    if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = stringResource(
+                        if (playing) R.string.pause else R.string.play
+                    ),
+                )
             }
         }
     }

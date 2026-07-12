@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Pause
@@ -208,11 +209,11 @@ fun SessionScreen(
                                             style = MaterialTheme.typography.bodySmall,
                                         )
                                     }
-                                    // Editing already works inside the session — the slot shows
-                                    // the exercise info (image + description/video/note) instead.
+                                    // (i), not a chevron — a chevron promised an inline expand,
+                                    // but this opens the info sheet (Allan).
                                     IconButton(onClick = { vm.openDescription(ex.exerciseId) }) {
                                         Icon(
-                                            Icons.Default.KeyboardArrowDown,
+                                            Icons.Outlined.Info,
                                             contentDescription = stringResource(R.string.info_note),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )

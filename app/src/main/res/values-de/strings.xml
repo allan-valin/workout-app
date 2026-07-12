@@ -281,4 +281,9 @@
     <string name="muscle_legend_header">Farbton = Trainingsvolumen</string>
     <string name="switch_model">Modell wechseln</string>
     <string name="muscle_legend_unit">Übungen</string>
+    <string name="movement">Bewegung</string>
+    <string name="movement_download">Bewegungsanimation herunterladen</string>
+    <string name="movement_failed">Download fehlgeschlagen — zum Wiederholen tippen</string>
+    <string name="play">Abspielen</string>
+    <string name="pause">Pause</string>
 </resources>

@@ -281,4 +281,9 @@
     <string name="muscle_legend_header">Shade = training volume</string>
     <string name="switch_model">Switch model</string>
     <string name="muscle_legend_unit">exercises</string>
+    <string name="movement">Movement</string>
+    <string name="movement_download">Download movement animation</string>
+    <string name="movement_failed">Download failed — tap to retry</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
 </resources>

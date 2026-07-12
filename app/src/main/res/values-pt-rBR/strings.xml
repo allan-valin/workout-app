@@ -281,4 +281,9 @@
     <string name="muscle_legend_header">Tom = volume de treino</string>
     <string name="switch_model">Trocar modelo</string>
     <string name="muscle_legend_unit">exercícios</string>
+    <string name="movement">Movimento</string>
+    <string name="movement_download">Baixar animação do movimento</string>
+    <string name="movement_failed">Falha no download — toque para tentar de novo</string>
+    <string name="play">Reproduzir</string>
+    <string name="pause">Pausar</string>
 </resources>

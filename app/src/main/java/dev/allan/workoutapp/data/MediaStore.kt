@@ -56,8 +56,14 @@ object MediaStore {
         val referenced = db.planDao().referencedExerciseIds()
             .map { it.replace(':', '_') }
             .toSet()
+        // Gallery photos (v7) and movement frames live in the same dir under their own
+        // naming — sweeping them by exercise-id name would delete every one of them.
+        val userImagePaths = db.exerciseDao().allUserImages().map { it.path }.toSet()
         dir.listFiles()?.forEach { file ->
-            if (file.nameWithoutExtension !in referenced) file.delete()
+            val keep = file.nameWithoutExtension in referenced ||
+                file.absolutePath in userImagePaths ||
+                file.name.startsWith(FedMedia.FILE_PREFIX)
+            if (!keep) file.delete()
         }
     }
 

@@ -838,3 +838,32 @@ Answer: NO genuinely open one exists — that style IS Gymvisual's commercial ca
 
 Sources: github.com/yuhonas/free-exercise-db, github.com/hasaneyldrm/exercises-dataset,
 gymvisual.com, github.com/exercemus/exercises (MIT list curated from wger/exercises.json).
+
+## Phase 17 — Allan feedback batch (2026-07-12 late; EMULATOR-VERIFIED same session,
+screenshots in session scratchpad; testDebug+testRelease+assembleRelease green)
+
+- Library: top-bar filter icon (dead — the panel opens itself on search-field focus) replaced
+  by a SEARCH icon that runs the search; inline Buscar button kept. Verified: "remada" via
+  top-bar icon → results, panel closes.
+- Workout editor set rows: details row is now Alignment.Bottom — the floating kg/×/s labels
+  make the OutlinedTextFields taller than their boxes, so CenterVertically floated the
+  56dp TintedDropdowns a few px above the field bases (Allan's diagnosis was right).
+- Editor set-row corners: exercise Card now uses colorScheme.background (both themes) and the
+  drag Surface is transparent + 12dp-rounded — no rectangular fill peeking past the rounded
+  set borders; 6dp gap added between sets. Verified dark AND light.
+- Statistics: bodyweight current kg + 30d delta and the Progression "Sessões: N" line are
+  now centered (numbers-only variant Allan asked to see).
+- In-session exercise list: chevron-down (promised an expand) swapped for outlined (i) —
+  it opens the info sheet.
+- MOVEMENT ANIMATIONS (yuhonas free-exercise-db, Unlicense): assets/fed_map.json maps
+  wger ids → fed slugs (tools/fed-map/generate.py; EXACT normalized-name matches only,
+  92/818 — fuzzy tiers produced wrong-variant pairs, a wrong movement is worse than none).
+  data/FedMedia.kt downloads the 2 start/end photos on demand (all-or-nothing) into
+  exercise_media/fed_*.jpg. Gallery gains a Movement page between stills and the add-page:
+  download button → 2-frame animation at 1 s per frame with a play/pause overlay
+  (default playing; pause verified to freeze). Verified on Voador Peitoral → "Butterfly".
+- LATENT BUG FIXED on the way: MediaStore.sweep deleted every file in exercise_media whose
+  name wasn't a referenced exercise id — that included ALL v7 user gallery photos
+  (user_*.jpg) and would have eaten fed_* frames. Sweep now keeps user-image paths (DB) and
+  fed_-prefixed files.
+- DEMO DEBT unchanged (deferred): now also behind on this batch.

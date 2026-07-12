@@ -175,6 +175,8 @@ fun StatsTab(
                     Text(
                         "%.1f kg".format(latest.weightKg),
                         style = MaterialTheme.typography.headlineMedium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     val cutoff = LocalDate.now().minusDays(30).toEpochDay()
                     val baseline = bodyMetrics.lastOrNull { it.epochDay <= cutoff }
@@ -186,6 +188,8 @@ fun StatsTab(
                                 "  ·  30d",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                     Text(
@@ -204,7 +208,12 @@ fun StatsTab(
                 } else {
                     // Light card: one line; the averages block moved to the top of the
                     // Progression detail page (Allan).
-                    StatLine(stringResource(R.string.sessions_count), averages.sessions.toString())
+                    Text(
+                        stringResource(R.string.sessions_count) + ": " + averages.sessions,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Text(
                         stringResource(R.string.tap_for_details),
                         style = MaterialTheme.typography.labelSmall,

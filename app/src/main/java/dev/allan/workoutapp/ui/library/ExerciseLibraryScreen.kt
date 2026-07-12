@@ -17,7 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Info
@@ -98,8 +98,10 @@ fun ExerciseLibraryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showFilters = true }) {
-                        Icon(Icons.Default.FilterList, contentDescription = stringResource(R.string.filters))
+                    // Search action (the filter panel already opens itself on focus, so the
+                    // old filter icon was dead weight — Allan).
+                    IconButton(onClick = { showFilters = false; vm.search(appLang) }) {
+                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search_button))
                     }
                 },
             )

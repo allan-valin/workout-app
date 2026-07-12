@@ -1064,7 +1064,14 @@ private fun ExerciseEditorCard(
 ) {
     var showBulkRest by remember { mutableStateOf(false) }
 
-    Card(Modifier.fillMaxWidth()) {
+    // Same background as the screen (both themes) — a different card tone made the
+    // rectangular row background peek out of the rounded set borders (Allan).
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.background,
+        ),
+    ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Checkbox feeds the top-bar multi-select delete (replaces per-card trash).
@@ -1121,9 +1128,11 @@ private fun ExerciseEditorCard(
                         if (isDragging) 6.dp else 0.dp, label = "setDrag",
                     )
                     androidx.compose.material3.Surface(
-                        tonalElevation = elevation,
                         shadowElevation = elevation,
-                        modifier = Modifier.longPressDraggableHandle(),
+                        // Transparent + rounded: no rectangular fill behind the set border.
+                        color = androidx.compose.ui.graphics.Color.Transparent,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.padding(bottom = 6.dp).longPressDraggableHandle(),
                     ) {
                         SetRow(set, onUpdate = vm::updateSet, onDelete = { vm.removeSet(set) })
                     }
@@ -1222,7 +1231,9 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
           .padding(horizontal = 4.dp, vertical = 6.dp)
   ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
+        // Bottom, not center: the floating "kg"/x labels make the text fields taller than
+        // their boxes, so center alignment floated the dropdowns above the field bases.
+        verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
