@@ -286,4 +286,8 @@
     <string name="movement_failed">Download fehlgeschlagen — zum Wiederholen tippen</string>
     <string name="play">Abspielen</string>
     <string name="pause">Pause</string>
+    <string name="expand">Ausklappen</string>
+    <string name="collapse">Einklappen</string>
+    <string name="database_filter">Datenbank</string>
+    <string name="fed_attribution">Übungsdaten: free-exercise-db (gemeinfrei)</string>
 </resources>

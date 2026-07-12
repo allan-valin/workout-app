@@ -52,10 +52,12 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise WHERE id = :id")
     suspend fun exercise(id: String): Exercise?
 
-    @Query("SELECT * FROM exercise WHERE isCustom = 1")
+    // Backup scope: user-created customs AND imported free-exercise-db rows — everything
+    // a wger-snapshot fresh install wouldn't already have.
+    @Query("SELECT * FROM exercise WHERE isCustom = 1 OR id LIKE 'fed:%'")
     suspend fun customExercises(): List<Exercise>
 
-    @Query("SELECT * FROM exercise WHERE isCustom = 0")
+    @Query("SELECT * FROM exercise WHERE isCustom = 0 AND id NOT LIKE 'fed:%'")
     suspend fun snapshotExercises(): List<Exercise>
 
     @Query("DELETE FROM exercise_translation WHERE exerciseId LIKE 'wger:%'")

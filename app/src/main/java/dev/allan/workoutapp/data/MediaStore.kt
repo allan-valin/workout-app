@@ -27,7 +27,9 @@ object MediaStore {
                 if (File(path).exists()) return@withContext path
             }
             val url = exercise.imageUrl ?: return@withContext null
-            if (!url.startsWith("https://wger.de/")) return@withContext null
+            val trustedHost = url.startsWith("https://wger.de/") ||
+                url.startsWith("https://raw.githubusercontent.com/yuhonas/free-exercise-db/")
+            if (!trustedHost) return@withContext null
 
             val dir = File(context.filesDir, "exercise_media").apply { mkdirs() }
             val isGif = url.substringBefore('?').endsWith(".gif", ignoreCase = true)
@@ -59,10 +61,20 @@ object MediaStore {
         // Gallery photos (v7) and movement frames live in the same dir under their own
         // naming — sweeping them by exercise-id name would delete every one of them.
         val userImagePaths = db.exerciseDao().allUserImages().map { it.path }.toSet()
+        // Movement frames: permanent for exercises used by a workout, otherwise a short
+        // cache — downloaded-on-curiosity files age out after 2 days (Allan).
+        val referencedSlugs = db.planDao().referencedExerciseIds().mapNotNull { id ->
+            runCatching { FedMedia.slugFor(context, id) }.getOrNull()
+        }.toSet()
+        val fedCutoff = System.currentTimeMillis() - 2L * 24 * 3600 * 1000
         dir.listFiles()?.forEach { file ->
-            val keep = file.nameWithoutExtension in referenced ||
-                file.absolutePath in userImagePaths ||
-                file.name.startsWith(FedMedia.FILE_PREFIX)
+            val keep = if (file.name.startsWith(FedMedia.FILE_PREFIX)) {
+                val slug = file.nameWithoutExtension
+                    .removePrefix(FedMedia.FILE_PREFIX).substringBeforeLast('_')
+                slug in referencedSlugs || file.lastModified() >= fedCutoff
+            } else {
+                file.nameWithoutExtension in referenced || file.absolutePath in userImagePaths
+            }
             if (!keep) file.delete()
         }
     }

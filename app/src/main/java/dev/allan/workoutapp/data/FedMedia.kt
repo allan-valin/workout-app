@@ -33,7 +33,9 @@ object FedMedia {
             ).also { map = it }
         }
 
-    fun slugFor(context: Context, exerciseId: String): String? = map(context)[exerciseId]
+    fun slugFor(context: Context, exerciseId: String): String? =
+        if (exerciseId.startsWith(FedIndex.ID_PREFIX)) exerciseId.removePrefix(FedIndex.ID_PREFIX)
+        else map(context)[exerciseId]
 
     private fun frameFile(context: Context, slug: String, index: Int): File =
         File(File(context.filesDir, "exercise_media"), "$FILE_PREFIX${slug}_$index.jpg")

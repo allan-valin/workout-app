@@ -18,6 +18,9 @@ import kotlinx.coroutines.launch
 /** Which language pool the search runs against. */
 enum class SearchLang { APP, EN, PT, DE, ALL }
 
+/** Which exercise database the search runs against — one at a time (loading cost). */
+enum class SearchSource { WGER, FED }
+
 data class LibraryUiState(
     val query: String = "",
     val searched: Boolean = false,
@@ -25,6 +28,7 @@ data class LibraryUiState(
     val results: List<ExerciseHit> = emptyList(),
     val selectedMuscleId: Int? = null,
     val searchLang: SearchLang = SearchLang.APP,
+    val source: SearchSource = SearchSource.WGER,
     val showAltNames: Boolean = false,
     /** When on, exercises hitting an injured muscle (primary or secondary) are hidden. */
     val excludeInjured: Boolean = true,
@@ -111,6 +115,11 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.searched) search(appLang())
     }
 
+    fun setSource(source: SearchSource) {
+        _state.value = _state.value.copy(source = source)
+        if (_state.value.searched) search(appLang())
+    }
+
     fun setShowAltNames(show: Boolean) {
         _state.value = _state.value.copy(showAltNames = show)
         if (_state.value.searched) search(appLang())
@@ -139,7 +148,15 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
         val muscleCsv = s.selectedMuscleId?.let { "%,$it,%" }
         _state.value = s.copy(searching = true)
         viewModelScope.launch {
-            var hits = db.exerciseDao().search(s.query.trim(), lang, muscleCsv)
+            var hits =
+                if (s.source == SearchSource.FED) {
+                    // Second database: bundled free-exercise-db index (English names).
+                    dev.allan.workoutapp.data.FedIndex.search(
+                        getApplication(), s.query.trim(), s.selectedMuscleId,
+                    )
+                } else {
+                    db.exerciseDao().search(s.query.trim(), lang, muscleCsv)
+                }
             if (s.excludeInjured) {
                 val injured =
                     dev.allan.workoutapp.data.Settings.injuredMuscles(getApplication()).first()
@@ -171,6 +188,8 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openDetail(hit: ExerciseHit) {
         viewModelScope.launch {
+            // First engagement with a fed exercise imports it as a regular Exercise row.
+            dev.allan.workoutapp.data.FedIndex.ensureImported(getApplication(), db, hit.id)
             _detail.value = ExerciseDetail(
                 hit,
                 db.exerciseDao().translations(hit.id),
@@ -208,6 +227,7 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
     /** Picker mode: append the exercise (with default sets) to the target workout. */
     fun addToWorkout(workoutId: Long, exerciseId: String, onDone: () -> Unit) {
         viewModelScope.launch {
+            dev.allan.workoutapp.data.FedIndex.ensureImported(getApplication(), db, exerciseId)
             dev.allan.workoutapp.data.PlanRepo.addExerciseToWorkout(db, workoutId, exerciseId)
             onDone()
             // Fetch the exercise image once, for offline use during sessions.

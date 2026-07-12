@@ -15,6 +15,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "app/src/main/assets/wger_snapshot.json"
 OUT = ROOT / "app/src/main/assets/fed_map.json"
+INDEX_OUT = ROOT / "app/src/main/assets/fed_index.json"
+
+# fed muscle strings -> wger muscle ids (MuscleNames.kt); unmappable ones are dropped.
+FED_MUSCLES = {
+    "abdominals": 6, "biceps": 1, "calves": 7, "chest": 4, "forearms": 13,
+    "glutes": 8, "hamstrings": 11, "lats": 12, "middle back": 12, "neck": 9,
+    "quadriceps": 10, "shoulders": 2, "traps": 9, "triceps": 5,
+    # no wger muscle exists for: abductors, adductors, lower back
+}
 FED_URL = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json"
 FED_CACHE = Path(__file__).with_name("exercises.json")
 
@@ -74,6 +83,21 @@ def main():
 
     OUT.write_text(json.dumps(mapping, indent=0, sort_keys=True))
     print(f"mapped {len(mapping)}/{len(wger)} (ambiguous name collisions skipped: {ambiguous})")
+
+    # Slim searchable index for the in-app "Free Exercise DB" source.
+    index = [
+        {
+            "id": f["id"],
+            "name": f["name"],
+            "primary": sorted({FED_MUSCLES[m] for m in f.get("primaryMuscles", []) if m in FED_MUSCLES}),
+            "secondary": sorted({FED_MUSCLES[m] for m in f.get("secondaryMuscles", []) if m in FED_MUSCLES}),
+            "cardio": f.get("category") == "cardio",
+            "instructions": " ".join(f.get("instructions", [])),
+        }
+        for f in fed
+    ]
+    INDEX_OUT.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")))
+    print(f"index: {len(index)} entries -> {INDEX_OUT}")
 
 
 if __name__ == "__main__":

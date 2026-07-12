@@ -57,6 +57,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.allan.workoutapp.R
 import dev.allan.workoutapp.data.MuscleNames
 import dev.allan.workoutapp.data.db.ExerciseHit
+import dev.allan.workoutapp.ui.library.SearchSource
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -311,8 +312,17 @@ fun ExerciseLibraryScreen(
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                stringResource(R.string.wger_attribution),
+                stringResource(
+                    if (d.hit.id.startsWith(dev.allan.workoutapp.data.FedIndex.ID_PREFIX))
+                        R.string.fed_attribution
+                    else R.string.wger_attribution
+                ),
                 style = MaterialTheme.typography.labelSmall,
+            )
+            // Gallery incl. the movement page — images download on first view (Allan).
+            dev.allan.workoutapp.ui.common.ExerciseImageGallery(
+                exerciseId = d.hit.id,
+                wgerPath = d.hit.imagePath,
             )
             HorizontalDivider()
         }
@@ -397,6 +407,20 @@ private fun FilterPanel(
 ) {
     androidx.compose.material3.Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // One database at a time — searching both would double the load time.
+            Text(stringResource(R.string.database_filter), fontWeight = FontWeight.Bold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = state.source == SearchSource.WGER,
+                    onClick = { vm.setSource(SearchSource.WGER) },
+                    label = { Text("wger") },
+                )
+                FilterChip(
+                    selected = state.source == SearchSource.FED,
+                    onClick = { vm.setSource(SearchSource.FED) },
+                    label = { Text("Free Exercise DB") },
+                )
+            }
             Text(stringResource(R.string.muscle_group), fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(
@@ -412,6 +436,7 @@ private fun FilterPanel(
                     )
                 }
             }
+            if (state.source == SearchSource.WGER) {
             Text(stringResource(R.string.search_language), fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SearchLang.entries.forEach { lang ->
@@ -431,6 +456,7 @@ private fun FilterPanel(
                         },
                     )
                 }
+            }
             }
             Row(
                 Modifier.fillMaxWidth(),

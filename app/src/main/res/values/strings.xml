@@ -286,4 +286,8 @@
     <string name="movement_failed">Download failed — tap to retry</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
+    <string name="expand">Expand</string>
+    <string name="collapse">Collapse</string>
+    <string name="database_filter">Database</string>
+    <string name="fed_attribution">Exercise data: free-exercise-db (public domain)</string>
 </resources>

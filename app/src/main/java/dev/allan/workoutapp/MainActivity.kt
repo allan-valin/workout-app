@@ -213,14 +213,19 @@ fun AppRoot() {
         bottomBar = {
             if (showBottomBar) {
                 AppBottomBar(selected = selectedTab) { idx ->
-                    selectedTab = idx
-                    // From a drill-in screen, a tab tap returns to the tabbed surface.
-                    if (currentRoute != "main") {
-                        navController.navigate("main") {
-                            popUpTo("main") { inclusive = true }
-                            launchSingleTop = true
+                    val proceed = {
+                        selectedTab = idx
+                        // From a drill-in screen, a tab tap returns to the tabbed surface.
+                        if (currentRoute != "main") {
+                            navController.navigate("main") {
+                                popUpTo("main") { inclusive = true }
+                                launchSingleTop = true
+                            }
                         }
                     }
+                    // A screen with unsaved edits (workout editor) intercepts the tap the
+                    // same way it intercepts system back — keep/discard first, then leave.
+                    dev.allan.workoutapp.ui.common.NavExitGuard.handler?.invoke(proceed) ?: proceed()
                 }
             }
         },

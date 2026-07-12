@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,6 +24,8 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -541,10 +545,17 @@ fun WorkoutEditorScreen(
     val focusManager = LocalFocusManager.current
     // Multi-select for bulk exercise deletion: one confirmation instead of one per trash tap.
     var selectedExercises by remember { mutableStateOf(setOf<Long>()) }
+    // Collapsed-exercise state: null = default (only the FIRST exercise open — Allan).
+    var expandedIds by remember { mutableStateOf<Set<Long>?>(null) }
     var confirmBulkDelete by remember { mutableStateOf(false) }
-    // Exit guard: unsaved edits → keep/discard prompt (back arrow or system back).
+    // Exit guard: unsaved edits → keep/discard prompt (back arrow, system back, or a
+    // bottom-nav tab tap — the dialog runs whatever exit the user attempted).
     var confirmExit by remember { mutableStateOf(false) }
-    val attemptBack = { if (dirty) confirmExit = true else onBack() }
+    var pendingExit by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val attemptExit = { exit: () -> Unit ->
+        if (dirty) { pendingExit = exit; confirmExit = true } else exit()
+    }
+    val attemptBack = { attemptExit(onBack) }
     val swapPrompt by vm.swapPrompt.collectAsState()
 
     // Library returned a swap target ("weId:exerciseId") — raise the set-config choice.
@@ -558,6 +569,14 @@ fun WorkoutEditorScreen(
         }
     }
     androidx.activity.compose.BackHandler(enabled = true) { attemptBack() }
+    // Register for bottom-nav taps while this editor is on screen. rememberUpdatedState
+    // keeps the once-registered handler reading the CURRENT dirty flag, not the one from
+    // first composition.
+    val currentAttemptExit by androidx.compose.runtime.rememberUpdatedState(attemptExit)
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        dev.allan.workoutapp.ui.common.NavExitGuard.handler = { proceed -> currentAttemptExit(proceed) }
+        onDispose { dev.allan.workoutapp.ui.common.NavExitGuard.handler = null }
+    }
 
     // Detect exercises added from the picker (an out-of-editor mutation) on return.
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -685,6 +704,7 @@ fun WorkoutEditorScreen(
                 // animateItem keeps the viewport still and slides the card to its new
                 // slot, so reordering reads as movement instead of a scroll jump.
                 Box(Modifier.animateItem()) {
+                    val expandedSet = expandedIds ?: setOfNotNull(exercises.firstOrNull()?.we?.id)
                     ExerciseEditorCard(
                         item = item,
                         index = exercises.indexOfFirst { it.we.id == item.we.id },
@@ -698,6 +718,13 @@ fun WorkoutEditorScreen(
                             selectedExercises =
                                 if (item.we.id in selectedExercises) selectedExercises - item.we.id
                                 else selectedExercises + item.we.id
+                        },
+                        // Single-exercise quick-edit is always expanded.
+                        expanded = focusExerciseId != null || item.we.id in expandedSet,
+                        onToggleExpand = {
+                            expandedIds =
+                                if (item.we.id in expandedSet) expandedSet - item.we.id
+                                else expandedSet + item.we.id
                         },
                     )
                 }
@@ -781,12 +808,18 @@ fun WorkoutEditorScreen(
             title = { Text(stringResource(R.string.unsaved_title)) },
             text = { Text(stringResource(R.string.unsaved_message)) },
             confirmButton = {
-                TextButton(onClick = { confirmExit = false; vm.finalizeName(onBack) }) {
+                TextButton(onClick = {
+                    confirmExit = false
+                    vm.finalizeName(pendingExit ?: onBack)
+                }) {
                     Text(stringResource(R.string.keep_changes))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmExit = false; vm.discardChanges(onBack) }) {
+                TextButton(onClick = {
+                    confirmExit = false
+                    vm.discardChanges(pendingExit ?: onBack)
+                }) {
                     Text(stringResource(R.string.discard_changes))
                 }
             },
@@ -1061,16 +1094,19 @@ private fun ExerciseEditorCard(
     onMove: (Boolean) -> Unit,
     selected: Boolean,
     onToggleSelect: () -> Unit,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
 ) {
     var showBulkRest by remember { mutableStateOf(false) }
 
-    // Same background as the screen (both themes) — a different card tone made the
-    // rectangular row background peek out of the rounded set borders (Allan).
+    // Screen background + an outline so the exercise still reads as one unit now that
+    // the card tone matches the screen (Allan: became confusing without it).
     Card(
         Modifier.fillMaxWidth(),
         colors = androidx.compose.material3.CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.background,
         ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1080,14 +1116,17 @@ private fun ExerciseEditorCard(
                 IconButton(onClick = { vm.openDescription(item) }) {
                     Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.description))
                 }
-                IconButton(onClick = { onMove(true) }) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
-                }
-                IconButton(onClick = { onMove(false) }) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.move_down))
+                // Collapse/expand — the arrowheads' old spot; move-up/down (full arrows)
+                // now live on the weight-mode line (Allan).
+                IconButton(onClick = onToggleExpand) {
+                    Icon(
+                        if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = stringResource(if (expanded) R.string.collapse else R.string.expand),
+                    )
                 }
             }
 
+          if (expanded) {
             // Superset pairing: alternate with the previous exercise, rest after the pair.
             if (index > 0 || item.we.supersetWithPrev) {
                 FilterChip(
@@ -1099,6 +1138,7 @@ private fun ExerciseEditorCard(
             }
 
             // Weight interpretation: total / per dumbbell / per side of the bar.
+            // Trailing full arrows = move the exercise (arrowheads now mean collapse/expand).
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 WeightMode.entries.forEach { mode ->
                     FilterChip(
@@ -1106,6 +1146,13 @@ private fun ExerciseEditorCard(
                         onClick = { vm.setWeightMode(item, mode) },
                         label = { Text(weightModeLabel(mode)) },
                     )
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { onMove(true) }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.ArrowUpward, contentDescription = stringResource(R.string.move_up))
+                }
+                IconButton(onClick = { onMove(false) }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.ArrowDownward, contentDescription = stringResource(R.string.move_down))
                 }
             }
             if (item.we.weightMode == WeightMode.PER_SIDE) {
@@ -1149,6 +1196,7 @@ private fun ExerciseEditorCard(
                     Text(stringResource(R.string.rest_apply_all))
                 }
             }
+          }
         }
     }
 
