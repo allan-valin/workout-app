@@ -281,7 +281,10 @@ fun ExerciseLibraryScreen(
             appLang = appLang,
             onDismiss = { showCustomDialog = false },
             onCreate = { name, desc, muscleId, cardio ->
-                vm.createCustomExercise(name, desc, muscleId, cardio) { id ->
+                vm.createCustomExercise(
+                    name, desc, muscleId, cardio,
+                    existsMessage = { n -> context.getString(R.string.exercise_exists, n) },
+                ) { id ->
                     onAdd?.invoke(id)
                 }
                 showCustomDialog = false
@@ -290,18 +293,18 @@ fun ExerciseLibraryScreen(
     }
 
     detail?.let { d ->
-        val description = (d.translations.firstOrNull { it.lang == appLang }
-            ?: d.translations.firstOrNull { it.lang == "en" })
-            ?.description.orEmpty()
+        val shownTranslation = d.translations.firstOrNull { it.lang == appLang }
+            ?: d.translations.firstOrNull { it.lang == "en" }
         // Same shared detail sheet as the editor/session — editable link + watch/open.
         dev.allan.workoutapp.ui.common.ExerciseInfoSheet(
             name = d.hit.name,
-            description = description,
+            description = shownTranslation?.description.orEmpty(),
             videoUrl = d.videoUrl,
             onSaveLink = { url -> vm.saveVideoLink(d.hit.id, url) },
             onDismiss = vm::closeDetail,
             note = d.note,
             onSaveNote = { txt -> vm.saveNote(d.hit.id, txt) },
+            machineTranslated = shownTranslation?.machine == true,
         ) {
             d.hit.category?.let { Text(it, style = MaterialTheme.typography.labelLarge) }
             val primary = d.hit.primaryMuscles.mapNotNull { id ->
@@ -323,14 +326,17 @@ fun ExerciseLibraryScreen(
                 "${stringResource(R.string.also_known_as)}: ${allNames.joinToString(" · ")}",
                 style = MaterialTheme.typography.bodySmall,
             )
-            Text(
-                stringResource(
-                    if (d.hit.id.startsWith(dev.allan.workoutapp.data.FedIndex.ID_PREFIX))
-                        R.string.fed_attribution
-                    else R.string.wger_attribution
-                ),
-                style = MaterialTheme.typography.labelSmall,
-            )
+            // Attribution only for database exercises — customs are the user's own.
+            if (!d.hit.isCustom) {
+                Text(
+                    stringResource(
+                        if (d.hit.id.startsWith(dev.allan.workoutapp.data.FedIndex.ID_PREFIX))
+                            R.string.fed_attribution
+                        else R.string.wger_attribution
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
             // Gallery incl. the movement page — images download on first view (Allan).
             dev.allan.workoutapp.ui.common.ExerciseImageGallery(
                 exerciseId = d.hit.id,
@@ -354,6 +360,8 @@ private fun CustomExerciseDialog(
     var nameEdited by remember { mutableStateOf(false) }
     var description by remember { mutableStateOf("") }
     var muscleId by remember { mutableStateOf<Int?>(null) }
+    // Movement pattern pre-selects the muscle group until the user picks one by hand.
+    var muscleEdited by remember { mutableStateOf(false) }
     var cardio by remember { mutableStateOf(false) }
     // Structured name builder (Allan): movement + equipment + position (+ variant) compose
     // the name; every dropdown also offers a free-text "Custom…" for anything missing.
@@ -400,7 +408,12 @@ private fun CustomExerciseDialog(
                     appLang = appLang,
                     value = patternText,
                     customMode = patternCustom,
-                    onValue = { t, c -> patternText = t; patternCustom = c; recomposeName() },
+                    onValue = { t, c, key ->
+                        patternText = t; patternCustom = c; recomposeName()
+                        if (!muscleEdited) {
+                            muscleId = key?.let { dev.allan.workoutapp.data.NameFilters.PATTERN_MUSCLE[it] }
+                        }
+                    },
                 )
                 NamePartSlot(
                     labelText = stringResource(R.string.filter_equipment),
@@ -408,7 +421,7 @@ private fun CustomExerciseDialog(
                     appLang = appLang,
                     value = equipmentText,
                     customMode = equipmentCustom,
-                    onValue = { t, c -> equipmentText = t; equipmentCustom = c; recomposeName() },
+                    onValue = { t, c, _ -> equipmentText = t; equipmentCustom = c; recomposeName() },
                 )
                 NamePartSlot(
                     labelText = stringResource(R.string.filter_position),
@@ -416,7 +429,7 @@ private fun CustomExerciseDialog(
                     appLang = appLang,
                     value = positionText,
                     customMode = positionCustom,
-                    onValue = { t, c -> positionText = t; positionCustom = c; recomposeName() },
+                    onValue = { t, c, _ -> positionText = t; positionCustom = c; recomposeName() },
                 )
                 OutlinedTextField(
                     value = variant,
@@ -446,21 +459,31 @@ private fun CustomExerciseDialog(
                     Text(stringResource(R.string.cardio))
                     Switch(checked = cardio, onCheckedChange = { cardio = it })
                 }
-                Text(stringResource(R.string.muscle_group), fontWeight = FontWeight.Bold)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    muscles.forEach { m ->
-                        FilterChip(
-                            selected = muscleId == m.id,
-                            onClick = { muscleId = if (muscleId == m.id) null else m.id },
-                            label = { Text(MuscleNames.display(m.nameEn, appLang)) },
-                        )
+                // Cardio has no target muscle — hide the picker entirely (Allan).
+                if (!cardio) {
+                    Text(stringResource(R.string.muscle_group), fontWeight = FontWeight.Bold)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        muscles.forEach { m ->
+                            FilterChip(
+                                selected = muscleId == m.id,
+                                onClick = {
+                                    muscleEdited = true
+                                    muscleId = if (muscleId == m.id) null else m.id
+                                },
+                                label = { Text(MuscleNames.display(m.nameEn, appLang)) },
+                            )
+                        }
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { if (name.isNotBlank()) onCreate(name.trim(), description.trim(), muscleId, cardio) },
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onCreate(name.trim(), description.trim(), if (cardio) null else muscleId, cardio)
+                    }
+                },
             ) { Text(stringResource(R.string.ok)) }
         },
         dismissButton = {
@@ -480,14 +503,15 @@ private fun NamePartSlot(
     appLang: String,
     value: String,
     customMode: Boolean,
-    onValue: (text: String, customMode: Boolean) -> Unit,
+    /** key = canonical NameFilters key for preset picks, null for "—" and custom text. */
+    onValue: (text: String, customMode: Boolean, key: String?) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth()) {
         if (customMode) {
             OutlinedTextField(
                 value = value,
-                onValueChange = { onValue(it, true) },
+                onValueChange = { onValue(it, true, null) },
                 label = { Text(labelText) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -505,18 +529,18 @@ private fun NamePartSlot(
         androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             androidx.compose.material3.DropdownMenuItem(
                 text = { Text("—") },
-                onClick = { open = false; onValue("", false) },
+                onClick = { open = false; onValue("", false, null) },
             )
             table.keys.forEach { key ->
                 val label = dev.allan.workoutapp.data.NameFilters.label(key, appLang)
                 androidx.compose.material3.DropdownMenuItem(
                     text = { Text(label) },
-                    onClick = { open = false; onValue(label, false) },
+                    onClick = { open = false; onValue(label, false, key) },
                 )
             }
             androidx.compose.material3.DropdownMenuItem(
                 text = { Text(stringResource(R.string.custom_option)) },
-                onClick = { open = false; onValue("", true) },
+                onClick = { open = false; onValue("", true, null) },
             )
         }
     }
@@ -551,11 +575,11 @@ private fun FilterPanel(
         // Capped height + inner scroll so the panel never shoves the Custom/Search row
         // off screen, whatever the source's section mix is.
         val panelScroll = androidx.compose.foundation.rememberScrollState()
-        androidx.compose.foundation.layout.Box {
+        // Height cap sits on the Box, not the Column: the scrollbar's fillMaxHeight used to
+        // stretch the card to the whole leftover screen, leaving dead space past the options.
+        androidx.compose.foundation.layout.Box(Modifier.heightIn(max = 400.dp)) {
         Column(
-            Modifier
-                .heightIn(max = 400.dp)
-                .verticalScroll(panelScroll),
+            Modifier.verticalScroll(panelScroll),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // One database at a time — searching both would double the load time.
@@ -655,6 +679,9 @@ private fun FilterPanel(
         dev.allan.workoutapp.ui.common.ColumnScrollbar(
             panelScroll,
             Modifier.align(Alignment.TopEnd),
+            // Cancel the card's content padding so the bar hugs the card edge instead of
+            // overlapping the option chips.
+            edgePadding = 12.dp,
         )
         }
       }

@@ -45,6 +45,8 @@ data class ExerciseTranslation(
     val name: String,
     val description: String,
     val aliases: List<String>,
+    /** Machine-translated on device (ML Kit) — labeled as such wherever it's shown. */
+    val machine: Boolean = false,
 )
 
 @Serializable

@@ -114,6 +114,7 @@ data class ExerciseDescription(
     val description: String,
     val videoUrl: String?,
     val note: String,
+    val machineTranslated: Boolean = false,
 )
 
 /** Full editable content of a workout, for undo/redo/discard. */
@@ -341,16 +342,26 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
 
     fun openDescription(item: EditorExercise) {
         viewModelScope.launch {
-            val translations = db.exerciseDao().translations(item.we.exerciseId)
-            val best = translations.firstOrNull { it.lang == lang }
-                ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
-            _description.value = ExerciseDescription(
-                exerciseId = item.we.exerciseId,
-                name = item.name,
-                description = best?.description.orEmpty(),
-                videoUrl = db.exerciseDao().videoLink(item.we.exerciseId),
-                note = db.sessionDao().noteText(item.we.exerciseId) ?: "",
-            )
+            val exerciseId = item.we.exerciseId
+            suspend fun load() {
+                val translations = db.exerciseDao().translations(exerciseId)
+                val best = translations.firstOrNull { it.lang == lang }
+                    ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
+                _description.value = ExerciseDescription(
+                    exerciseId = exerciseId,
+                    name = item.name,
+                    description = best?.description.orEmpty(),
+                    videoUrl = db.exerciseDao().videoLink(exerciseId),
+                    note = db.sessionDao().noteText(exerciseId) ?: "",
+                    machineTranslated = best?.machine == true,
+                )
+            }
+            load()
+            // English-only exercise + non-English app: machine-translate and refresh, but
+            // only while the sheet is still showing this exercise.
+            if (dev.allan.workoutapp.data.AutoTranslate.ensure(db, exerciseId, lang) &&
+                _description.value?.exerciseId == exerciseId
+            ) load()
         }
     }
 
@@ -743,6 +754,7 @@ fun WorkoutEditorScreen(
             onDismiss = vm::closeDescription,
             note = info.note,
             onSaveNote = { txt -> vm.saveNote(info.exerciseId, txt) },
+            machineTranslated = info.machineTranslated,
             extraContent = {
                 // Gallery: pick/add the representative image from the editor too
                 // (wger path resolved inside the component).

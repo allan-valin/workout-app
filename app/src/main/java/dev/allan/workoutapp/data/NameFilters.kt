@@ -50,6 +50,28 @@ object NameFilters {
         "twist" to listOf("twist", "rotação", "rotacao", "rotation", "oblíquo", "obliquo"),
     )
 
+    /**
+     * Default primary muscle (wger id) per movement pattern — pre-selects the muscle group
+     * in the custom-exercise dialog. Only a starting point: presses default to chest even
+     * though shoulder presses exist; the user can always re-pick.
+     */
+    val PATTERN_MUSCLE: Map<String, Int> = mapOf(
+        "press" to 4, // chest
+        "curl" to 1, // biceps
+        "row" to 12, // lats
+        "raise" to 2, // shoulders
+        "extension" to 5, // triceps
+        "fly" to 4, // chest
+        "squat" to 10, // quads
+        "lunge" to 10, // quads
+        "deadlift" to 11, // hamstrings
+        "pulldown" to 12, // lats
+        "pull-up" to 12, // lats
+        "crunch" to 6, // abs
+        "plank" to 6, // abs
+        "twist" to 6, // abs
+    )
+
     /** Localized dropdown label for a canonical key (gym vocabulary, kept short). */
     fun label(key: String, lang: String): String {
         val pt = mapOf(

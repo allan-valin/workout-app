@@ -94,5 +94,7 @@ dependencies {
     implementation(libs.coil.gif)
     implementation(libs.coil.svg)
     implementation(libs.reorderable)
+    // On-device translation for exercise names/descriptions (en -> app language).
+    implementation("com.google.mlkit:translate:17.0.2")
     testImplementation(libs.junit)
 }

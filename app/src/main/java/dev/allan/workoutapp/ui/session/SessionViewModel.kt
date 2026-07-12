@@ -91,6 +91,8 @@ data class SessionUiState(
     val descriptionExerciseId: String? = null,
     val descriptionVideoUrl: String? = null,
     val descriptionNote: String? = null,
+    /** The sheet's description is an on-device machine translation. */
+    val descriptionMachine: Boolean = false,
     val finished: Boolean = false,
 )
 
@@ -502,16 +504,25 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     /** Show the current exercise's description (localized, en fallback) in a sheet. */
     fun openDescription(exerciseId: String, withImage: Boolean = true) {
         viewModelScope.launch {
-            val translations = db.exerciseDao().translations(exerciseId)
-            val best = translations.firstOrNull { it.lang == lang }
-                ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
-            _state.value = _state.value.copy(
-                descriptionSheet = best?.description.orEmpty(),
-                descriptionWithImage = withImage,
-                descriptionExerciseId = exerciseId,
-                descriptionVideoUrl = db.exerciseDao().videoLink(exerciseId),
-                descriptionNote = db.sessionDao().noteText(exerciseId) ?: "",
-            )
+            suspend fun load() {
+                val translations = db.exerciseDao().translations(exerciseId)
+                val best = translations.firstOrNull { it.lang == lang }
+                    ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
+                _state.value = _state.value.copy(
+                    descriptionSheet = best?.description.orEmpty(),
+                    descriptionWithImage = withImage,
+                    descriptionExerciseId = exerciseId,
+                    descriptionVideoUrl = db.exerciseDao().videoLink(exerciseId),
+                    descriptionNote = db.sessionDao().noteText(exerciseId) ?: "",
+                    descriptionMachine = best?.machine == true,
+                )
+            }
+            load()
+            // English-only exercise + non-English app: machine-translate and refresh, but
+            // only while the sheet is still showing this exercise.
+            if (dev.allan.workoutapp.data.AutoTranslate.ensure(db, exerciseId, lang) &&
+                _state.value.descriptionExerciseId == exerciseId
+            ) load()
         }
     }
 

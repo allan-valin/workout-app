@@ -89,6 +89,7 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
         val videoUrl: String?,
         val note: String,
         val imagePath: String? = null,
+        val machineTranslated: Boolean = false,
     )
 
     private val _detail = MutableStateFlow<Detail?>(null)
@@ -170,17 +171,26 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
 
     fun openDetail(exerciseId: String) {
         viewModelScope.launch {
-            val translations = db.exerciseDao().translations(exerciseId)
-            val best = translations.firstOrNull { it.lang == lang }
-                ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
-            _detail.value = Detail(
-                exerciseId = exerciseId,
-                name = best?.name ?: "",
-                description = best?.description.orEmpty(),
-                videoUrl = db.exerciseDao().videoLink(exerciseId),
-                note = db.sessionDao().noteText(exerciseId) ?: "",
-                imagePath = db.exerciseDao().exercise(exerciseId)?.imagePath,
-            )
+            suspend fun load() {
+                val translations = db.exerciseDao().translations(exerciseId)
+                val best = translations.firstOrNull { it.lang == lang }
+                    ?: translations.firstOrNull { it.lang == "en" } ?: translations.firstOrNull()
+                _detail.value = Detail(
+                    exerciseId = exerciseId,
+                    name = best?.name ?: "",
+                    description = best?.description.orEmpty(),
+                    videoUrl = db.exerciseDao().videoLink(exerciseId),
+                    note = db.sessionDao().noteText(exerciseId) ?: "",
+                    imagePath = db.exerciseDao().exercise(exerciseId)?.imagePath,
+                    machineTranslated = best?.machine == true,
+                )
+            }
+            load()
+            // English-only exercise + non-English app: machine-translate and refresh, but
+            // only while the sheet is still showing this exercise.
+            if (dev.allan.workoutapp.data.AutoTranslate.ensure(db, exerciseId, lang) &&
+                _detail.value?.exerciseId == exerciseId
+            ) load()
         }
     }
 
@@ -399,6 +409,7 @@ fun WorkoutViewScreen(
             onDismiss = vm::closeDetail,
             note = d.note,
             onSaveNote = { txt -> vm.saveNote(d.exerciseId, txt) },
+            machineTranslated = d.machineTranslated,
             extraContent = {
                 // Same info everywhere: active AND archived workout views show the gallery.
                 dev.allan.workoutapp.ui.common.ExerciseImageGallery(

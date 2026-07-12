@@ -296,4 +296,6 @@
     <string name="filter_pattern">Movement</string>
     <string name="filter_variant">Variant (grip, angle…) — optional</string>
     <string name="custom_option">Custom…</string>
+    <string name="machine_translated">Machine translated (on-device)</string>
+    <string name="exercise_exists">Exercise already exists — using the existing one: %1$s</string>
 </resources>

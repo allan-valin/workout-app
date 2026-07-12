@@ -955,3 +955,46 @@ over Wi-Fi w/ consent. NOT implemented yet — awaiting Allan's go.
 
 Allan note: emulator data is expendable during testing — blind taps acceptable (bug-finding
 value); keep the pre-session DB snapshot habit for cheap repairs.
+
+## Phase 20 — Allan feedback (2026-07-13 ~12:40; CHECKPOINT — token limit hit mid-verification)
+
+DONE + EMULATOR-VERIFIED:
+- Filter panel phantom scroll space: root cause = scrollbar's fillMaxHeight stretched the
+  unconstrained overlay Box (and the card) to the whole leftover screen while the content
+  column capped at 400dp. Fix: heightIn(max=400dp) moved from the Column to the Box.
+  Verified: panel now ends flush after "Mostrar nomes alternativos".
+- Filter panel scrollbar overlapped chips → ColumnScrollbar edgePadding=12.dp cancels the
+  card padding; thumb hugs the card edge (verified mid-scroll screenshot).
+- Custom dialog: NamePartSlot now reports the canonical key; Movimento pre-selects the
+  muscle group via NameFilters.PATTERN_MUSCLE (press→chest, curl→biceps, row/pulldown/
+  pull-up→lats, raise→shoulders, extension→triceps, fly→chest, squat/lunge→quads,
+  deadlift→hamstrings, crunch/plank/twist→abs) until the user picks a chip by hand
+  (muscleEdited flag). Verified: Rosca → Bíceps chip selected.
+- Cardio toggle hides the whole muscle-group picker and forces muscleId=null on create.
+  Verified both directions.
+- Duplicate custom detection: createCustomExercise checks exerciseIdByName (case-
+  insensitive, any language) first; on hit shows "Exercício já existe — usando o
+  existente: X" and passes the EXISTING id to onAdd (picker mode adds it to the workout,
+  no duplicate row). Verified with name "teste".
+- Custom exercises no longer show the wger attribution line in the detail sheet
+  (attribution only when !hit.isCustom; fed prefix keeps fed attribution). Verified.
+
+IMPLEMENTED, NOT YET VERIFIED (blocked: Claude tooling outage stopped adb polling):
+- ML Kit on-device auto-translation (Allan approved, scope = name/description of
+  UNtranslated exercises only): com.google.mlkit:translate:17.0.2; data/AutoTranslate.kt
+  (ensure(db, id, lang): skips en/existing-lang rows, translates the en row's name+
+  description, inserts machine=true row, 120s timeout, model download Wi-Fi only);
+  DB v9 adds exercise_translation.machine flag; wired into ALL four description loaders
+  (library openDetail, session openDescription, editor openDescription, workout-view
+  openDetail — "check all searches" per Allan) with load→ensure→reload-if-still-open;
+  ExerciseInfoSheet shows "Tradução automática (no aparelho)" label for machine rows.
+  Emulator test: opened fed "Cable Crunch" sheet (pt app lang) — still English after
+  ~4 min; first-run ~30MB en→pt model download OR a swallowed ML Kit failure. NEXT:
+  adb logcat -d | grep -i mlkit; check DownloadConditions (maybe drop requireWifi or
+  surface a "translating…" state); reopen sheet after model lands (ensure() reruns on
+  every open, so a later open picks the translation up).
+- Unit tests + release build not run this phase yet (assembleDebug green, installed).
+
+Open question answered in chat: gear-menu "update database" button — not worth it now;
+wger snapshot + fed index are bundled at build time, media is on-demand; revisit at 1.0
+with a real remote-index refresh.

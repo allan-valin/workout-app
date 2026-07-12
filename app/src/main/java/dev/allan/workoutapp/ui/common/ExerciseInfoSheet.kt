@@ -47,6 +47,8 @@ fun ExerciseInfoSheet(
     /** Persistent per-exercise note (kept across sessions). null hides the note editor. */
     note: String? = null,
     onSaveNote: (String) -> Unit = {},
+    /** The shown description is an on-device machine translation — label it as such. */
+    machineTranslated: Boolean = false,
     /** Extra rows shown above the link field (muscles, aliases, attribution, image…). */
     extraContent: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -55,6 +57,12 @@ fun ExerciseInfoSheet(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(name, style = MaterialTheme.typography.headlineSmall)
             Text(description.ifBlank { stringResource(R.string.no_description) })
+            if (machineTranslated) {
+                Text(
+                    stringResource(R.string.machine_translated),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
             extraContent()
 
             // Persistent note — pre-filled with what's saved so it survives reopen (Allan's

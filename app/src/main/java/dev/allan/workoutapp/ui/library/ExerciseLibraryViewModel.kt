@@ -222,6 +222,12 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
                 db.exerciseDao().videoLink(hit.id),
                 db.sessionDao().noteText(hit.id) ?: "",
             )
+            // English-only exercise + non-English app: machine-translate in the background
+            // and refresh the sheet once the cached row lands.
+            if (dev.allan.workoutapp.data.AutoTranslate.ensure(db, hit.id, appLang())) {
+                _detail.value = _detail.value?.takeIf { it.hit.id == hit.id }
+                    ?.copy(translations = db.exerciseDao().translations(hit.id))
+            }
         }
     }
 
@@ -266,9 +272,19 @@ class ExerciseLibraryViewModel(app: Application) : AndroidViewModel(app) {
         description: String,
         primaryMuscleId: Int?,
         isCardio: Boolean,
+        /** Resolved message shown when the name already exists (existing one is reused). */
+        existsMessage: (String) -> String,
         onDone: (String) -> Unit,
     ) {
         viewModelScope.launch {
+            // The exercise may already exist (any database, any language) — reuse it
+            // instead of creating a duplicate (Allan).
+            val existing = db.exerciseDao().exerciseIdByName(name.trim())
+            if (existing != null) {
+                _customsMessage.value = existsMessage(name.trim())
+                onDone(existing)
+                return@launch
+            }
             val id = dev.allan.workoutapp.data.PlanRepo.createCustomExercise(
                 db, name, description, primaryMuscleId, isCardio, appLang(),
             )
