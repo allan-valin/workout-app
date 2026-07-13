@@ -53,8 +53,12 @@ object AutoTranslate {
                         else it.translate(source.description).await()
                     name to description
                 }
+            }.onFailure {
+                android.util.Log.w("AutoTranslate", "translate $exerciseId -> $lang failed", it)
             }.getOrNull()
-        } ?: return false
+        } ?: return false.also {
+            android.util.Log.w("AutoTranslate", "translate $exerciseId -> $lang gave up (timeout or failure)")
+        }
 
         db.exerciseDao().insertTranslations(
             listOf(

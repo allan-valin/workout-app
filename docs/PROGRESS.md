@@ -979,7 +979,6 @@ DONE + EMULATOR-VERIFIED:
 - Custom exercises no longer show the wger attribution line in the detail sheet
   (attribution only when !hit.isCustom; fed prefix keeps fed attribution). Verified.
 
-IMPLEMENTED, NOT YET VERIFIED (blocked: Claude tooling outage stopped adb polling):
 - ML Kit on-device auto-translation (Allan approved, scope = name/description of
   UNtranslated exercises only): com.google.mlkit:translate:17.0.2; data/AutoTranslate.kt
   (ensure(db, id, lang): skips en/existing-lang rows, translates the en row's name+
@@ -988,12 +987,19 @@ IMPLEMENTED, NOT YET VERIFIED (blocked: Claude tooling outage stopped adb pollin
   (library openDetail, session openDescription, editor openDescription, workout-view
   openDetail — "check all searches" per Allan) with load→ensure→reload-if-still-open;
   ExerciseInfoSheet shows "Tradução automática (no aparelho)" label for machine rows.
-  Emulator test: opened fed "Cable Crunch" sheet (pt app lang) — still English after
-  ~4 min; first-run ~30MB en→pt model download OR a swallowed ML Kit failure. NEXT:
-  adb logcat -d | grep -i mlkit; check DownloadConditions (maybe drop requireWifi or
-  surface a "translating…" state); reopen sheet after model lands (ensure() reruns on
-  every open, so a later open picks the translation up).
-- Unit tests + release build not run this phase yet (assembleDebug green, installed).
+  EMULATOR-VERIFIED 2026-07-13 (resumed session): fed "Cable Crunch" sheet in pt shows
+  full Portuguese description + "Tradução automática (no aparelho)" label + machine pt
+  alias in "Também conhecido como". The earlier "still English after 4 min" was just the
+  one-time ~30MB en→pt model download in flight — a later sheet open picked the
+  translation up exactly as designed (ensure() reruns per open). requireWifi KEPT
+  (worked on emulator wifi; intended for the Redmi too). AutoTranslate failures are no
+  longer silent: runCatching now logs to logcat tag "AutoTranslate" (was a blind
+  getOrNull — the debugging dead-end this phase).
+  MT-quality note: machine pt NAME can be comical ("Cable Crunch" → "Crise de cabo");
+  description quality is fine. Names of en-only exercises keep the en display in lists
+  (search hit lang); only the alias row exposes the machine name. Flag to Allan if it
+  bothers him — could restrict MT to descriptions only.
+- Unit tests (testDebug+testRelease) + assembleRelease GREEN 2026-07-13.
 
 Open question answered in chat: gear-menu "update database" button — not worth it now;
 wger snapshot + fed index are bundled at build time, media is on-demand; revisit at 1.0
