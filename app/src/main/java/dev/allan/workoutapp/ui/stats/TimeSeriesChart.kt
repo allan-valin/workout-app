@@ -188,15 +188,18 @@ fun TimeSeriesChart(
         val yMax = visible.maxOf { it.second }
         val step = gridStep(yMax - yMin)
         val yBottom = yMin - step
-        val yTop = yMax + step
+        val firstLine = (ceil(yBottom / step) * step)
+            .let { if (it <= yBottom + step * 1e-6) it + step else it }
+        // At least 3 gridlines (bottom + 2 above — Allan: a near-flat window otherwise
+        // showed a single line with no scale to read against).
+        val yTop = maxOf(yMax + step, firstLine + 2.5 * step)
         fun y(v: Double) = plotH * (1f - ((v - yBottom) / (yTop - yBottom)).toFloat())
 
         // Dotted gridlines on round multiples of the step, labeled at the left edge.
         // Lines landing exactly on the padded top/bottom edges are skipped — the pad is
         // there so the extremes sit one step inside, not to draw a border.
         val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
-        var grid = ceil(yBottom / step) * step
-        if (grid <= yBottom + step * 1e-6) grid += step
+        var grid = firstLine
         while (grid <= yTop - step * 0.5) {
             val gy = y(grid)
             drawLine(gridColor, Offset(0f, gy), Offset(size.width, gy), pathEffect = dash)
