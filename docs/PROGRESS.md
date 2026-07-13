@@ -1046,6 +1046,8 @@ Stats charts reworked (ui/stats/TimeSeriesChart.kt replaces PointAreaChart + win
   clipped to the plot band (off-window neighbors can map far outside the visible scale).
   Verified: 1m w/ 94 kg spike → step-5 grid 75–95; same data panned to a flat June week
   in 7d → single 79.5 line (spread < 0.5). NOTE: emulator body_metric rows for 7/8–7/13
-  reverted to pre-seed values between runs — suspect stale Room WAL checkpoint over the
-  external sqlite3 write; harmless (expendable data) but seed via sqlite3 only while the
-  app is force-stopped AND after truncating the WAL next time.
+  reverted to pre-seed values between runs — SOLVED: Allan edited them by hand in the
+  open emulator (not a WAL problem; seeding procedure was fine).
+- Follow-up 2 (Allan): near-flat window showed a single gridline — yTop now extends so
+  the bottom line always has ≥2 lines above it (min 3). Verified: flat June week shows
+  79.5/80/80.5.

@@ -191,8 +191,13 @@ fun TimeSeriesChart(
         val firstLine = (ceil(yBottom / step) * step)
             .let { if (it <= yBottom + step * 1e-6) it + step else it }
         // At least 3 gridlines (bottom + 2 above — Allan: a near-flat window otherwise
-        // showed a single line with no scale to read against).
-        val yTop = maxOf(yMax + step, firstLine + 2.5 * step)
+        // showed a single line with no scale to read against), and always one line above
+        // the max dot so no value floats beyond the labeled scale.
+        val yTop = maxOf(
+            yMax + step,
+            firstLine + 2.5 * step,
+            ceil(yMax / step) * step + 0.5 * step,
+        )
         fun y(v: Double) = plotH * (1f - ((v - yBottom) / (yTop - yBottom)).toFloat())
 
         // Dotted gridlines on round multiples of the step, labeled at the left edge.
@@ -231,7 +236,8 @@ fun TimeSeriesChart(
         val first = series.indexOfLast { it.first <= winStart }.coerceAtLeast(0)
         val last = series.indexOfFirst { it.first >= rightEdge }
             .let { if (it == -1) series.lastIndex else it }
-        val coords = series.subList(first, last + 1).map { (t, v) -> Offset(x(t), y(v)) }
+        val shown = series.subList(first, last + 1)
+        val coords = shown.map { (t, v) -> Offset(x(t), y(v)) }
         clipRect(0f, 0f, size.width, plotH) {
             if (coords.size >= 2) {
                 val area = Path().apply {
@@ -245,8 +251,13 @@ fun TimeSeriesChart(
                     drawLine(color, coords[i], coords[i + 1], strokeWidth = 5f, cap = StrokeCap.Round)
                 }
             }
-            coords.forEach {
-                if (it.x in 0f..size.width) drawCircle(color = color, radius = 8f, center = it)
+            // Dots only for in-window points: the neighbor points exist to anchor the
+            // entering/exiting line but are outside the y-scale (an off-window spike
+            // otherwise drew a dot at the canvas edge far beyond the gridlines).
+            shown.forEachIndexed { i, (t, _) ->
+                if (t in winStart..rightEdge) {
+                    drawCircle(color = color, radius = 8f, center = coords[i])
+                }
             }
         }
     }
