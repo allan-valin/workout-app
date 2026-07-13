@@ -1051,3 +1051,9 @@ Stats charts reworked (ui/stats/TimeSeriesChart.kt replaces PointAreaChart + win
 - Follow-up 2 (Allan): near-flat window showed a single gridline — yTop now extends so
   the bottom line always has ≥2 lines above it (min 3). Verified: flat June week shows
   79.5/80/80.5.
+- Follow-up 3 (Allan spotted live): off-window neighbor points (they anchor the
+  entering/exiting line segments) are excluded from the y-scale but their DOTS could
+  still render at the canvas edge far off-scale — dots now draw only for in-window
+  points (lines still enter/exit, clipped). yTop additionally guarantees one gridline
+  ABOVE the max visible value. Verified: spike window 93–94.5 w/ top line above max;
+  off-window 79 kg point enters as clipped line from below, no phantom edge dot.
