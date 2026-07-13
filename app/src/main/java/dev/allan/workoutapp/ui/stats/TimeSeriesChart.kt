@@ -182,7 +182,12 @@ fun TimeSeriesChart(
         // Y scale follows only the VISIBLE points (Allan: a flat month inside a 20 kg
         // history still gets the 0.5 kg grid), padded by one grid step top and bottom so
         // the extremes sit one line in from the edges. Rescales live while panning.
-        val visible = series.filter { it.first in winStart..rightEdge }
+        // "Visible" is pixel-true: the window plus the x-padding margins, so a dot whose
+        // center is on the canvas is always part of the scale.
+        val padMs = (pad / (size.width - 2 * pad) * windowMs).toLong()
+        val visLo = winStart - padMs
+        val visHi = rightEdge + padMs
+        val visible = series.filter { it.first in visLo..visHi }
             .ifEmpty { series }
         val yMin = visible.minOf { it.second }
         val yMax = visible.maxOf { it.second }
@@ -236,7 +241,13 @@ fun TimeSeriesChart(
         val first = series.indexOfLast { it.first <= winStart }.coerceAtLeast(0)
         val last = series.indexOfFirst { it.first >= rightEdge }
             .let { if (it == -1) series.lastIndex else it }
+        // Off-window neighbors anchor the entering/exiting line — but only when their
+        // value fits the visible scale. An off-scale neighbor (Allan: 79 kg just left of
+        // a 93–94 window) drew a near-vertical line surfacing mid-plot with no dot to
+        // explain it; the honest rendering is to start the line at the first visible
+        // point and let panning reveal the rest.
         val shown = series.subList(first, last + 1)
+            .filter { (t, v) -> t in visLo..visHi || v in yBottom..yTop }
         val coords = shown.map { (t, v) -> Offset(x(t), y(v)) }
         clipRect(0f, 0f, size.width, plotH) {
             if (coords.size >= 2) {
@@ -251,11 +262,9 @@ fun TimeSeriesChart(
                     drawLine(color, coords[i], coords[i + 1], strokeWidth = 5f, cap = StrokeCap.Round)
                 }
             }
-            // Dots only for in-window points: the neighbor points exist to anchor the
-            // entering/exiting line but are outside the y-scale (an off-window spike
-            // otherwise drew a dot at the canvas edge far beyond the gridlines).
+            // Dots only for points inside the pixel-true window (matching the scale).
             shown.forEachIndexed { i, (t, _) ->
-                if (t in winStart..rightEdge) {
+                if (t in visLo..visHi) {
                     drawCircle(color = color, radius = 8f, center = coords[i])
                 }
             }
