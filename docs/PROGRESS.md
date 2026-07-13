@@ -1057,3 +1057,10 @@ Stats charts reworked (ui/stats/TimeSeriesChart.kt replaces PointAreaChart + win
   points (lines still enter/exit, clipped). yTop additionally guarantees one gridline
   ABOVE the max visible value. Verified: spike window 93–94.5 w/ top line above max;
   off-window 79 kg point enters as clipped line from below, no phantom edge dot.
+- Follow-up 4 (Allan: 04/7 value missing, line artifact between 04 and 07): the off-scale
+  neighbor STILL drew its connecting segment — near-vertical line surfacing mid-plot.
+  Neighbors now anchor the entering/exiting line only when their value fits the visible
+  scale; else the series starts at the first visible point (pan reveals the rest, scale
+  expands once the point enters). Scale/dots use a pixel-true window (x-pad included).
+  Verified: default 7d starts clean at 07; panning brings 04 in → scale 75–95, dot shown,
+  on-scale neighbor (01/7) still anchors the entering line.
