@@ -1004,3 +1004,39 @@ DONE + EMULATOR-VERIFIED:
 Open question answered in chat: gear-menu "update database" button — not worth it now;
 wger snapshot + fed index are bundled at build time, media is on-demand; revisit at 1.0
 with a real remote-index refresh.
+
+## Phase 21 — Allan feedback (2026-07-13 afternoon; EMULATOR-VERIFIED same session;
+testDebug+testRelease+assembleRelease green; committed+pushed)
+
+Body map alignment (Allan: female front bigger, female back taller than male):
+- Root cause measured: the library wrappers' viewBoxes give each view a different
+  figure-share of the box (male 86% of height, female front 93%, female back 99%) while
+  BodyMap lays views out width-first — so equal widths ⇒ different figure sizes.
+- convert.py now computes each view's real content bbox (own SVG path-bbox parser, control
+  points included; arcs' fused flags handled) and emits NORMALIZED viewBoxes: every figure
+  fills 85.93% of height, 6.64% top margin, aspect 0.5. BodyMap.kt uses one BODY_ASPECT
+  (0.5) for all views (per-sex aspect constants deleted). Emulator-verified male + female:
+  heads level, feet on one baseline, equal heights.
+
+Stats charts reworked (ui/stats/TimeSeriesChart.kt replaces PointAreaChart + windowed()):
+- Range chips shortened to fit: 7d/1m/3m/6m/1y|1a|1J/All|Tudo|Alle (squished-right bug).
+- X-axis ticks+date labels per range (Allan's spec): 7d = every day, today rightmost;
+  1m = every 7 days back from today; 3m = monthly; 6m = 2-month steps; 1y = 3-month
+  steps; Tudo = calendar years when data spans >2y, else 3-month steps.
+- Y-axis dotted gridlines on round values, adaptive step (0.5→1→2→5→10…50k, ≤5 lines
+  for the spread), value label on each line; integral values drop the ".0".
+- Granularity chips (Diário/Semanal/Mensal): buckets by day / Monday-start week / calendar
+  month; bodyweight averages per bucket (MEAN), volume sums (SUM). Bucket x = latest
+  sample in bucket so the newest point stays at "now". Bodyweight defaults DAY,
+  Progression defaults WEEK (a workout runs ≤3x/week).
+- Horizontal pan back through the whole history: canvas stays screen-sized and remaps
+  time on drag (no giant scroll layer / texture limit), window clamps to data; right
+  edge starts at now, resets on range/data change.
+- Progression screen: granularity row added; muscle cards now show whenever the series
+  has any data (windowed() emptiness check gone — panning reaches old data anyway).
+- Unit tests: TimeSeriesChartTest (12) — bucket day/week/month + MEAN/SUM, gridStep
+  ladder, xTicks for all six ranges incl. year-labels vs quarterly fallback.
+- Emulator-verified (81 seeded body_metric rows over 8 months left in the emulator DB —
+  useful for future chart testing): chips fit, 1m ticks 15/6…13/7, 7d day labels with
+  today rightmost, pan back 7→4/7, Tudo+Semanal weekly means w/ quarterly ticks + step-2
+  gridlines, Progression weekly volume point.

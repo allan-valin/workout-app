@@ -35,6 +35,9 @@ import dev.allan.workoutapp.data.MuscleMap
 import dev.allan.workoutapp.data.Settings
 import kotlinx.coroutines.launch
 
+/** All body viewBoxes are normalized to this width:height by convert.py — keep in sync. */
+private const val BODY_ASPECT = 0.5f
+
 /**
  * Muscle map. Renders a flat vector front + back body (ported from
  * react-native-body-highlighter, MIT — see tools/body-highlighter/) and overlays each targeted
@@ -54,10 +57,7 @@ fun BodyMap(
     val loader = remember { AppImageLoader.get(context) }
     val female by Settings.bodyFemale(context).collectAsState(initial = false)
     val scope = rememberCoroutineScope()
-    // Per-view aspect ratios come from the library wrappers' viewBoxes.
     val suffix = if (female) "-f" else ""
-    val frontAspect = if (female) 734f / 1538f else 724f / 1448f
-    val backAspect = if (female) 774f / 1448f else 724f / 1448f
     Column(modifier) {
         if (title != null) {
             Text(
@@ -68,8 +68,8 @@ fun BodyMap(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BodyView("body/front$suffix.svg", suffix, frontAspect, MuscleMap.FRONT_IDS, load, loader, Modifier.weight(1f))
-            BodyView("body/back$suffix.svg", suffix, backAspect, MuscleMap.BACK_IDS, load, loader, Modifier.weight(1f))
+            BodyView("body/front$suffix.svg", suffix, BODY_ASPECT, MuscleMap.FRONT_IDS, load, loader, Modifier.weight(1f))
+            BodyView("body/back$suffix.svg", suffix, BODY_ASPECT, MuscleMap.BACK_IDS, load, loader, Modifier.weight(1f))
         }
         Legend(onSwitchModel = { scope.launch { Settings.setBodyFemale(context, !female) } })
     }

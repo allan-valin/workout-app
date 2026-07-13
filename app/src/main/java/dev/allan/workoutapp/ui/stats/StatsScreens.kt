@@ -1,6 +1,5 @@
 package dev.allan.workoutapp.ui.stats
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,10 +32,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
@@ -56,57 +51,6 @@ enum class StatsRange(val days: Long?, val labelRes: Int) {
     ALL(null, R.string.range_all),
 }
 
-/**
- * Point graph over real time: x = instant, y = value; dots connected by a line
- * with the area under it filled. Dependency-free Canvas.
- */
-@Composable
-fun PointAreaChart(
-    points: List<Pair<Long, Double>>,
-    modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary,
-) {
-    if (points.isEmpty()) return
-    val sorted = remember(points) { points.sortedBy { it.first } }
-    val min = sorted.minOf { it.second }
-    val max = sorted.maxOf { it.second }
-    Column(modifier) {
-        Text("%.1f".format(max), style = MaterialTheme.typography.labelSmall)
-        Canvas(
-            Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(vertical = 4.dp),
-        ) {
-            val xMin = sorted.first().first
-            val xMax = sorted.last().first
-            val xRange = (xMax - xMin).takeIf { it > 0 } ?: 1L
-            val yRange = (max - min).takeIf { it > 0 } ?: 1.0
-            val coords = sorted.map { (t, v) ->
-                Offset(
-                    size.width * ((t - xMin).toFloat() / xRange.toFloat()),
-                    // 10% headroom top and bottom so extremes don't sit on the edge.
-                    size.height * (0.9f - 0.8f * ((v - min) / yRange).toFloat()),
-                )
-            }
-            if (coords.size >= 2) {
-                val area = Path().apply {
-                    moveTo(coords.first().x, size.height)
-                    coords.forEach { lineTo(it.x, it.y) }
-                    lineTo(coords.last().x, size.height)
-                    close()
-                }
-                drawPath(area, color = color.copy(alpha = 0.2f))
-                for (i in 0 until coords.size - 1) {
-                    drawLine(color, coords[i], coords[i + 1], strokeWidth = 5f, cap = StrokeCap.Round)
-                }
-            }
-            coords.forEach { drawCircle(color = color, radius = 8f, center = it) }
-        }
-        Text("%.1f".format(min), style = MaterialTheme.typography.labelSmall)
-    }
-}
-
 @Composable
 fun RangeChips(selected: StatsRange, onSelect: (StatsRange) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
@@ -120,11 +64,17 @@ fun RangeChips(selected: StatsRange, onSelect: (StatsRange) -> Unit) {
     }
 }
 
-/** Cut a (epochMillis, value) series down to the selected window. */
-fun <T> windowed(series: List<Pair<Long, T>>, range: StatsRange): List<Pair<Long, T>> {
-    val days = range.days ?: return series
-    val cutoff = System.currentTimeMillis() - days * 86_400_000L
-    return series.filter { it.first >= cutoff }
+@Composable
+fun GranularityChips(selected: Granularity, onSelect: (Granularity) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        Granularity.entries.forEach { g ->
+            FilterChip(
+                selected = selected == g,
+                onClick = { onSelect(g) },
+                label = { Text(stringResource(g.labelRes)) },
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,6 +82,7 @@ fun <T> windowed(series: List<Pair<Long, T>>, range: StatsRange): List<Pair<Long
 fun BodyweightScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
     val metrics by vm.bodyMetrics.collectAsState()
     var range by remember { mutableStateOf(StatsRange.MONTH) }
+    var granularity by remember { mutableStateOf(Granularity.DAY) }
     var editDay by remember { mutableStateOf<Long?>(null) }
 
     val series = metrics.map { it.epochDay * 86_400_000L to it.weightKg }
@@ -157,12 +108,15 @@ fun BodyweightScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
             edgePadding = 16.dp,
         ) {
             RangeChips(range) { range = it }
-            val shown = windowed(series, range)
-            if (shown.isEmpty()) {
+            GranularityChips(granularity) { granularity = it }
+            if (series.isEmpty()) {
                 Text(stringResource(R.string.no_data_yet))
             } else {
-                PointAreaChart(
-                    points = shown,
+                TimeSeriesChart(
+                    points = series,
+                    range = range,
+                    granularity = granularity,
+                    aggregate = SeriesAggregate.MEAN,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(220.dp),
@@ -221,6 +175,9 @@ fun ProgressionScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
     val averages by vm.averages.collectAsState()
     val muscleSeries by vm.muscleSeries.collectAsState()
     var range by remember { mutableStateOf(StatsRange.MONTH) }
+    // Volume series are per-session — weekly buckets read better by default (Allan:
+    // the same workout runs at most ~3x a week).
+    var granularity by remember { mutableStateOf(Granularity.WEEK) }
 
     Scaffold(
         topBar = {
@@ -256,13 +213,16 @@ fun ProgressionScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
                 }
             }
             RangeChips(range) { range = it }
+            GranularityChips(granularity) { granularity = it }
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(stringResource(R.string.volume_over_time), fontWeight = FontWeight.Bold)
-                    val shown = windowed(averages.volumeSeries, range)
-                    if (shown.isEmpty()) Text(stringResource(R.string.no_data_yet))
-                    else PointAreaChart(
-                        points = shown,
+                    if (averages.volumeSeries.isEmpty()) Text(stringResource(R.string.no_data_yet))
+                    else TimeSeriesChart(
+                        points = averages.volumeSeries,
+                        range = range,
+                        granularity = granularity,
+                        aggregate = SeriesAggregate.SUM,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(180.dp),
@@ -270,13 +230,15 @@ fun ProgressionScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
                 }
             }
             muscleSeries.forEach { (muscleName, series) ->
-                val shown = windowed(series, range)
-                if (shown.isNotEmpty()) {
+                if (series.isNotEmpty()) {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(muscleName, fontWeight = FontWeight.Bold)
-                            PointAreaChart(
-                                points = shown,
+                            TimeSeriesChart(
+                                points = series,
+                                range = range,
+                                granularity = granularity,
+                                aggregate = SeriesAggregate.SUM,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(140.dp),
