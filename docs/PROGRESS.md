@@ -1040,3 +1040,12 @@ Stats charts reworked (ui/stats/TimeSeriesChart.kt replaces PointAreaChart + win
   useful for future chart testing): chips fit, 1m ticks 15/6…13/7, 7d day labels with
   today rightmost, pan back 7→4/7, Tudo+Semanal weekly means w/ quarterly ticks + step-2
   gridlines, Progression weekly volume point.
+- Follow-up (Allan, same day): y-axis now scales to the VISIBLE window only, padded one
+  grid step top+bottom (extremes sit one line inside the edges) and rescales live while
+  panning — a flat month inside a 20 kg history gets the 0.5 kg grid. Series drawing
+  clipped to the plot band (off-window neighbors can map far outside the visible scale).
+  Verified: 1m w/ 94 kg spike → step-5 grid 75–95; same data panned to a flat June week
+  in 7d → single 79.5 line (spread < 0.5). NOTE: emulator body_metric rows for 7/8–7/13
+  reverted to pre-seed values between runs — suspect stale Room WAL checkpoint over the
+  external sqlite3 write; harmless (expendable data) but seed via sqlite3 only while the
+  app is force-stopped AND after truncating the WAL next time.
