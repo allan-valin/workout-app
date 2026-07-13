@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -155,10 +156,6 @@ fun TimeSeriesChart(
     var rightEdge by remember(series, range) { mutableLongStateOf(xEnd) }
     val minRightEdge = minOf(xEnd, xStart + windowMs)
 
-    val yMin = series.minOf { it.second }
-    val yMax = series.maxOf { it.second }
-    val ySpread = (yMax - yMin).takeIf { it > 0 } ?: 1.0
-    val step = gridStep(yMax - yMin)
     val ticks = remember(range, xStart) { xTicks(range, xStart) }
 
     val measurer = rememberTextMeasurer()
@@ -181,12 +178,26 @@ fun TimeSeriesChart(
         val pad = 10f
         val winStart = rightEdge - windowMs
         fun x(t: Long) = pad + (size.width - 2 * pad) * (t - winStart).toFloat() / windowMs.toFloat()
-        fun y(v: Double) = plotH * (0.92f - 0.84f * ((v - yMin) / ySpread).toFloat())
+
+        // Y scale follows only the VISIBLE points (Allan: a flat month inside a 20 kg
+        // history still gets the 0.5 kg grid), padded by one grid step top and bottom so
+        // the extremes sit one line in from the edges. Rescales live while panning.
+        val visible = series.filter { it.first in winStart..rightEdge }
+            .ifEmpty { series }
+        val yMin = visible.minOf { it.second }
+        val yMax = visible.maxOf { it.second }
+        val step = gridStep(yMax - yMin)
+        val yBottom = yMin - step
+        val yTop = yMax + step
+        fun y(v: Double) = plotH * (1f - ((v - yBottom) / (yTop - yBottom)).toFloat())
 
         // Dotted gridlines on round multiples of the step, labeled at the left edge.
+        // Lines landing exactly on the padded top/bottom edges are skipped — the pad is
+        // there so the extremes sit one step inside, not to draw a border.
         val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
-        var grid = ceil(yMin / step) * step
-        while (grid <= yMax + 1e-9) {
+        var grid = ceil(yBottom / step) * step
+        if (grid <= yBottom + step * 1e-6) grid += step
+        while (grid <= yTop - step * 0.5) {
             val gy = y(grid)
             drawLine(gridColor, Offset(0f, gy), Offset(size.width, gy), pathEffect = dash)
             val text = if (grid % 1.0 == 0.0) "%.0f".format(grid) else "%.1f".format(grid)
@@ -211,25 +222,29 @@ fun TimeSeriesChart(
             )
         }
 
-        // Series: only the window plus one neighbor each side, so lines enter/exit cleanly.
+        // Series: only the window plus one neighbor each side, so lines enter/exit
+        // cleanly. Clipped to the plot band — off-window neighbors can sit far outside
+        // the visible-window y scale.
         val first = series.indexOfLast { it.first <= winStart }.coerceAtLeast(0)
         val last = series.indexOfFirst { it.first >= rightEdge }
             .let { if (it == -1) series.lastIndex else it }
         val coords = series.subList(first, last + 1).map { (t, v) -> Offset(x(t), y(v)) }
-        if (coords.size >= 2) {
-            val area = Path().apply {
-                moveTo(coords.first().x, plotH)
-                coords.forEach { lineTo(it.x, it.y) }
-                lineTo(coords.last().x, plotH)
-                close()
+        clipRect(0f, 0f, size.width, plotH) {
+            if (coords.size >= 2) {
+                val area = Path().apply {
+                    moveTo(coords.first().x, plotH)
+                    coords.forEach { lineTo(it.x, it.y) }
+                    lineTo(coords.last().x, plotH)
+                    close()
+                }
+                drawPath(area, color = color.copy(alpha = 0.2f))
+                for (i in 0 until coords.size - 1) {
+                    drawLine(color, coords[i], coords[i + 1], strokeWidth = 5f, cap = StrokeCap.Round)
+                }
             }
-            drawPath(area, color = color.copy(alpha = 0.2f))
-            for (i in 0 until coords.size - 1) {
-                drawLine(color, coords[i], coords[i + 1], strokeWidth = 5f, cap = StrokeCap.Round)
+            coords.forEach {
+                if (it.x in 0f..size.width) drawCircle(color = color, radius = 8f, center = it)
             }
-        }
-        coords.forEach {
-            if (it.x in 0f..size.width) drawCircle(color = color, radius = 8f, center = it)
         }
     }
 }
