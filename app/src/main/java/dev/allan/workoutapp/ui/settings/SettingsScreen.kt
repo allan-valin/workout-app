@@ -146,7 +146,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                 is PlanTransfer.Parsed.PlanFile -> {
                     val existing = db.planDao().planByName(parsed.plan.name)
                     if (existing == null) {
-                        report(PlanTransfer.importPlan(db, parsed.plan, lang))
+                        report(PlanTransfer.importPlan(db, parsed.plan, lang, context = context))
                     } else {
                         _pendingPlanImport.value = PendingPlanImport(
                             plan = parsed.plan,
@@ -166,8 +166,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         _pendingPlanImport.value = null
         viewModelScope.launch {
             report(
-                if (rename) PlanTransfer.importPlan(db, pending.plan, importLang, renameTo = pending.suggestedName)
-                else PlanTransfer.importPlan(db, pending.plan, importLang, mergeIntoPlanId = pending.existingPlanId)
+                if (rename) PlanTransfer.importPlan(db, pending.plan, importLang, renameTo = pending.suggestedName, context = context)
+                else PlanTransfer.importPlan(db, pending.plan, importLang, mergeIntoPlanId = pending.existingPlanId, context = context)
             )
         }
     }
@@ -189,7 +189,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                     createdAt = System.currentTimeMillis(),
                 )
             )
-            report(PlanTransfer.importWorkout(db, workout, targetId, importLang))
+            report(PlanTransfer.importWorkout(db, workout, targetId, importLang, context = context))
         }
     }
 

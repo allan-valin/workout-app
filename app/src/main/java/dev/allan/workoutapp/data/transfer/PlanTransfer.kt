@@ -156,6 +156,7 @@ object PlanTransfer {
         lang: String,
         renameTo: String? = null,
         mergeIntoPlanId: Long? = null,
+        context: android.content.Context? = null,
     ): ImportReport {
         val createdCustom = mutableListOf<String>()
         val skipped = mutableListOf<String>()
@@ -174,7 +175,7 @@ object PlanTransfer {
         plan.workouts.forEachIndexed { wIndex, w ->
             exerciseCount += importWorkoutInto(
                 db, planId, w, baseOrder + wIndex, lang, createdCustom, skipped,
-                fallbackName = "Workout ${wIndex + 1}",
+                fallbackName = "Workout ${wIndex + 1}", context = context,
             )
         }
         return ImportReport(planId, plan.workouts.size, exerciseCount, createdCustom, skipped)
@@ -186,12 +187,14 @@ object PlanTransfer {
         workout: WorkoutDto,
         targetPlanId: Long,
         lang: String,
+        context: android.content.Context? = null,
     ): ImportReport {
         val createdCustom = mutableListOf<String>()
         val skipped = mutableListOf<String>()
         val order = db.planDao().workoutsList(targetPlanId).size
         val count = importWorkoutInto(
-            db, targetPlanId, workout, order, lang, createdCustom, skipped, fallbackName = "Workout",
+            db, targetPlanId, workout, order, lang, createdCustom, skipped,
+            fallbackName = "Workout", context = context,
         )
         return ImportReport(targetPlanId, 1, count, createdCustom, skipped)
     }
@@ -205,6 +208,7 @@ object PlanTransfer {
         createdCustom: MutableList<String>,
         skipped: MutableList<String>,
         fallbackName: String,
+        context: android.content.Context? = null,
     ): Int {
         var exerciseCount = 0
         val workoutId = db.planDao().insertWorkout(
@@ -219,7 +223,7 @@ object PlanTransfer {
             )
         )
         w.exercises.forEachIndexed { eIndex, e ->
-            val exerciseId = resolveExercise(db, e, lang, createdCustom)
+            val exerciseId = resolveExercise(db, e, lang, createdCustom, context)
             if (exerciseId == null) {
                 skipped += e.match.names.firstOrNull() ?: "exercise ${eIndex + 1}"
                 return@forEachIndexed
@@ -255,19 +259,39 @@ object PlanTransfer {
         return exerciseCount
     }
 
-    /** wger id -> exact name (any language) -> exact alias -> custom_fallback -> null. */
+    /**
+     * Match pipeline (Allan, 24/07): wger id -> exact name in wger -> free-exercise-db
+     * (DB rows AND the not-yet-imported asset index) -> EXISTING custom exercises ->
+     * exact alias -> custom_fallback -> null. Custom creation is the last resort so a
+     * plan reimport reuses the user's own exercises instead of duplicating them.
+     */
     private suspend fun resolveExercise(
         db: AppDatabase,
         e: ExerciseDto,
         lang: String,
         createdCustom: MutableList<String>,
+        context: android.content.Context? = null,
     ): String? {
         e.match.wgerId?.let { id ->
             if (db.exerciseDao().exercise("wger:$id") != null) return "wger:$id"
         }
-        e.match.names.forEach { name ->
-            db.exerciseDao().exerciseIdByName(name.trim())?.let { return it }
+        val byName = e.match.names.flatMap { db.exerciseDao().exerciseIdsByName(it.trim()) }
+        byName.firstOrNull { it.startsWith("wger:") }?.let { return it }
+        byName.firstOrNull { it.startsWith("fed:") }?.let { return it }
+        // Fed asset index: entries live outside the DB until first use, so a plain DB
+        // lookup missed the whole second database during import.
+        if (context != null) {
+            e.match.names.forEach { name ->
+                val target = name.trim().lowercase()
+                dev.allan.workoutapp.data.FedIndex.search(context, name.trim(), null)
+                    .firstOrNull { it.name.trim().lowercase() == target }
+                    ?.let { hit ->
+                        dev.allan.workoutapp.data.FedIndex.ensureImported(context, db, hit.id)
+                        return hit.id
+                    }
+            }
         }
+        byName.firstOrNull()?.let { return it } // remaining = the user's custom exercises
         e.match.names.forEach { name ->
             val target = name.trim().lowercase()
             db.exerciseDao().translationsWithAliasLike(name.trim()).forEach { tr ->

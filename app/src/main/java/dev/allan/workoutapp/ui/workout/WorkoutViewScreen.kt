@@ -165,8 +165,22 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
         val first = sets.first()
         val sameValue = sets.all { it.targetValue == first.targetValue && it.valueUnit == first.valueUnit }
         val unit = if (first.valueUnit == ValueUnit.REPS) "Reps" else "Secs"
-        return if (sameValue) "${sets.size}× ${first.targetValue} $unit"
-        else sets.joinToString("/") { it.targetValue.toString() } + " $unit"
+        if (sameValue) return "${sets.size}× ${first.targetValue} $unit"
+        // Mixed values: run-length compress. An 18-set cardio block joined every value
+        // ("300/40/40/…") and squeezed the exercise name to one char per line (Allan).
+        data class Run(val value: Int, val unit: ValueUnit, var count: Int)
+        val runs = mutableListOf<Run>()
+        sets.forEach { s ->
+            val last = runs.lastOrNull()
+            if (last != null && last.value == s.targetValue && last.unit == s.valueUnit) last.count++
+            else runs += Run(s.targetValue, s.valueUnit, 1)
+        }
+        val mixedUnits = sets.any { it.valueUnit != first.valueUnit }
+        val body = runs.joinToString(" · ") { r ->
+            val u = if (!mixedUnits) "" else if (r.unit == ValueUnit.SECS) "s" else "r"
+            if (r.count > 1) "${r.count}×${r.value}$u" else "${r.value}$u"
+        }
+        return if (mixedUnits) body else "$body $unit"
     }
 
     fun openDetail(exerciseId: String) {
@@ -346,8 +360,21 @@ fun WorkoutViewScreen(
                     items(exercises, key = { it.workoutExerciseId }) { ex ->
                         Card(onClick = { vm.openDetail(ex.exerciseId) }, modifier = Modifier.fillMaxWidth()) {
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(ex.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                                Text(ex.summary, style = MaterialTheme.typography.bodyMedium)
+                                // Name keeps at least half the row; a long summary wraps on
+                                // its own side instead of squeezing the name into a column.
+                                Text(
+                                    ex.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1.2f),
+                                )
+                                Text(
+                                    ex.summary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                                    maxLines = 3,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
                             }
                         }
                     }

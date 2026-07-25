@@ -1124,3 +1124,20 @@ exercises / 10 custom).
   check; current (superset-aware next step) gets primaryContainer highlight; rest sit
   on surfaceContainerLow.
 - Entering the overview scrolls the current exercise into view.
+
+## Phase 26 — Batch E: import pipeline (2026-07-25; EMULATOR-VERIFIED)
+
+- E1 superset run-on ROOT CAUSE: generator emitted superset_with_previous=true on BOTH
+  members of each pair (T,T instead of F,T), so chains fused with the preceding
+  exercise and everything after the first pair joined one run. App chain() logic is
+  correct — fix lands in WORKOUT_PLAN_GENERATOR.md (Phase 27).
+- E2 Vertical cardio name: summarize() joined every set value ("300/40/40/…", 18 sets)
+  and the unweighted summary starved the name column. Now run-length compressed
+  ("300 · 10×40 · 6×240 · 300 Secs"), and the row splits 1.2/1 with the summary
+  wrapping/ellipsizing on its own side. Verified on CARDIO 1.
+- E3 Match order now wger → free-exercise-db → existing custom → alias → create custom.
+  NEW: the fed ASSET index is searched during import (exact name, then imported on the
+  spot) — before, un-imported fed entries were invisible and everything fell through to
+  custom creation. Import entry points take an optional Context to reach the assets.
+  Verified: reimport of the thales4 plan = "0 custom created, 0 skipped" (first run
+  created 10), and Elíptico resolved to fed "Elliptical" with muscles + image.

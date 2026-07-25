@@ -70,6 +70,9 @@ interface ExerciseDao {
     suspend fun setImagePath(id: String, path: String)
 
     /** Exact case-insensitive name match in any language. */
+    @Query("SELECT exerciseId FROM exercise_translation WHERE LOWER(name) = LOWER(:name)")
+    suspend fun exerciseIdsByName(name: String): List<String>
+
     @Query("SELECT exerciseId FROM exercise_translation WHERE LOWER(name) = LOWER(:name) LIMIT 1")
     suspend fun exerciseIdByName(name: String): String?
 
