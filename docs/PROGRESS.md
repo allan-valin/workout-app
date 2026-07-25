@@ -1064,3 +1064,25 @@ Stats charts reworked (ui/stats/TimeSeriesChart.kt replaces PointAreaChart + win
   expands once the point enters). Scale/dots use a pixel-true window (x-pad included).
   Verified: default 7d starts clean at 07; panning brings 04 in → scale 75–95, dot shown,
   on-scale neighbor (01/7) still anchors the entering line.
+
+## Phase 22 — Gym-session feedback Batch A (2026-07-25; EMULATOR-VERIFIED same session)
+
+Source: docs/FEEDBACK_BATCH_2026-07-24.md (Allan's first real-device gym session).
+Batch A = session-screen fixes, all verified on testphone emulator with Allan's real
+imported plan (plan_thales4_fortalecimento.json — imported clean: 6 workouts / 54
+exercises / 10 custom).
+
+- A1 Play/check merged into ONE slot spanning both cells (weights PLAY+CHECK), centered:
+  play only for SECS sets while undone; green check appears once done (tap = un-log);
+  logging happens only via the bottom register button. Empty slot for undone rep sets.
+- A2 NumberPadDialog: field state is now a String (was Double) — last digit erasable,
+  "10"→delete→type "2" gives "2" (was "21"). Blank counts as 0 (field stays visibly
+  empty, OK enabled). Input filtered to digits + separators, comma→dot kept.
+- A3 Current set auto-scrolls into view (BringIntoViewRequester on the current row,
+  fires on currentStep change). Verified with 5+ set rows: view follows the logged set.
+- A4 Goal column: maxLines=1 + softWrap=false + TARGET weight 1.0→1.3 (PLAY/CHECK
+  slimmed to 0.45/0.65). "14–16" renders on one line.
+- A5 Weight dialog now hosts the weight-mode switch (Total / Per dumbbell / Per side)
+  as stacked FilterChips (side-by-side truncated); vm.setWeightMode writes
+  workout_exercise directly (plan-level, like the editor). Header + subtitle update
+  live. pt-BR "Por lado" renamed "Por anilha" (dumbbell-context confusion).

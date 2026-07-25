@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -463,6 +464,14 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
 
     // Image collapses when the sets table scrolls up and reappears on scroll-down at the top.
     val tableScroll = rememberScrollState()
+    // Keep the current set on screen: long set lists left it below the fold (Allan, 24/07).
+    val bringCurrentIntoView = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    LaunchedEffect(state.currentStep) {
+        if (state.currentStep?.first == page) {
+            kotlinx.coroutines.delay(80) // let the row attach/recompose first
+            runCatching { bringCurrentIntoView.bringIntoView() }
+        }
+    }
     var imageVisible by remember { mutableStateOf(true) }
     val tableScrollConnection = remember(tableScroll) {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
@@ -699,6 +708,10 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .then(
+                            if (isCurrent) Modifier.bringIntoViewRequester(bringCurrentIntoView)
+                            else Modifier
+                        )
                         .longPressDraggableHandle()
                         .background(
                             // Highlight = "you are here" in the (superset-aware) set order.
@@ -792,34 +805,43 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         Text("${set.value}")
                     }
                     // Reference goal from the plan (what you aim for, not what you log) — tap to edit.
+                    // Single line always: "14–16" wrapping its last digit onto a second line
+                    // broke the row (Allan, 24/07).
                     Text(
                         if (set.valueUnit == ValueUnit.REPS)
                             set.targetMax?.let { "${set.targetMin}–$it" } ?: "${set.targetMin}"
                         else "${set.targetMin}s",
+                        maxLines = 1,
+                        softWrap = false,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.weight(RowWeights.TARGET).clickable { targetEditFor = set },
                     )
-                    // Trailing icons each own a weighted cell (play's stays reserved when
-                    // absent) — they spread with the row width instead of clumping.
-                    Box(Modifier.weight(RowWeights.PLAY), contentAlignment = Alignment.Center) {
-                        if (set.valueUnit == ValueUnit.SECS) {
-                            IconButton(onClick = { vm.startSetCountdown(set) }, modifier = Modifier.size(40.dp)) {
+                    // One shared play/check slot spanning both cells: play (timed sets only)
+                    // until the set is done, then a green check. Sets are LOGGED only via the
+                    // bottom register button; tapping the check un-logs a mistaken register.
+                    Box(
+                        Modifier.weight(RowWeights.PLAY + RowWeights.CHECK),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        when {
+                            set.done -> IconButton(
+                                onClick = { vm.logSet(page, set) }, // toggles → un-log
+                                modifier = Modifier.size(40.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = stringResource(R.string.log_set),
+                                    tint = DoneGreen,
+                                )
+                            }
+                            set.valueUnit == ValueUnit.SECS -> IconButton(
+                                onClick = { vm.startSetCountdown(set) },
+                                modifier = Modifier.size(40.dp),
+                            ) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.start_timer))
                             }
-                        }
-                    }
-                    Box(Modifier.weight(RowWeights.CHECK), contentAlignment = Alignment.Center) {
-                        IconButton(onClick = { vm.logSet(page, set) }, modifier = Modifier.size(40.dp)) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = stringResource(R.string.log_set),
-                                // Done = medium green; undone = primary so it stays visible on
-                                // the primaryContainer current-set highlight (gray vanished there).
-                                tint = if (set.done) DoneGreen
-                                else MaterialTheme.colorScheme.primary,
-                            )
                         }
                     }
                     // Explicit per-row delete — no confirm (re-adding a set is trivial).
@@ -885,6 +907,8 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 else vm.updateSet(page, set.copy(value = newValue.toInt().coerceAtLeast(0)))
                 editTarget = null
             },
+            weightMode = if (field == "weight") ex.weightMode else null,
+            onWeightModeChange = if (field == "weight") { mode -> vm.setWeightMode(page, mode) } else null,
         )
     }
 
@@ -944,9 +968,9 @@ private object RowWeights {
     const val TYPE = 0.7f
     const val WEIGHT = 4.2f
     const val VALUE = 1.2f
-    const val TARGET = 1.0f
-    const val PLAY = 0.6f
-    const val CHECK = 0.8f
+    const val TARGET = 1.3f
+    const val PLAY = 0.45f
+    const val CHECK = 0.65f
     const val DELETE = 0.7f
 }
 
@@ -1088,8 +1112,15 @@ private fun NumberPadDialog(
     isWeight: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (Double) -> Unit,
+    // Weight edits can also switch the exercise's weight interpretation (Allan, 24/07).
+    weightMode: WeightMode? = null,
+    onWeightModeChange: ((WeightMode) -> Unit)? = null,
 ) {
-    var value by remember { mutableStateOf(initial) }
+    fun show(v: Double) = if (v % 1.0 == 0.0) v.toInt().toString() else v.toString()
+    // String-backed state: a Double-backed field made the last digit un-erasable
+    // ("" never parsed, so the old value snapped back — deleting 10 left 1).
+    var text by remember { mutableStateOf(show(initial)) }
+    val parsed = text.replace(',', '.').toDoubleOrNull() ?: if (text.isBlank()) 0.0 else null
     val increments = if (isWeight) listOf(1.25, 2.5, 5.0, 10.0, 15.0, 20.0) else listOf(1.0, 5.0, 10.0)
 
     AlertDialog(
@@ -1097,8 +1128,9 @@ private fun NumberPadDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString(),
-                    onValueChange = { value = it.replace(',', '.').toDoubleOrNull() ?: value },
+                    value = text,
+                    onValueChange = { new -> text = new.filter { it.isDigit() || it == '.' || it == ',' } },
+                    isError = parsed == null,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
                     ),
@@ -1108,7 +1140,7 @@ private fun NumberPadDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     increments.forEach { inc ->
                         OutlinedButton(
-                            onClick = { value += inc },
+                            onClick = { text = show((parsed ?: 0.0) + inc) },
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(2.dp),
                             modifier = Modifier.weight(1f),
                         ) {
@@ -1123,7 +1155,7 @@ private fun NumberPadDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     increments.forEach { inc ->
                         OutlinedButton(
-                            onClick = { value = (value - inc).coerceAtLeast(0.0) },
+                            onClick = { text = show(((parsed ?: 0.0) - inc).coerceAtLeast(0.0)) },
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(2.dp),
                             modifier = Modifier.weight(1f),
                         ) {
@@ -1135,10 +1167,37 @@ private fun NumberPadDialog(
                         }
                     }
                 }
+                if (weightMode != null && onWeightModeChange != null) {
+                    // Same outlined-pill cue the app uses for "changeable" — selected mode filled.
+                    // Stacked full-width: three side-by-side chips truncated "Per dumbbell".
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        listOf(
+                            WeightMode.TOTAL to R.string.weight_total,
+                            WeightMode.PER_DUMBBELL to R.string.weight_per_dumbbell,
+                            WeightMode.PER_SIDE to R.string.weight_per_side,
+                        ).forEach { (mode, label) ->
+                            androidx.compose.material3.FilterChip(
+                                selected = weightMode == mode,
+                                onClick = { onWeightModeChange(mode) },
+                                label = {
+                                    Text(
+                                        stringResource(label),
+                                        maxLines = 1,
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(value) }) { Text(stringResource(R.string.ok)) }
+            TextButton(
+                enabled = parsed != null,
+                onClick = { parsed?.let(onConfirm) },
+            ) { Text(stringResource(R.string.ok)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }

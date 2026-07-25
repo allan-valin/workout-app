@@ -609,6 +609,22 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         _state.value = _state.value.copy(templatesChanged = true)
     }
 
+    /** Switch how the exercise's weight is read (total / per dumbbell / per side).
+     *  Plan-level like the editor's control — written straight to workout_exercise. */
+    fun setWeightMode(exerciseIndex: Int, mode: dev.allan.workoutapp.data.db.WeightMode) {
+        val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
+        viewModelScope.launch {
+            db.planDao().workoutExercise(ex.workoutExerciseId)?.let {
+                db.planDao().updateWorkoutExercise(it.copy(weightMode = mode))
+            }
+            _state.value = _state.value.copy(
+                exercises = _state.value.exercises.mapIndexed { i, e ->
+                    if (i == exerciseIndex) e.copy(weightMode = mode) else e
+                }
+            )
+        }
+    }
+
     fun setSetType(set: SessionSet, type: SetType) = editTemplate(set.templateId) { it.copy(type = type) }
     fun setSetTempo(set: SessionSet, tempo: String) = editTemplate(set.templateId) { it.copy(tempo = tempo) }
     fun setSetTarget(set: SessionSet, min: Int, max: Int?) =
