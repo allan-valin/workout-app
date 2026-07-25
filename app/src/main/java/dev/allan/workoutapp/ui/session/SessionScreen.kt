@@ -514,11 +514,13 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
                     contentDescription = stringResource(R.string.beep_volume),
                 )
             }
-            // Info sheet hosts description + persistent note + video, so one button covers
-            // all — the label says so (Allan: "note" alone hid the merged functions).
-            TextButton(onClick = { current?.let { vm.openDescription(it.exerciseId, withImage = false) } }) {
-                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.info_note), modifier = Modifier.padding(start = 4.dp))
+            // Info sheet hosts description + persistent note + video, so one button covers all.
+            // Icon-only: the "Info & notes" label ate ~130dp of the action row and squeezed the
+            // clock out of the title slot past 100 minutes (Allan, 26/07). The content
+            // description still drives TalkBack and the long-press tooltip, so the label that
+            // explains the merged functions stays reachable.
+            IconButton(onClick = { current?.let { vm.openDescription(it.exerciseId, withImage = false) } }) {
+                Icon(Icons.Default.Info, contentDescription = stringResource(R.string.info_note))
             }
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Default.MoreVert, contentDescription = null)
