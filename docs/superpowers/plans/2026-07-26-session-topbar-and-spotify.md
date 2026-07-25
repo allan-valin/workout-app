@@ -63,24 +63,36 @@ In `app/src/main/AndroidManifest.xml`, insert this as a direct child of `<manife
 Run: `./gradlew assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 3: Install Spotify on the emulator**
+- [ ] **Step 3: Confirm the target device**
 
-The emulator AVD is `testphone` (`run.sh:11`). Spotify must be present for `isSpotifyInstalled` to return true. Either install it from the Play Store on a Google-APIs AVD, or sideload an APK:
+Allan's Redmi is reachable over wireless adb, runs SDK 36, and already has `com.spotify.music` installed. Verify before going further:
 
 ```bash
-"${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb" install /path/to/spotify.apk
-"${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb" shell pm list packages | grep spotify
+SDK="${ANDROID_HOME:-$HOME/Android/Sdk}"; ADB="$SDK/platform-tools/adb"
+"$ADB" devices
+"$ADB" shell getprop ro.product.model     # expect 25080RABDG
+"$ADB" shell pm list packages | grep spotify   # expect package:com.spotify.music
 ```
 
-Expected: `package:com.spotify.music`.
+Verify on this device, **not** the emulator. Two reasons: the emulator has no Spotify, and App Remote was chosen specifically for HyperOS media-panel behaviour that no emulator reproduces. Do **not** run `./run.sh` for this task — it starts the `testphone` AVD when no `emulator-*` device is attached, which would leave two devices connected and make the install target ambiguous.
 
-If Spotify cannot be installed on the emulator at all, stop and report that — do not mark this task done on a build check alone. The point of the task is that a real `com.spotify.music` becomes visible.
+If the device is not attached, stop and report that. Do not mark this task done on a build check alone — the point is that a real `com.spotify.music` becomes visible.
 
-- [ ] **Step 4: Verify the Settings row now appears**
+- [ ] **Step 4: Install to the Redmi and verify the Settings row appears**
 
-Run: `./run.sh`
+```bash
+./gradlew installDebug
+SDK="${ANDROID_HOME:-$HOME/Android/Sdk}"; ADB="$SDK/platform-tools/adb"
+"$ADB" shell am force-stop dev.allan.workoutapp
+"$ADB" shell monkey -p dev.allan.workoutapp -c android.intent.category.LAUNCHER 1
+```
+
+The force-stop matters: `monkey` alone resumes the existing task and you would see the pre-install Activity (`run.sh:27-30`).
+
 Then in the app: Settings → scroll to the "Workout session" card.
 Expected: a "Spotify controls" switch row is present below "Previous/next exercise buttons". Before this change it was absent entirely.
+
+Screenshots for the record: `"$ADB" exec-out screencap -p > /tmp/spotify-settings-row.png`
 
 - [ ] **Step 5: Verify the session mini-player**
 
@@ -89,7 +101,7 @@ Expected: the mini-player strip with track name, artist, transport controls and 
 
 If authorization fails here, do **not** start adding intent-filters. The redirect URI `workoutapp://spotify-callback` (`app/build.gradle.kts:33`) must match the Spotify developer dashboard entry for this `applicationId` and signing fingerprint — check the dashboard registration first and report back.
 
-An emulator pass does not close this out. `docs/AUDIT_2026-07-25.md:180-181` already puts the strip, transport and heart on the Redmi checklist, because App Remote was chosen specifically for HyperOS's media-panel behaviour, which no emulator reproduces. Leave that checklist item open; Task 5 records it.
+Because this task runs on the Redmi itself, a pass here **does** close out the checklist item at `docs/AUDIT_2026-07-25.md:180-181`, which has been open only because the emulator could not exercise it. Report exactly what you observed on the device so Task 5 can record it accurately — do not claim the heart works unless you saw it toggle.
 
 - [ ] **Step 6: Commit**
 
