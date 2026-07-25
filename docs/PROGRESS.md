@@ -1171,3 +1171,14 @@ exercises / 10 custom).
   LaunchedEffect(swipeToken) (same token, initial run), which consumed the stale
   request and hijacked the tapped page. Fix: consume-before-animate in the swipe
   effect + openExercise() clears pendingSwipeTo (explicit tap wins).
+- Progress-loss FIX (EMULATOR-VERIFIED): startOrResume() ran from init AND every
+  ON_RESUME with no serialization — overlapping runs both missed the running-session
+  check and inserted duplicate RUNNING sessions (reproduced: one Start tap → two rows,
+  same second). It also compared against the single GLOBAL running session, so with a
+  different workout mid-session every refresh inserted yet another session. LIMIT 1
+  without ORDER BY then resumed an arbitrary (often empty) row — Allan's "back closes
+  the workout and loses progress". Fix: loadMutex around startOrResume; resume by
+  runningSessionsFor(workoutId) preferring the row with most set logs; empty strays
+  deleted, non-empty strays closed as FINISHED (no logged set dropped); global
+  running-session queries now ORDER BY startedAt DESC. Verified: back out, start
+  CARDIO mid-FULLBODY, discard, process restarts — FULLBODY resumed with all sets.

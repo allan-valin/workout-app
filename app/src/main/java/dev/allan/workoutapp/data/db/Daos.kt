@@ -473,11 +473,22 @@ interface SessionDao {
     @Query("SELECT * FROM session WHERE id = :id")
     suspend fun session(id: Long): Session?
 
-    @Query("SELECT * FROM session WHERE status = 'RUNNING' LIMIT 1")
+    @Query("SELECT * FROM session WHERE status = 'RUNNING' ORDER BY startedAt DESC LIMIT 1")
     suspend fun runningSession(): Session?
 
-    @Query("SELECT * FROM session WHERE status = 'RUNNING' LIMIT 1")
+    @Query("SELECT * FROM session WHERE status = 'RUNNING' ORDER BY startedAt DESC LIMIT 1")
     fun runningSessionFlow(): Flow<Session?>
+
+    /** All running sessions for one workout — normally 0 or 1; >1 means an old
+     *  duplicate-insert bug left strays that startOrResume() now cleans up. */
+    @Query("SELECT * FROM session WHERE status = 'RUNNING' AND workoutId = :workoutId ORDER BY startedAt DESC")
+    suspend fun runningSessionsFor(workoutId: Long): List<Session>
+
+    @Query("SELECT COUNT(*) FROM set_log WHERE sessionId = :sessionId")
+    suspend fun setLogCount(sessionId: Long): Int
+
+    @Query("DELETE FROM session WHERE id = :sessionId")
+    suspend fun deleteSession(sessionId: Long)
 
     @Insert
     suspend fun insertSetLog(log: SetLog): Long

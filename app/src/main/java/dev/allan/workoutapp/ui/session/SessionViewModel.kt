@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** Auto-end threshold: a RUNNING session older than this is flagged as ended. */
 const val SESSION_AUTO_END_MS = 5L * 3600 * 1000
@@ -189,6 +191,12 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     // chooses "one-time" for mid-session edits (add/remove set, change type/target/tempo).
     private var templateSnapshot: List<dev.allan.workoutapp.data.db.SetTemplate> = emptyList()
 
+    // Serializes startOrResume: it runs from init AND every ON_RESUME, and two overlapping
+    // runs used to both miss the running-session check and insert duplicate sessions —
+    // the later resume then bound the empty duplicate and "lost" the logged sets.
+    // (Declared before init{} — the init coroutine locks it immediately.)
+    private val loadMutex = Mutex()
+
     init {
         viewModelScope.launch {
             startOrResume()
@@ -196,17 +204,27 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         }
     }
 
-    private suspend fun startOrResume() {
-        val workout = db.planDao().workout(workoutId) ?: return
-        val existing = db.sessionDao().runningSession()
-        val session: Session = when {
-            existing != null && existing.workoutId == workoutId -> existing
-            else -> {
-                val id = db.sessionDao().insertSession(
-                    Session(workoutId = workoutId, startedAt = System.currentTimeMillis())
+    private suspend fun startOrResume() = loadMutex.withLock {
+        val workout = db.planDao().workout(workoutId) ?: return@withLock
+        // Resume this workout's own running session — never key off the globally newest
+        // one, which may belong to a different workout. Among strays (duplicate-insert
+        // bug), the one with logged sets wins; empty ones are deleted, non-empty extras
+        // are closed as finished so no logged set is ever dropped.
+        val candidates = db.sessionDao().runningSessionsFor(workoutId)
+        val session: Session = if (candidates.isNotEmpty()) {
+            val keep = candidates.maxByOrNull { db.sessionDao().setLogCount(it.id) * 1_000_000_000L + it.startedAt }!!
+            candidates.filter { it.id != keep.id }.forEach { stray ->
+                if (db.sessionDao().setLogCount(stray.id) == 0) db.sessionDao().deleteSession(stray.id)
+                else db.sessionDao().updateSession(
+                    stray.copy(endedAt = System.currentTimeMillis(), status = SessionStatus.FINISHED)
                 )
-                db.sessionDao().session(id)!!
             }
+            keep
+        } else {
+            val id = db.sessionDao().insertSession(
+                Session(workoutId = workoutId, startedAt = System.currentTimeMillis())
+            )
+            db.sessionDao().session(id)!!
         }
         if (SessionManager.state.value.sessionId != session.id) {
             SessionManager.startSession(session.id, session.startedAt)
