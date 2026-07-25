@@ -1117,3 +1117,10 @@ exercises / 10 custom).
   reverts to "Workout running" after expiry.
 - REAL-DEVICE (1.0 checklist): confirm beep audible on HyperOS; confirm lock-screen
   visibility (AVD has no screen lock configured, could not verify).
+
+## Phase 25 — Batch D: session overview list (2026-07-25; EMULATOR-VERIFIED)
+
+- Finished exercises: darker card (surfaceContainerHighest) + dimmed title + green
+  check; current (superset-aware next step) gets primaryContainer highlight; rest sit
+  on surfaceContainerLow.
+- Entering the overview scrolls the current exercise into view.

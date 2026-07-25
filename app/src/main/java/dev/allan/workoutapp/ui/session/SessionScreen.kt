@@ -195,6 +195,14 @@ fun SessionScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                // "You are here": the superset-aware next step wins; fall back to the pager page.
+                val currentIdx = state.currentStep?.first ?: state.currentIndex
+                // Arriving on the overview scrolls the current exercise into view (Allan, 24/07).
+                LaunchedEffect(Unit) {
+                    if (currentIdx > 0 && state.exercises.isNotEmpty()) {
+                        listState.scrollToItem(currentIdx.coerceIn(0, state.exercises.lastIndex))
+                    }
+                }
                 Box(Modifier.weight(1f)) {
                     LazyColumn(
                         state = listState,
@@ -203,10 +211,28 @@ fun SessionScreen(
                     ) {
                         items(state.exercises, key = { it.workoutExerciseId }) { ex ->
                             val index = state.exercises.indexOf(ex)
-                            Card(onClick = { vm.openExercise(index) }, modifier = Modifier.fillMaxWidth()) {
+                            val done = ex.sets.isNotEmpty() && ex.sets.all { it.done }
+                            val isCurrent = index == currentIdx
+                            Card(
+                                onClick = { vm.openExercise(index) },
+                                // Current = highlighted, finished = darker + dimmed (Allan, 24/07).
+                                colors = androidx.compose.material3.CardDefaults.cardColors(
+                                    containerColor = when {
+                                        isCurrent -> MaterialTheme.colorScheme.primaryContainer
+                                        done -> MaterialTheme.colorScheme.surfaceContainerHighest
+                                        else -> MaterialTheme.colorScheme.surfaceContainerLow
+                                    },
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
                                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
-                                        Text(ex.name, style = MaterialTheme.typography.titleMedium)
+                                        Text(
+                                            ex.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = if (done) MaterialTheme.colorScheme.onSurfaceVariant
+                                            else MaterialTheme.colorScheme.onSurface,
+                                        )
                                         Text(
                                             "${ex.sets.count { it.done }}/${ex.sets.size}",
                                             style = MaterialTheme.typography.bodySmall,
@@ -221,8 +247,8 @@ fun SessionScreen(
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                    if (ex.sets.isNotEmpty() && ex.sets.all { it.done }) {
-                                        Icon(Icons.Default.Check, contentDescription = null)
+                                    if (done) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = DoneGreen)
                                     }
                                 }
                             }
