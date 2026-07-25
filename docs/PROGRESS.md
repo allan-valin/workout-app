@@ -1141,3 +1141,22 @@ exercises / 10 custom).
   custom creation. Import entry points take an optional Context to reach the assets.
   Verified: reimport of the thales4 plan = "0 custom created, 0 skipped" (first run
   created 10), and Elíptico resolved to fed "Elliptical" with muscles + image.
+
+## Phase 27 — Batch F: plan-generator doc tuning + corrected thales4 file (2026-07-25)
+
+- WORKOUT_PLAN_GENERATOR.md (auto-bundled into the app at build): new sections —
+  superset pitfall (only 2nd+ members flagged; WRONG/RIGHT example; the real import
+  broke on run-on flags), how the app matches (offline: wger → fed → existing custom →
+  create; never browse wger.de; never default to custom_fallback; include English
+  names so fed hits), approximate-match rule (closest base exercise + variant detail
+  in `note`, never silent substitution), cardio block mapping (short machine name,
+  prescription in note), and a conversion workflow: show Allan a per-exercise match
+  table for confirmation BEFORE emitting JSON ("you are the wizard" until the in-app
+  one exists).
+- Read the source PDF: "Exercícios combinados" boxes give the true groups. Generator
+  had flagged one-too-many trailing exercises after each group. Produced
+  ~/Downloads/plan_thales4_fortalecimento_v2.json with corrected flags
+  (A: 9,10|12|15|18 · B: 9,10|13|16|18 · CORE unchanged), imported it on the emulator
+  and verified "Superset: Clamshell ↔ Unilateral Hip Thrust" (pair, no run-on).
+- Backlog options written up in FEEDBACK_BATCH_2026-07-24.md (Spotify media controls
+  via notification-listener vs App Remote; MET-based calories) — awaiting Allan.

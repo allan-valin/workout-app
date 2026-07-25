@@ -115,7 +115,20 @@ emulator pass + commit/push per checkpoint discipline.
 
 ## Deferred backlog (need Allan's go)
 
-- **Spotify/media controls** in session screen (play/pause/next/prev). Needs media
-  controller + notification-listener permission; design + permission tradeoff.
+- **Spotify/media controls** in session screen (play/pause/next/prev).
+  Options: (a) `MediaSessionManager` + notification-listener permission — controls
+  WHATEVER is playing (Spotify, YT Music), no Spotify account linkage, but the
+  permission is invasive-looking and HyperOS buries it; (b) Spotify App Remote SDK —
+  official, needs Spotify app installed + registered app id, Spotify-only.
+  Recommendation: (a), one extra onboarding screen. Say the word and it gets built.
 - **Calories burned** estimate from kg lifted and/or active time (MET-based).
-  Needs bodyweight input (have it) + formula choice; shown in summary.
+  Proposal: MET route on ACTIVE time (strength ≈ 3.5–6 MET by intensity;
+  kcal = MET × 3.5 × bodyweightKg / 200 × activeMinutes), tonnage shown alongside
+  (kg lifted is a poor kcal proxy on its own). Bodyweight already tracked. Shown in
+  the end-of-session summary. Needs Allan's OK on formula + placement.
+
+## Status (2026-07-25 session)
+
+Batches A–F: DONE, emulator-verified, pushed (PROGRESS.md phases 22–27).
+Corrected plan file: `~/Downloads/plan_thales4_fortalecimento_v2.json` (superset
+flags fixed per PDF groups; verified in-app). Backlog above awaits Allan.
