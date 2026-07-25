@@ -96,7 +96,14 @@ import dev.allan.workoutapp.data.db.SetType
 import dev.allan.workoutapp.data.db.ValueUnit
 import dev.allan.workoutapp.data.db.WeightMode
 
-private fun fmt(secs: Int): String = "%d:%02d".format(secs / 60, secs % 60)
+/**
+ * Session clock. Rolls over to h:mm:ss at one hour: the TopAppBar title slot only gets the
+ * width the actions leave behind, and unbounded minutes ("100:23") clipped out of view
+ * (Allan, 26/07). `internal` so SessionClockFormatTest can reach it.
+ */
+internal fun fmt(secs: Int): String =
+    if (secs < 3600) "%d:%02d".format(secs / 60, secs % 60)
+    else "%d:%02d:%02d".format(secs / 3600, secs % 3600 / 60, secs % 60)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
