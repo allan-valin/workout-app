@@ -1262,3 +1262,29 @@ pause/resume/cancel/ownership plus the Phase 9 stopwatch and rest accounting),
 ImportNamingTest (11), SessionFlowRegressionTest (11 — bug D, superset alternation and rest
 rules exactly as verified live, summary fallback), CalorieCalcTest (7).
 Suite total: 91 tests, 0 failures.
+
+## Phase 31 — Spotify App Remote (2026-07-25; Allan picked App Remote for the heart)
+
+- ROUTE DECISION: Allan's Redmi 15 (HyperOS) shows no heart in Spotify's media notification
+  while his Redmi 10 did; both apps current. Cause is the renderer, not Spotify — Android
+  derives media buttons from the MediaSession and HyperOS shows fewer slots, and no app may
+  add a button to another app's notification. His `dumpsys media_session` check came back
+  empty/idle (adb was almost certainly talking to the emulator — two devices attached), so
+  rather than depend on a custom action that may not exist, we use App Remote's UserApi,
+  which reads and writes the library directly.
+- app/libs/spotify-app-remote-release-0.8.0.aar vendored (App Remote was never published to
+  Maven; from github.com/spotify/android-sdk releases) + gson. Verified against the AAR:
+  UserApi.addToLibrary / removeFromLibrary / getLibraryState(uri) -> (uri, isAdded, canAdd).
+- session/SpotifyRemote.kt: connect/disconnect, player-state subscription (track, artist,
+  uri, isPaused), library state per track, transport + toggleSaved with an optimistic icon
+  flip that reverts if Spotify rejects the write.
+- Session pager gains a one-line strip above the timer: track/artist, prev/play/next, heart
+  (disabled when Spotify says the item can't be saved, e.g. podcast episodes). Settings →
+  Workout session gains an opt-in switch, shown only when a client id is compiled in AND
+  Spotify is installed.
+- Client id comes from local.properties (or a gradle property) into BuildConfig — no secret
+  in the repo. Blank id / no Spotify / switch off = no strip, no connection, no Settings row.
+  Setup steps + this machine's debug SHA1 are in docs/MAINTENANCE.md.
+- EMULATOR: only the disabled path is testable (verified: switch hidden, no crash, session
+  screen unchanged). REDMI CHECKLIST: register the app, set SPOTIFY_CLIENT_ID, then confirm
+  connect, transport, and that the heart actually saves to Liked Songs.
