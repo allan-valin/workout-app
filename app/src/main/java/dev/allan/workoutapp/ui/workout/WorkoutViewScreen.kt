@@ -295,7 +295,15 @@ fun WorkoutViewScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(workout?.name ?: "") },
+                title = {
+                    // Imported workouts carry a "(plan abbrev dd/MM)" tag, which wrapped to
+                    // three lines here and got clipped by the fixed bar height (25/07).
+                    Text(
+                        workout?.name ?: "",
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
