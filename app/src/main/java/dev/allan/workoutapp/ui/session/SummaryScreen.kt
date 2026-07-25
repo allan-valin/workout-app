@@ -49,6 +49,8 @@ data class SummaryState(
     /** muscle display name -> volume kg, sorted desc. */
     val volumePerMuscle: List<Pair<String, Double>> = emptyList(),
     val setCount: Int = 0,
+    /** MET-based estimate; null when no bodyweight is on record to scale it. */
+    val kcal: Int? = null,
 )
 
 class SummaryViewModel(app: Application, private val sessionId: Long, private val lang: String) :
@@ -66,23 +68,42 @@ class SummaryViewModel(app: Application, private val sessionId: Long, private va
             val muscleNames = mutableMapOf<Int, String>()
             db.exerciseDao().muscles().collect { muscles ->
                 muscles.forEach { muscleNames[it.id] = MuscleNames.display(it.nameEn, lang) }
+                val exerciseRows = mutableMapOf<String, dev.allan.workoutapp.data.db.Exercise?>()
                 val exerciseMuscles = mutableMapOf<String, List<Int>>()
                 logs.map { it.exerciseId }.distinct().forEach { id ->
-                    exerciseMuscles[id] = db.exerciseDao().exercise(id)?.primaryMuscles ?: emptyList()
+                    val ex = db.exerciseDao().exercise(id)
+                    exerciseRows[id] = ex
+                    exerciseMuscles[id] = ex?.primaryMuscles ?: emptyList()
                 }
+                // Energy needs a bodyweight to scale MET against — newest entry wins.
+                val bodyweight = db.sessionDao().allBodyMetrics().maxByOrNull { it.epochDay }?.weightKg
                 val perMuscle = StatsCalc.volumePerMuscle(logs) { exerciseMuscles[it] ?: emptyList() }
                 val total = ((session.endedAt ?: System.currentTimeMillis()) - session.startedAt) / 1000L
+                // SessionManager's live counters are in-memory: a process death mid-session
+                // (or an app update) zeroes them while the per-set logs survive. Fall back to
+                // the logged seconds so the summary never reports "Active 0:00" for a session
+                // that clearly logged sets.
+                val activeSecs = maxOf(session.activeSecs, logs.sumOf { it.activeSecs ?: 0 })
                 _state.value = SummaryState(
                     workoutId = session.workoutId,
                     totalSecs = total.toInt(),
-                    activeSecs = session.activeSecs,
+                    activeSecs = activeSecs,
                     restSecs = session.restSecs,
-                    idleSecs = (total.toInt() - session.activeSecs - session.restSecs).coerceAtLeast(0),
+                    idleSecs = (total.toInt() - activeSecs - session.restSecs).coerceAtLeast(0),
                     totalVolumeKg = logs.sumOf(StatsCalc::volumeKg),
                     volumePerMuscle = perMuscle.entries
                         .map { (muscleNames[it.key] ?: "?") to it.value }
                         .sortedByDescending { it.second },
                     setCount = logs.size,
+                    kcal = bodyweight?.let {
+                        dev.allan.workoutapp.data.CalorieCalc.sessionKcal(
+                            logs = logs,
+                            exercises = exerciseRows,
+                            bodyweightKg = it,
+                            restSecs = session.restSecs,
+                            activeFallbackSecs = activeSecs,
+                        ).toInt()
+                    },
                 )
                 return@collect
             }
@@ -145,6 +166,16 @@ fun SummaryScreen(
                         stringResource(R.string.total_volume),
                         "%.1f kg".format(state.totalVolumeKg),
                     )
+                    // MET estimate, only with a bodyweight on record. "~" and the caption
+                    // keep it honest: lifting METs are a rough single number (±20-30 %).
+                    state.kcal?.let { kcal ->
+                        StatRow(stringResource(R.string.energy), "~$kcal kcal")
+                        Text(
+                            stringResource(R.string.energy_hint),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (state.volumePerMuscle.isNotEmpty()) {
                         HorizontalDivider()
                         Text(stringResource(R.string.volume_per_muscle), fontWeight = FontWeight.Bold)

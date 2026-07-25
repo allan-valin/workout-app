@@ -1221,3 +1221,22 @@ exercises / 10 custom).
   wrapped (now one line, ellipsized), and abbreviate() emitted a stray paren for plan names
   already ending in a "(2)" suffix (now splits on non-alphanumeric runs). Remaining n/v items
   are listed at the end of the audit doc for the next pass.
+
+## Phase 29 — MET-based calories (2026-07-25; Allan approved the MET route)
+
+- data/CalorieCalc.kt: kcal/min = MET × 3.5 × bodyweightKg / 200 (ACSM). Per-set METs —
+  cardio exercises 5.0, loaded sets 6.0 (vigorous resistance training), unloaded rep sets
+  3.5, unloaded TIMED sets 2.3 (stretch/SMR/mobility). Booked rest seconds count at 1.5 MET;
+  idle time is ignored on purpose. Bodyweight = newest body_metric entry; with no entry the
+  row is hidden entirely rather than guessing a weight.
+- Summary screen: "Energy  ~N kcal" under Total volume plus a labelSmall caption
+  ("Estimate from bodyweight, MET and active time — not a measurement.") in en/pt-BR/de.
+  Verified on the emulator: 2 unloaded rep sets × 36 s at 80.5 kg → ~6 kcal.
+- Per-set activeSecs drive the estimate, so it survives process death; sets logged without
+  timing split the session's booked active seconds.
+- ALSO FIXED: the summary showed "Active 0:00 / Idle <everything>" after a process death or
+  an app update mid-session, because SessionManager's counters are in-memory while the set
+  logs persist. Active now falls back to the sum of per-set activeSecs (idle recomputed from
+  it), which is also what the kcal estimate uses.
+- CalorieCalcTest: 7 unit tests (MET selection per set kind, rest accounting, fallback
+  spreading, zero-bodyweight guard). Full suite green: 52 tests, 0 failures.

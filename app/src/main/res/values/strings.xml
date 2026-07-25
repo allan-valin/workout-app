@@ -122,6 +122,8 @@
     <string name="idle_time">Idle</string>
     <string name="volume_per_muscle">Volume per muscle</string>
     <string name="total_volume">Total volume</string>
+    <string name="energy">Energy</string>
+    <string name="energy_hint">Estimate from bodyweight, MET and active time — not a measurement.</string>
     <string name="sets_logged">Sets logged</string>
     <string name="close">Close</string>
     <string name="no_description">No description available.</string>

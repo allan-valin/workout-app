@@ -122,6 +122,8 @@
     <string name="idle_time">Leerlauf</string>
     <string name="volume_per_muscle">Volumen pro Muskel</string>
     <string name="total_volume">Gesamtvolumen</string>
+    <string name="energy">Energie</string>
+    <string name="energy_hint">Schätzung aus Körpergewicht, MET und aktiver Zeit — keine Messung.</string>
     <string name="sets_logged">Erfasste Sätze</string>
     <string name="close">Schließen</string>
     <string name="no_description">Keine Beschreibung verfügbar.</string>

@@ -122,6 +122,8 @@
     <string name="idle_time">Ocioso</string>
     <string name="volume_per_muscle">Volume por músculo</string>
     <string name="total_volume">Volume total</string>
+    <string name="energy">Energia</string>
+    <string name="energy_hint">Estimativa pelo peso corporal, MET e tempo ativo — não é medição.</string>
     <string name="sets_logged">Séries registradas</string>
     <string name="close">Fechar</string>
     <string name="no_description">Sem descrição disponível.</string>
