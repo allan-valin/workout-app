@@ -16,6 +16,21 @@ android {
         targetSdk = 36
         versionCode = 5
         versionName = "0.5.0"
+
+        // Spotify App Remote credentials. The client id is per-developer (register the app
+        // at developer.spotify.com with this applicationId + your signing SHA1), so it lives
+        // in local.properties (gitignored), NOT in the repo. Blank id = feature disabled,
+        // app builds and runs exactly as before. See docs/MAINTENANCE.md.
+        val spotifyClientId = providers.gradleProperty("SPOTIFY_CLIENT_ID").orNull
+            ?: rootProject.file("local.properties")
+                .takeIf { it.exists() }
+                ?.readLines()
+                ?.firstOrNull { it.startsWith("SPOTIFY_CLIENT_ID=") }
+                ?.substringAfter("=")
+                ?.trim()
+            ?: ""
+        buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"$spotifyClientId\"")
+        buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"workoutapp://spotify-callback\"")
     }
 
     signingConfigs {
@@ -55,6 +70,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     // The LLM plan-generator instructions ship inside the app (Settings → share the .md
@@ -96,5 +112,10 @@ dependencies {
     implementation(libs.reorderable)
     // On-device translation for exercise names/descriptions (en -> app language).
     implementation("com.google.mlkit:translate:17.0.2")
+    // Spotify App Remote: control playback and (the point of it) heart the current track
+    // from the session screen. Spotify never published this to Maven — the AAR comes from
+    // github.com/spotify/android-sdk releases and is vendored in app/libs. It needs gson.
+    implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
+    implementation("com.google.code.gson:gson:2.11.0")
     testImplementation(libs.junit)
 }

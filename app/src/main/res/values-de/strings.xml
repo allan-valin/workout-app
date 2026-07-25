@@ -172,6 +172,13 @@
     <string name="wger_refresh_failed">Aktualisierung fehlgeschlagen, vorhandene Daten behalten: %1$s</string>
     <string name="session_settings">Trainings-Session</string>
     <string name="prev_next_setting">Tasten für vorherige/nächste Übung</string>
+    <string name="spotify_setting">Spotify-Steuerung</string>
+    <string name="spotify_setting_hint">Titel, Play/Skip und Herz für Lieblingssongs während des Trainings.</string>
+    <string name="spotify_nothing_playing">Nichts läuft</string>
+    <string name="spotify_previous">Vorheriger Titel</string>
+    <string name="spotify_play_pause">Wiedergabe oder Pause</string>
+    <string name="spotify_next">Nächster Titel</string>
+    <string name="spotify_favorite">Zu Lieblingssongs hinzufügen</string>
     <string name="prev_exercise">Vorherige Übung</string>
     <string name="next_exercise">Nächste Übung</string>
     <string name="injuries">Verletzungen</string>

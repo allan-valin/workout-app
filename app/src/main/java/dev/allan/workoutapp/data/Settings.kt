@@ -43,6 +43,18 @@ object Settings {
         context.dataStore.edit { it[PREV_NEXT_BUTTONS] = value }
     }
 
+    /** Spotify mini-player in the session screen. Off until Allan opts in (it prompts for
+     *  Spotify authorization on first connect). */
+    private val SPOTIFY_ENABLED =
+        androidx.datastore.preferences.core.booleanPreferencesKey("spotify_enabled")
+
+    fun spotifyEnabled(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[SPOTIFY_ENABLED] ?: false }
+
+    suspend fun setSpotifyEnabled(context: Context, value: Boolean) {
+        context.dataStore.edit { it[SPOTIFY_ENABLED] = value }
+    }
+
     private val SHOW_CLOCK =
         androidx.datastore.preferences.core.booleanPreferencesKey("session_show_clock")
 

@@ -103,3 +103,37 @@ tables are separate from user tables and replaced atomically).
 Default to the simplest version that works offline, matches JEFIT-style conventions, and doesn't
 add settings. One clarifying question max; otherwise decide and note the decision in
 `IMPLEMENTATION_PLAN.md` §7 phase table or a new `docs/decisions.md` entry.
+
+## Spotify App Remote (session mini-player + Liked Songs heart)
+
+Chosen 2026-07-25 over a notification-listener bridge because HyperOS does not render
+Spotify's heart action in the system media panel, and no app may add a button to another
+app's notification. App Remote talks to the library directly, so the heart always works.
+
+The AAR is vendored at `app/libs/spotify-app-remote-release-0.8.0.aar` (Spotify never
+published App Remote to Maven; source: github.com/spotify/android-sdk releases). It needs
+gson, already declared.
+
+**One-time setup, per developer — nothing here belongs in the repo:**
+
+1. Go to developer.spotify.com/dashboard, create an app (any name).
+2. Add a redirect URI: `workoutapp://spotify-callback` (must match
+   `BuildConfig.SPOTIFY_REDIRECT_URI`).
+3. Under Android packages, add package name `dev.allan.workoutapp` with the signing
+   fingerprint:
+   - debug keystore SHA1 on this machine: `B9:68:DE:D0:72:F2:54:31:38:72:11:BD:38:77:13:0C:94:41:2D:61`
+     (regenerate with `keytool -list -v -keystore ~/.android/debug.keystore -alias
+     androiddebugkey -storepass android -keypass android`)
+   - for release builds, the SHA1 of the release keystore too.
+4. Put the client id in `local.properties` (gitignored):
+   `SPOTIFY_CLIENT_ID=<the id from the dashboard>`
+   A gradle property of the same name also works, e.g. in `~/.gradle/gradle.properties`.
+5. Rebuild. Settings → Workout session now shows the "Spotify controls" switch; turn it on.
+
+**Degradation is deliberate**: a blank client id, a missing Spotify app, or the switch left
+off means no strip, no connection attempt, and no Settings row — the session screen is
+byte-identical to before. Do not "fix" that by hard-coding an id.
+
+**Cannot be emulator-verified**: the AVD has neither Spotify nor Play services, so only the
+disabled path is testable here (verified: switch hidden, no crash). The strip, the transport
+buttons and the heart need a real-device pass on the Redmi with the client id in place.

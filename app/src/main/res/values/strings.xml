@@ -172,6 +172,13 @@
     <string name="wger_refresh_failed">Refresh failed, existing data kept: %1$s</string>
     <string name="session_settings">Workout session</string>
     <string name="prev_next_setting">Previous/next exercise buttons</string>
+    <string name="spotify_setting">Spotify controls</string>
+    <string name="spotify_setting_hint">Track, play/skip and Liked Songs heart during a workout.</string>
+    <string name="spotify_nothing_playing">Nothing playing</string>
+    <string name="spotify_previous">Previous track</string>
+    <string name="spotify_play_pause">Play or pause</string>
+    <string name="spotify_next">Next track</string>
+    <string name="spotify_favorite">Add to Liked Songs</string>
     <string name="prev_exercise">Previous exercise</string>
     <string name="next_exercise">Next exercise</string>
     <string name="injuries">Injuries</string>

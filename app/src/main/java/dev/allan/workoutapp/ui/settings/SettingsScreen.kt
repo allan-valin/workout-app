@@ -431,6 +431,34 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                             },
                         )
                     }
+                    // Spotify strip in the session screen. Hidden entirely when no client id
+                    // was compiled in or Spotify isn't installed — nothing to promise then.
+                    if (dev.allan.workoutapp.session.SpotifyRemote.available(context)) {
+                        val spotifyOn by dev.allan.workoutapp.data.Settings.spotifyEnabled(context)
+                            .collectAsState(initial = false)
+                        androidx.compose.foundation.layout.Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.spotify_setting))
+                                Text(
+                                    stringResource(R.string.spotify_setting_hint),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            androidx.compose.material3.Switch(
+                                checked = spotifyOn,
+                                onCheckedChange = { value ->
+                                    scope.launch {
+                                        dev.allan.workoutapp.data.Settings.setSpotifyEnabled(context, value)
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
             }
             Card(Modifier.fillMaxWidth()) {

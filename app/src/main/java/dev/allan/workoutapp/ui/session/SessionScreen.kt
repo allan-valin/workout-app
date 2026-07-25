@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -45,6 +47,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TimerOff
@@ -137,6 +141,16 @@ fun SessionScreen(
             showBatteryOnboarding = true
         }
     }
+    // Spotify mini-player: connect while a session is open (opt-in in Settings, and only
+    // when a client id is compiled in and Spotify is installed), disconnect on the way out.
+    val spotifyEnabled by dev.allan.workoutapp.data.Settings.spotifyEnabled(context)
+        .collectAsState(initial = false)
+    val spotify by dev.allan.workoutapp.session.SpotifyRemote.state.collectAsState()
+    androidx.compose.runtime.DisposableEffect(spotifyEnabled) {
+        if (spotifyEnabled) dev.allan.workoutapp.session.SpotifyRemote.connect(context)
+        onDispose { dev.allan.workoutapp.session.SpotifyRemote.disconnect() }
+    }
+
     // Templates can change while we're away (per-exercise edit mid-session) — reload
     // when this nav entry comes back to the foreground.
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -349,6 +363,9 @@ fun SessionScreen(
                             )
                         }
                     }
+                }
+                if (spotifyEnabled && spotify.connected) {
+                    SpotifyBar(spotify)
                 }
                 if (state.timerPanelVisible) {
                     TimerPanel(vm, state)
@@ -1095,6 +1112,66 @@ private fun setTypeColor(type: SetType): androidx.compose.ui.graphics.Color = wh
     SetType.FAILURE -> MaterialTheme.colorScheme.error
     SetType.DROP -> androidx.compose.ui.graphics.Color(0xFF8E24AA)     // deep purple
     SetType.SUPERSET -> MaterialTheme.colorScheme.tertiary
+}
+
+/**
+ * One-line Spotify strip above the timer: what's playing, transport, and the heart that
+ * HyperOS refuses to show in the notification (Allan, 25/07). The heart is disabled for
+ * items Spotify says can't be saved (most podcast episodes).
+ */
+@Composable
+private fun SpotifyBar(spotify: dev.allan.workoutapp.session.SpotifyRemote.State) {
+    val remote = dev.allan.workoutapp.session.SpotifyRemote
+    Surface(tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    spotify.trackName ?: stringResource(R.string.spotify_nothing_playing),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+                spotify.artist?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            IconButton(onClick = remote::previous, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.spotify_previous))
+            }
+            IconButton(onClick = remote::togglePlay, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    if (spotify.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    contentDescription = stringResource(R.string.spotify_play_pause),
+                )
+            }
+            IconButton(onClick = remote::next, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.spotify_next))
+            }
+            IconButton(
+                onClick = remote::toggleSaved,
+                enabled = spotify.canSave,
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    if (spotify.saved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = stringResource(R.string.spotify_favorite),
+                    tint = if (spotify.saved) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 @Composable
