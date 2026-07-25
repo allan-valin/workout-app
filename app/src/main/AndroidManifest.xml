@@ -11,6 +11,13 @@
     <!-- Asked once via onboarding so HyperOS doesn't kill session timers. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- targetSdk 30+ hides other packages by default. SpotifyAppRemote.isSpotifyInstalled()
+         resolves com.spotify.music through PackageManager, so without this the whole Spotify
+         feature reports "not installed" and hides itself with no error (Allan, 26/07). -->
+    <queries>
+        <package android:name="com.spotify.music" />
+    </queries>
+
     <application
         android:name=".WorkoutApp"
         android:label="@string/app_name"

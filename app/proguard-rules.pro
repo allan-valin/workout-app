@@ -6,9 +6,9 @@
 -dontwarn com.fasterxml.jackson.**
 -dontwarn com.spotify.base.annotations.**
 
-# Protocol types cross the process boundary as JSON and are mapped by field NAME, so they
-# must not be renamed or stripped — obfuscating them silently empties PlayerState/Track and
-# breaks the library state behind the heart button.
--keep class com.spotify.protocol.types.** { *; }
--keep class com.spotify.protocol.mappers.** { *; }
--keep class com.spotify.android.appremote.api.** { *; }
+# Protocol types cross the process boundary as JSON and are mapped by field NAME, and the
+# mappers/connector are reached reflectively, so nothing in the SDK may be renamed or
+# stripped: obfuscation empties PlayerState/Track and can break the connection itself with
+# no visible error. The library is ~130 KB, so keeping all of it costs nothing worth saving.
+-keep class com.spotify.** { *; }
+-keepclassmembers class com.spotify.** { *; }
