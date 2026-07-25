@@ -1189,3 +1189,19 @@ exercises / 10 custom).
   setCountdownPausedSecs + setCountdownTemplateId (so only the owning row shows pause).
   Logging a timed set retires its countdown. New strings pause_timer/stop_timer (en,
   pt-BR, de).
+- Import activation/archival/rename FIX (EMULATOR-VERIFIED, 4 import runs):
+  * ROOT CAUSE of "plan archive empty / old plan only half-archived": importPlan honored
+    the file's `active: true` by writing isActive=1 WITHOUT deactivateAllPlans, so two
+    plans were active at once. activePlanFlow (LIMIT 1) showed the newest and
+    plans(active=false) — the Archive source — showed neither. Imports now always land
+    isActive=false and a follow-up dialog asks "Activate plan X now?" (Activate / Keep in
+    archive); activation goes through deactivateAllPlans, so the superseded plan appears
+    in Archive → Plans (verified: 2 archived plans listed, was empty).
+  * Workout names are global, so an import that reuses a name now auto-renames the
+    incoming workout to "NAME (<plan abbrev> dd/MM)" — abbreviation = first letter of each
+    word + standalone numbers ("Seca com o Thales 4 - FORTALECIMENTO" -> "ScoT4F") — and
+    the import report lists every rename under "Renamed (name already in use)". Allan's
+    "nothing was added" on reimport was in fact 6 same-named twins being invisible in the
+    list; merge into an existing plan now appends 6 clearly-renamed workouts (6 -> 12
+    verified in plan_workout).
+  * Merge-into-existing-plan does NOT ask about activation (it targets an existing plan).

@@ -155,6 +155,9 @@
     <string name="restore_done">Backup restaurado.</string>
     <string name="import_failed">Falha na importação: %1$s</string>
     <string name="import_report">Importado: %1$d treinos, %2$d exercícios, %3$d personalizados criados, %4$d ignorados.</string>
+    <string name="import_renamed_header">Renomeados (nome já em uso):</string>
+    <string name="import_activate_question">Ativar o plano &quot;%1$s&quot; agora?</string>
+    <string name="activate_now">Ativar</string>
     <string name="battery_onboarding_title">Manter timers ativos</string>
     <string name="battery_onboarding_text">O HyperOS encerra apps em segundo plano agressivamente. Para manter os timers de descanso e a notificação do treino com a tela desligada, permita as duas opções abaixo uma vez.</string>
     <string name="battery_exemption_button">Desativar otimização de bateria</string>

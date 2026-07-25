@@ -133,6 +133,22 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _pendingWorkoutImport = MutableStateFlow<PlanTransfer.WorkoutDto?>(null)
     val pendingWorkoutImport: StateFlow<PlanTransfer.WorkoutDto?> = _pendingWorkoutImport
 
+    /** Freshly imported plan awaiting the activate-or-keep-archived choice (id to name). */
+    private val _pendingActivate = MutableStateFlow<Pair<Long, String>?>(null)
+    val pendingActivate: StateFlow<Pair<Long, String>?> = _pendingActivate
+
+    /** Imports land archived; activation is explicit and enforces the one-active-plan rule. */
+    fun resolveActivation(activate: Boolean) {
+        val (planId, _) = _pendingActivate.value ?: return
+        _pendingActivate.value = null
+        if (!activate) return
+        viewModelScope.launch {
+            val plan = db.planDao().plan(planId) ?: return@launch
+            db.planDao().deactivateAllPlans()
+            db.planDao().updatePlan(plan.copy(isActive = true))
+        }
+    }
+
     private var importLang: String = "en"
 
     /** Parses the file, auto-detects plan vs workout, and routes collisions to dialogs. */
@@ -146,7 +162,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                 is PlanTransfer.Parsed.PlanFile -> {
                     val existing = db.planDao().planByName(parsed.plan.name)
                     if (existing == null) {
-                        report(PlanTransfer.importPlan(db, parsed.plan, lang, context = context))
+                        val r = PlanTransfer.importPlan(db, parsed.plan, lang, context = context)
+                        report(r)
+                        if (r.error == null) r.planId?.let { _pendingActivate.value = it to parsed.plan.name }
                     } else {
                         _pendingPlanImport.value = PendingPlanImport(
                             plan = parsed.plan,
@@ -165,10 +183,12 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val pending = _pendingPlanImport.value ?: return
         _pendingPlanImport.value = null
         viewModelScope.launch {
-            report(
+            val r =
                 if (rename) PlanTransfer.importPlan(db, pending.plan, importLang, renameTo = pending.suggestedName, context = context)
                 else PlanTransfer.importPlan(db, pending.plan, importLang, mergeIntoPlanId = pending.existingPlanId, context = context)
-            )
+            report(r)
+            // Only a NEW plan asks for activation; a merge lands in an existing plan.
+            if (rename && r.error == null) r.planId?.let { _pendingActivate.value = it to pending.suggestedName }
         }
     }
 
@@ -202,10 +222,19 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun report(report: PlanTransfer.ImportReport) {
         _message.value = report.error?.let { context.getString(R.string.import_failed, it) }
-            ?: context.getString(
-                R.string.import_report,
-                report.workouts, report.exercises, report.createdCustom.size, report.skipped.size,
-            ) + (if (report.skipped.isNotEmpty()) "\n" + report.skipped.joinToString() else "")
+            ?: buildString {
+                append(
+                    context.getString(
+                        R.string.import_report,
+                        report.workouts, report.exercises, report.createdCustom.size, report.skipped.size,
+                    )
+                )
+                if (report.skipped.isNotEmpty()) append("\n" + report.skipped.joinToString())
+                if (report.renamed.isNotEmpty()) {
+                    append("\n\n" + context.getString(R.string.import_renamed_header))
+                    report.renamed.forEach { (old, new) -> append("\n$old → $new") }
+                }
+            }
     }
 
     fun exportPlan(planId: Long, uri: Uri) {
@@ -518,6 +547,7 @@ fun PlanImportDialogs(vm: SettingsViewModel) {
     val pendingPlanImport by vm.pendingPlanImport.collectAsState()
     val pendingWorkoutImport by vm.pendingWorkoutImport.collectAsState()
     val message by vm.message.collectAsState()
+    val pendingActivate by vm.pendingActivate.collectAsState()
 
     // Imported plan name already taken: rename it or merge its workouts into the existing plan.
     pendingPlanImport?.let { pending ->
@@ -578,6 +608,26 @@ fun PlanImportDialogs(vm: SettingsViewModel) {
             text = { Text(msg) },
             confirmButton = {
                 TextButton(onClick = vm::clearMessage) { Text(stringResource(R.string.ok)) }
+            },
+        )
+    }
+
+    // After the import report is dismissed: imported plans land archived, so ask
+    // whether to activate now (activation deactivates the previous plan, which then
+    // shows up in the Archive instead of vanishing — Allan, 25/07).
+    if (message == null) pendingActivate?.let { (_, name) ->
+        AlertDialog(
+            onDismissRequest = { vm.resolveActivation(false) },
+            title = { Text(stringResource(R.string.import_activate_question, name)) },
+            confirmButton = {
+                TextButton(onClick = { vm.resolveActivation(true) }) {
+                    Text(stringResource(R.string.activate_now))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vm.resolveActivation(false) }) {
+                    Text(stringResource(R.string.keep_archived))
+                }
             },
         )
     }

@@ -98,7 +98,19 @@ object PlanTransfer {
         val createdCustom: List<String>,
         val skipped: List<String>,
         val error: String? = null,
+        /** Workouts auto-renamed on import because the name was already in use (old to new). */
+        val renamed: List<Pair<String, String>> = emptyList(),
     )
+
+    /**
+     * Rename suffix seed: first letter of each word plus any standalone numbers
+     * ("Seca com o Thales 4 - FORTALECIMENTO" -> "ScoT4F"). Keeps the suffix short
+     * enough for workout-card titles (Allan, 25/07).
+     */
+    fun abbreviate(name: String): String =
+        name.split(Regex("[^\\p{L}\\p{N}]+"))
+            .filter { it.isNotBlank() }
+            .joinToString("") { word -> if (word.all { it.isDigit() }) word else word.first().toString() }
 
     private val dayMap = mapOf(
         "MON" to 1, "TUE" to 2, "WED" to 3, "THU" to 4, "FRI" to 5, "SAT" to 6, "SUN" to 7,
@@ -160,15 +172,23 @@ object PlanTransfer {
     ): ImportReport {
         val createdCustom = mutableListOf<String>()
         val skipped = mutableListOf<String>()
+        val renamed = mutableListOf<Pair<String, String>>()
 
+        // Never auto-activate from the file's `active` flag: activation is the user's
+        // call (asked after import) and must go through deactivateAllPlans — honoring
+        // the flag silently left the old active plan flagged active too, hiding it
+        // from both the Active view and the Archive (Allan, 25/07).
         val planId = mergeIntoPlanId ?: db.planDao().insertPlan(
             Plan(
                 name = renameTo ?: plan.name,
-                isActive = plan.active,
+                isActive = false,
                 cycleWeeks = plan.cycleWeeks?.coerceIn(1, 52),
                 startedAt = System.currentTimeMillis(),
                 createdAt = System.currentTimeMillis(),
             )
+        )
+        val abbrev = abbreviate(
+            mergeIntoPlanId?.let { db.planDao().plan(it)?.name } ?: renameTo ?: plan.name
         )
         val baseOrder = if (mergeIntoPlanId != null) db.planDao().workoutsList(planId).size else 0
         var exerciseCount = 0
@@ -176,9 +196,10 @@ object PlanTransfer {
             exerciseCount += importWorkoutInto(
                 db, planId, w, baseOrder + wIndex, lang, createdCustom, skipped,
                 fallbackName = "Workout ${wIndex + 1}", context = context,
+                planAbbrev = abbrev, renamed = renamed,
             )
         }
-        return ImportReport(planId, plan.workouts.size, exerciseCount, createdCustom, skipped)
+        return ImportReport(planId, plan.workouts.size, exerciseCount, createdCustom, skipped, renamed = renamed)
     }
 
     /** Imports a single-workout file into [targetPlanId]. */
@@ -191,12 +212,14 @@ object PlanTransfer {
     ): ImportReport {
         val createdCustom = mutableListOf<String>()
         val skipped = mutableListOf<String>()
+        val renamed = mutableListOf<Pair<String, String>>()
         val order = db.planDao().workoutsList(targetPlanId).size
         val count = importWorkoutInto(
             db, targetPlanId, workout, order, lang, createdCustom, skipped,
             fallbackName = "Workout", context = context,
+            planAbbrev = abbreviate(db.planDao().plan(targetPlanId)?.name ?: ""), renamed = renamed,
         )
-        return ImportReport(targetPlanId, 1, count, createdCustom, skipped)
+        return ImportReport(targetPlanId, 1, count, createdCustom, skipped, renamed = renamed)
     }
 
     private suspend fun importWorkoutInto(
@@ -209,11 +232,31 @@ object PlanTransfer {
         skipped: MutableList<String>,
         fallbackName: String,
         context: android.content.Context? = null,
+        planAbbrev: String = "",
+        renamed: MutableList<Pair<String, String>> = mutableListOf(),
     ): Int {
         var exerciseCount = 0
+        // Workout names are global (the Archive lists every workout by name), so an
+        // import must not silently create same-name twins: rename the incoming one
+        // with an abbreviated plan tag + date, and report it (Allan, 25/07).
+        val base = w.name.ifBlank { fallbackName }
+        val taken = db.planDao().workoutNames().map { it.lowercase() }.toHashSet()
+        val name = if (base.lowercase() in taken) {
+            val date = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            val tag = if (planAbbrev.isBlank()) date else "$planAbbrev $date"
+            var candidate = "$base ($tag)"
+            var n = 2
+            while (candidate.lowercase() in taken) {
+                candidate = "$base ($tag $n)"
+                n++
+            }
+            renamed += base to candidate
+            candidate
+        } else base
         val workoutId = db.planDao().insertWorkout(
             Workout(
-                name = w.name.ifBlank { fallbackName },
+                name = name,
                 daysOfWeek = w.daysOfWeek.mapNotNull { dayMap[it.uppercase()] }.distinct().sorted(),
             )
         )

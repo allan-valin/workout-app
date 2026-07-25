@@ -155,6 +155,9 @@
     <string name="restore_done">Backup restored.</string>
     <string name="import_failed">Import failed: %1$s</string>
     <string name="import_report">Imported: %1$d workouts, %2$d exercises, %3$d custom created, %4$d skipped.</string>
+    <string name="import_renamed_header">Renamed (name already in use):</string>
+    <string name="import_activate_question">Activate plan &quot;%1$s&quot; now?</string>
+    <string name="activate_now">Activate</string>
     <string name="battery_onboarding_title">Keep timers alive</string>
     <string name="battery_onboarding_text">HyperOS aggressively kills background apps. To keep rest timers and the workout notification running with the screen off, allow both settings below once.</string>
     <string name="battery_exemption_button">Disable battery optimization</string>
