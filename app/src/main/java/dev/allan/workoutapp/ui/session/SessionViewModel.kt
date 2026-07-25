@@ -314,7 +314,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     fun openExercise(index: Int) {
-        _state.value = _state.value.copy(currentIndex = index, showList = false)
+        // An explicit tap overrides any queued auto-advance swipe.
+        _state.value = _state.value.copy(currentIndex = index, showList = false, pendingSwipeTo = null)
     }
 
     fun showList() {

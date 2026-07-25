@@ -283,8 +283,11 @@ fun SessionScreen(
         // still fire — see SessionUiState.swipeToken (bug B).
         LaunchedEffect(state.swipeToken) {
             state.pendingSwipeTo?.let { target ->
-                if (target in state.exercises.indices) pagerState.animateScrollToPage(target)
+                // Consume BEFORE animating: animateScrollToPage throws CancellationException
+                // when the pager snap interrupts it, which used to skip the clear and leave a
+                // stale request that hijacked the next overview tap (bug D, 25/07).
                 vm.clearPendingSwipe()
+                if (target in state.exercises.indices) pagerState.animateScrollToPage(target)
             }
         }
         val prevNextEnabled by dev.allan.workoutapp.data.Settings.prevNextButtons(context)

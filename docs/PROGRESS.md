@@ -1160,3 +1160,14 @@ exercises / 10 custom).
   and verified "Superset: Clamshell ↔ Unilateral Hip Thrust" (pair, no run-on).
 - Backlog options written up in FEEDBACK_BATCH_2026-07-24.md (Spotify media controls
   via notification-listener vs App Remote; MET-based calories) — awaiting Allan.
+
+## Phase 28 — 2026-07-25 regression feedback (Allan, same day)
+
+- D-regression FIX (EMULATOR-VERIFIED): overview tap opened the superset-aware next
+  exercise instead of the tapped one. Root cause (proven via logcat instrumentation):
+  pagerState.animateScrollToPage throws CancellationException when the pager snap
+  interrupts the auto-advance animation, skipping vm.clearPendingSwipe() — EVERY
+  auto-advance left a stale pendingSwipeTo. Re-entering the pager re-ran
+  LaunchedEffect(swipeToken) (same token, initial run), which consumed the stale
+  request and hijacked the tapped page. Fix: consume-before-animate in the swipe
+  effect + openExercise() clears pendingSwipeTo (explicit tap wins).
