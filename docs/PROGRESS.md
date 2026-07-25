@@ -1086,3 +1086,14 @@ exercises / 10 custom).
   as stacked FilterChips (side-by-side truncated); vm.setWeightMode writes
   workout_exercise directly (plan-level, like the editor). Header + subtitle update
   live. pt-BR "Por lado" renamed "Por anilha" (dumbbell-context confusion).
+
+## Phase 23 — Batch B: cadence per exercise (2026-07-25; EMULATOR-VERIFIED same session)
+
+- Cadence/tempo is now an EXERCISE-level edit (Allan: "tempo é por exercício, não por
+  série"). Storage unchanged (set_template.tempo, no migration): setExerciseTempo writes
+  the same value to every set template of the exercise; display reads first non-blank.
+- Editor: per-set cadence rows removed from SetRow; one centered pill + legend (i) sits
+  above the set table (verified in FULLBODY B card).
+- Session: same pill row under the image shows "Cadence: X-X-X-X" bold whenever active
+  (verified 4-0-2-0 via the 4-box overlay); one edit covers all sets; still snapshots
+  templatesChanged for the keep-vs-one-time end prompt.

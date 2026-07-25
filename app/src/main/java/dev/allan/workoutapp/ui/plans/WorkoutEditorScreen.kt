@@ -476,6 +476,16 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         }
     }
 
+    /** Cadence is an exercise-level property (Allan, 24/07): one edit covers every set.
+     *  Stored on each set template so the schema (and import/export) stay untouched. */
+    fun setExerciseTempo(item: EditorExercise, tempo: String) {
+        edit {
+            db.planDao().setTemplatesList(item.we.id).forEach {
+                db.planDao().updateSetTemplate(it.copy(tempo = tempo))
+            }
+        }
+    }
+
     fun suggestExercises(focus: SuggestionFocus, total: Int?) {
         if (_suggesting.value) return
         viewModelScope.launch {
@@ -1176,6 +1186,43 @@ private fun ExerciseEditorCard(
                 )
             }
 
+            // Cadence is per exercise, not per set (Allan, 24/07) — one centered pill +
+            // legend (i) above the sets, same pattern the session screen mirrors.
+            var showTempoEdit by remember { mutableStateOf(false) }
+            var showTempoInfo by remember { mutableStateOf(false) }
+            val exTempo = item.sets.firstOrNull { it.tempo.isNotBlank() }?.tempo ?: ""
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.width(48.dp))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    OutlinedButton(onClick = { showTempoEdit = true }) {
+                        Text(
+                            if (exTempo.isBlank()) stringResource(R.string.edit_cadence)
+                            else stringResource(R.string.cadence_value, exTempo)
+                        )
+                    }
+                }
+                IconButton(onClick = { showTempoInfo = true }) {
+                    Icon(Icons.Default.Info, contentDescription = stringResource(R.string.tempo_info_title))
+                }
+            }
+            if (showTempoEdit) {
+                dev.allan.workoutapp.ui.common.CadenceDialog(
+                    initial = exTempo,
+                    onConfirm = { vm.setExerciseTempo(item, it) },
+                    onDismiss = { showTempoEdit = false },
+                )
+            }
+            if (showTempoInfo) {
+                AlertDialog(
+                    onDismissRequest = { showTempoInfo = false },
+                    title = { Text(stringResource(R.string.tempo_info_title)) },
+                    text = { Text(stringResource(R.string.tempo_info_body)) },
+                    confirmButton = {
+                        TextButton(onClick = { showTempoInfo = false }) { Text(stringResource(R.string.ok)) }
+                    },
+                )
+            }
+
             SetHeaderRow(item.we.weightMode)
             // Long-press any set row to drag-reorder; neighbours slide out of the way.
             sh.calvin.reorderable.ReorderableColumn(
@@ -1356,46 +1403,7 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
             )
         }
     }
-    // Per-set cadence/tempo (e.g. 4-0-2-0), below the set details: a centered edit button
-    // opening the shared 4-box overlay; the info (i) keeps its spot on the right.
-    var showTempoEdit by remember { mutableStateOf(false) }
-    var showTempoInfo by remember { mutableStateOf(false) }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        // Left spacer balances the trailing info button so the edit button sits truly centered.
-        Box(Modifier.width(48.dp))
-        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            OutlinedButton(onClick = { showTempoEdit = true }) {
-                Text(
-                    if (set.tempo.isBlank()) stringResource(R.string.edit_cadence)
-                    else stringResource(R.string.cadence_value, set.tempo)
-                )
-            }
-        }
-        // Dedicated cadence legend — separate from the exercise info button.
-        IconButton(onClick = { showTempoInfo = true }) {
-            Icon(Icons.Default.Info, contentDescription = stringResource(R.string.tempo_info_title))
-        }
-    }
-    if (showTempoEdit) {
-        dev.allan.workoutapp.ui.common.CadenceDialog(
-            initial = set.tempo,
-            onConfirm = { onUpdate(set.copy(tempo = it)) },
-            onDismiss = { showTempoEdit = false },
-        )
-    }
-    if (showTempoInfo) {
-        AlertDialog(
-            onDismissRequest = { showTempoInfo = false },
-            title = { Text(stringResource(R.string.tempo_info_title)) },
-            text = { Text(stringResource(R.string.tempo_info_body)) },
-            confirmButton = {
-                TextButton(onClick = { showTempoInfo = false }) { Text(stringResource(R.string.ok)) }
-            },
-        )
-    }
+    // (Cadence moved to one per-exercise row above the sets — Allan, 24/07.)
   }
 }
 

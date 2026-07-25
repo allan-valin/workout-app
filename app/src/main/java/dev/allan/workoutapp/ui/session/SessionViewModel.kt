@@ -626,7 +626,18 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     fun setSetType(set: SessionSet, type: SetType) = editTemplate(set.templateId) { it.copy(type = type) }
-    fun setSetTempo(set: SessionSet, tempo: String) = editTemplate(set.templateId) { it.copy(tempo = tempo) }
+
+    /** Cadence is per exercise (Allan, 24/07): one edit writes every set template of it. */
+    fun setExerciseTempo(exerciseIndex: Int, tempo: String) {
+        val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
+        viewModelScope.launch {
+            db.planDao().setTemplatesForWorkout(workoutId).first()
+                .filter { it.workoutExerciseId == ex.workoutExerciseId }
+                .forEach { db.planDao().updateSetTemplate(it.copy(tempo = tempo)) }
+            markTemplatesChanged()
+            startOrResume()
+        }
+    }
     fun setSetTarget(set: SessionSet, min: Int, max: Int?) =
         editTemplate(set.templateId) { it.copy(targetValue = min, targetValueMax = max?.takeIf { m -> m > min }) }
 

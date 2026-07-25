@@ -613,43 +613,40 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             }
         }
 
-        // Cadence/tempo for the current set — the SAME row as the editor (centered outlined
-        // pill = visibly tappable, info (i) on the right) opening the shared 4-box overlay.
-        val tempoSet = ex.sets.firstOrNull { state.currentStep == page to it.templateId }
-            ?: ex.sets.firstOrNull { it.tempo.isNotBlank() }
-            ?: ex.sets.firstOrNull()
+        // Cadence/tempo — per EXERCISE (Allan, 24/07), same row as the editor (centered
+        // outlined pill = visibly tappable, info (i) on the right); one edit covers all
+        // sets, and the value floats here under the image whenever it's active.
+        val exTempo = ex.sets.firstOrNull { it.tempo.isNotBlank() }?.tempo ?: ""
         var showTempoEdit by remember { mutableStateOf(false) }
         var showTempoInfo by remember { mutableStateOf(false) }
-        if (tempoSet != null) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                // Left spacer balances the (i) so the pill sits truly centered.
-                Box(Modifier.width(48.dp))
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    OutlinedButton(onClick = { showTempoEdit = true }) {
-                        Text(
-                            if (tempoSet.tempo.isBlank()) stringResource(R.string.edit_cadence)
-                            else stringResource(R.string.cadence_value, tempoSet.tempo),
-                            style = if (tempoSet.tempo.isBlank()) MaterialTheme.typography.labelLarge
-                            else MaterialTheme.typography.titleMedium,
-                            fontWeight = if (tempoSet.tempo.isBlank()) null else FontWeight.Bold,
-                        )
-                    }
-                }
-                IconButton(onClick = { showTempoInfo = true }) {
-                    Icon(
-                        androidx.compose.material.icons.Icons.Default.Info,
-                        contentDescription = stringResource(R.string.tempo_info_title),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            // Left spacer balances the (i) so the pill sits truly centered.
+            Box(Modifier.width(48.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                OutlinedButton(onClick = { showTempoEdit = true }) {
+                    Text(
+                        if (exTempo.isBlank()) stringResource(R.string.edit_cadence)
+                        else stringResource(R.string.cadence_value, exTempo),
+                        style = if (exTempo.isBlank()) MaterialTheme.typography.labelLarge
+                        else MaterialTheme.typography.titleMedium,
+                        fontWeight = if (exTempo.isBlank()) null else FontWeight.Bold,
                     )
                 }
             }
+            IconButton(onClick = { showTempoInfo = true }) {
+                Icon(
+                    androidx.compose.material.icons.Icons.Default.Info,
+                    contentDescription = stringResource(R.string.tempo_info_title),
+                )
+            }
         }
-        if (showTempoEdit && tempoSet != null) {
+        if (showTempoEdit) {
             dev.allan.workoutapp.ui.common.CadenceDialog(
-                initial = tempoSet.tempo,
-                onConfirm = { vm.setSetTempo(tempoSet, it) },
+                initial = exTempo,
+                onConfirm = { vm.setExerciseTempo(page, it) },
                 onDismiss = { showTempoEdit = false },
             )
         }
