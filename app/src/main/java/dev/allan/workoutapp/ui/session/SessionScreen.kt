@@ -165,8 +165,16 @@ fun SessionScreen(
                 TopAppBar(
                     title = {
                         // Caption right-aligned so it sits under the numbers it labels.
+                        // The name line must stay ONE line: imported workouts carry a
+                        // "(plan abbrev dd/MM)" tag, and wrapping pushed the caption out of
+                        // the fixed-height top bar (Allan's long thales4 names, 25/07).
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(state.workoutName + "  ·  " + fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs))
+                            Text(
+                                state.workoutName + "  ·  " + fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                             Text(
                                 stringResource(R.string.estimated_time),
                                 style = MaterialTheme.typography.labelSmall,

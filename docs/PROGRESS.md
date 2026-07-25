@@ -1205,3 +1205,19 @@ exercises / 10 custom).
     list; merge into an existing plan now appends 6 clearly-renamed workouts (6 -> 12
     verified in plan_workout).
   * Merge-into-existing-plan does NOT ask about activation (it targets an existing plan).
+- Audit doc added: docs/AUDIT_2026-07-25.md walks every user-visible feature claimed DONE in
+  phases 0–28 with OK / n/v / REAL status. This pass verified the superset engine end-to-end,
+  the rest notification extras, weight dialog + mode switch, number-pad digit editing,
+  cadence pill, statistics charts, library filters, and settings. Two extra bugs found and
+  fixed: session list top bar clipped its "elapsed / estimated" caption when the workout name
+  wrapped (now one line, ellipsized), and abbreviate() emitted a stray "(" for plan names
+  ending in "(2)" (now splits on non-alphanumeric runs). Remaining n/v items are listed at
+  the end of the audit doc for the next pass.
+- Audit doc added: docs/AUDIT_2026-07-25.md walks every user-visible feature claimed DONE in
+  phases 0–28 with OK / n/v / REAL status. This pass verified the superset engine end-to-end,
+  the rest notification extras, weight dialog + mode switch, number-pad digit editing,
+  cadence pill, statistics charts, library filters, and settings. Two extra bugs found and
+  fixed: session list top bar clipped its "elapsed / estimated" caption when the workout name
+  wrapped (now one line, ellipsized), and abbreviate() emitted a stray paren for plan names
+  already ending in a "(2)" suffix (now splits on non-alphanumeric runs). Remaining n/v items
+  are listed at the end of the audit doc for the next pass.
