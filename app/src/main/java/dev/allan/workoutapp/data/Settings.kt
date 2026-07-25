@@ -76,6 +76,27 @@ object Settings {
         context.dataStore.edit { it[BODY_FEMALE] = value }
     }
 
+    private val BEEP_VOLUME =
+        androidx.datastore.preferences.core.intPreferencesKey("beep_volume")
+    private val BEEP_MUTED =
+        androidx.datastore.preferences.core.booleanPreferencesKey("beep_muted")
+
+    /** Timer-alert beep volume 0–100 (default 90). */
+    fun beepVolume(context: Context): Flow<Int> =
+        context.dataStore.data.map { it[BEEP_VOLUME] ?: 90 }
+
+    suspend fun setBeepVolume(context: Context, value: Int) {
+        context.dataStore.edit { it[BEEP_VOLUME] = value.coerceIn(0, 100) }
+    }
+
+    /** Timer-alert beep muted — vibration then runs double-length instead. */
+    fun beepMuted(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[BEEP_MUTED] ?: false }
+
+    suspend fun setBeepMuted(context: Context, value: Boolean) {
+        context.dataStore.edit { it[BEEP_MUTED] = value }
+    }
+
     fun heightCm(context: Context): Flow<Double?> =
         context.dataStore.data.map { it[HEIGHT_CM] }
 

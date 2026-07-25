@@ -1097,3 +1097,23 @@ exercises / 10 custom).
 - Session: same pill row under the image shows "Cadence: X-X-X-X" bold whenever active
   (verified 4-0-2-0 via the 4-box overlay); one edit covers all sets; still snapshots
   templatesChanged for the keep-vs-one-time end prompt.
+
+## Phase 24 — Batch C: alert sound / volume / notification (2026-07-25; EMULATOR-VERIFIED)
+
+- Beep moved STREAM_NOTIFICATION→STREAM_MUSIC (notification stream muted on the Redmi
+  made it silent) at a user-set volume; Settings gained beepVolume (0-100, default 90)
+  + beepMuted. TimerService caches both via a service-scope collector (no DataStore
+  read on the alert path).
+- New speaker button in the session top bar → Alert volume dialog (slider + mute
+  switch, verified incl. icon swap to VolumeOff and persistence). Clock text dropped
+  to titleMedium/1-line — the extra action was wrapping it.
+- Muted or volume 0 → vibration waveform doubles (800ms pulses vs 400ms).
+- Notification channel v2: IMPORTANCE_DEFAULT, silent, no vibration; notification sets
+  VISIBILITY_PUBLIC; countdowns carry a "Rest until HH:MM:SS" text fallback for skins
+  that don't tick the chronometer. Legacy "session" channel deleted on upgrade.
+- BUGFIX found on emulator: zero-rest sets left the countdown notification ticking
+  negative forever (scheduleAlert bailed on delay<=0 without reverting) — now reverts
+  to the session chronometer. Verified: 30s rest shows live countdown + "Rest until",
+  reverts to "Workout running" after expiry.
+- REAL-DEVICE (1.0 checklist): confirm beep audible on HyperOS; confirm lock-screen
+  visibility (AVD has no screen lock configured, could not verify).

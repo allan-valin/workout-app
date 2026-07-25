@@ -107,6 +107,9 @@
     <string name="start_timer">Timer starten</string>
     <string name="session_running">Training läuft</string>
     <string name="session_channel">Trainingssession</string>
+    <string name="rest_until">Pause bis %1$s</string>
+    <string name="beep_volume">Alarmlautstärke</string>
+    <string name="beep_mute">Stumm</string>
     <string name="start_workout">Training starten</string>
     <string name="edit_training">Training bearbeiten</string>
     <string name="resume_workout">▶ Laufendes Training fortsetzen</string>

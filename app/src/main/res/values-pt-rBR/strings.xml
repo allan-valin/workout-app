@@ -107,6 +107,9 @@
     <string name="start_timer">Iniciar timer</string>
     <string name="session_running">Treino em andamento</string>
     <string name="session_channel">Sessão de treino</string>
+    <string name="rest_until">Descanso até %1$s</string>
+    <string name="beep_volume">Volume do alerta</string>
+    <string name="beep_mute">Silenciar</string>
     <string name="start_workout">Iniciar Treino</string>
     <string name="edit_training">Editar treino</string>
     <string name="resume_workout">▶ Continuar treino em andamento</string>

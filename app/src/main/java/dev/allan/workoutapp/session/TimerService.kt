@@ -18,6 +18,8 @@ import android.os.VibrationEffect
 import android.os.VibratorManager
 import dev.allan.workoutapp.MainActivity
 import dev.allan.workoutapp.R
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * Foreground service that keeps the process alive during a workout session
@@ -32,6 +34,27 @@ class TimerService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var alertRunnable: Runnable? = null
+
+    // Latest beep prefs, cached so fireAlert (main thread) never blocks on DataStore.
+    private val settingsScope =
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+    @Volatile private var beepVolume = 90
+    @Volatile private var beepMuted = false
+
+    override fun onCreate() {
+        super.onCreate()
+        settingsScope.launch {
+            dev.allan.workoutapp.data.Settings.beepVolume(this@TimerService).collect { beepVolume = it }
+        }
+        settingsScope.launch {
+            dev.allan.workoutapp.data.Settings.beepMuted(this@TimerService).collect { beepMuted = it }
+        }
+    }
+
+    override fun onDestroy() {
+        settingsScope.cancel()
+        super.onDestroy()
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -61,8 +84,18 @@ class TimerService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, getString(R.string.session_channel), NotificationManager.IMPORTANCE_LOW)
+                // DEFAULT importance + public lockscreen visibility so the rest countdown
+                // survives onto the lock screen (LOW was collapsed/hidden there — Allan,
+                // 24/07). Sound off: the alert beep is ours, not the notification's.
+                NotificationChannel(CHANNEL_ID, getString(R.string.session_channel), NotificationManager.IMPORTANCE_DEFAULT)
+                    .apply {
+                        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                        setSound(null, null)
+                        enableVibration(false)
+                    }
             )
+            // Retire the pre-lock-screen channel from older installs.
+            manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         }
         return manager
     }
@@ -75,6 +108,15 @@ class TimerService : Service() {
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
+            .apply {
+                // Text fallback for skins that don't tick the chronometer (HyperOS):
+                // countdowns name their end time explicitly.
+                if (countDown) {
+                    val end = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                        .format(java.util.Date(chronometerBase))
+                    setContentText(getString(R.string.rest_until, end))
+                }
+            }
             .setContentIntent(tapIntent)
             .setUsesChronometer(true)
             .setChronometerCountDown(countDown)
@@ -82,6 +124,7 @@ class TimerService : Service() {
             .setShowWhen(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
             .build()
     }
 
@@ -108,7 +151,11 @@ class TimerService : Service() {
     private fun scheduleAlert(endAt: Long) {
         cancelAlert()
         val delay = endAt - System.currentTimeMillis()
-        if (delay <= 0) return
+        if (delay <= 0) {
+            // Zero/expired rest: don't leave the countdown ticking negative forever.
+            notify(defaultNotification())
+            return
+        }
         val r = Runnable {
             fireAlert()
             // Countdown over — swap the notification back to session elapsed time.
@@ -124,20 +171,26 @@ class TimerService : Service() {
     }
 
     private fun fireAlert() {
+        val silent = beepMuted || beepVolume == 0
         runCatching {
             val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
             vm.defaultVibrator.vibrate(
-                VibrationEffect.createWaveform(longArrayOf(0, 400, 200, 400), -1)
+                // No sound → vibrate twice as much (Allan, 24/07).
+                if (silent) VibrationEffect.createWaveform(longArrayOf(0, 800, 300, 800), -1)
+                else VibrationEffect.createWaveform(longArrayOf(0, 400, 200, 400), -1)
             )
         }
-        runCatching {
-            ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
+        if (!silent) runCatching {
+            // STREAM_MUSIC: the notification stream was muted on the real device
+            // (HyperOS), which made the beep silently vanish (Allan, 24/07).
+            ToneGenerator(AudioManager.STREAM_MUSIC, beepVolume)
                 .startTone(ToneGenerator.TONE_PROP_BEEP2, 600)
         }
     }
 
     companion object {
-        private const val CHANNEL_ID = "session"
+        private const val CHANNEL_ID = "session_v2"
+        private const val LEGACY_CHANNEL_ID = "session"
         private const val NOTIFICATION_ID = 1
         const val ACTION_START = "start"
         const val ACTION_STOP = "stop"

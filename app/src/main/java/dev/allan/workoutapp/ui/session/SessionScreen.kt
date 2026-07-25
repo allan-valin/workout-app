@@ -28,6 +28,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -411,14 +413,24 @@ fun SessionScreen(
 @Composable
 private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (Boolean) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
+    var volumeOpen by remember { mutableStateOf(false) }
     val current = state.exercises.getOrNull(state.currentIndex)
     val ctx = LocalContext.current
     val showClock by dev.allan.workoutapp.data.Settings.showClock(ctx).collectAsState(initial = true)
+    val beepVolume by dev.allan.workoutapp.data.Settings.beepVolume(ctx).collectAsState(initial = 90)
+    val beepMuted by dev.allan.workoutapp.data.Settings.beepMuted(ctx).collectAsState(initial = false)
+    val settingsScope = rememberCoroutineScope()
 
     TopAppBar(
         title = {
             if (showClock) Column(horizontalAlignment = Alignment.End) {
-                Text(fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs))
+                // titleMedium + one line: the volume action shrank the title slot and
+                // titleLarge wrapped the clock mid-value.
+                Text(
+                    fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                )
                 Text(
                     stringResource(R.string.estimated_time),
                     style = MaterialTheme.typography.labelSmall,
@@ -432,6 +444,15 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
             }
         },
         actions = {
+            // Alert volume: slider + mute for the timer beep (Allan, 24/07 — beep was
+            // silent on-device and there was no in-app control).
+            IconButton(onClick = { volumeOpen = true }) {
+                Icon(
+                    if (beepMuted || beepVolume == 0) Icons.AutoMirrored.Filled.VolumeOff
+                    else Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = stringResource(R.string.beep_volume),
+                )
+            }
             // Info sheet hosts description + persistent note + video, so one button covers
             // all — the label says so (Allan: "note" alone hid the merged functions).
             TextButton(onClick = { current?.let { vm.openDescription(it.exerciseId, withImage = false) } }) {
@@ -451,6 +472,43 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
         },
     )
 
+    if (volumeOpen) {
+        AlertDialog(
+            onDismissRequest = { volumeOpen = false },
+            title = { Text(stringResource(R.string.beep_volume)) },
+            text = {
+                Column {
+                    androidx.compose.material3.Slider(
+                        value = beepVolume.toFloat(),
+                        onValueChange = { v ->
+                            settingsScope.launch {
+                                dev.allan.workoutapp.data.Settings.setBeepVolume(ctx, v.toInt())
+                            }
+                        },
+                        valueRange = 0f..100f,
+                        enabled = !beepMuted,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Switch(
+                            checked = beepMuted,
+                            onCheckedChange = { m ->
+                                settingsScope.launch {
+                                    dev.allan.workoutapp.data.Settings.setBeepMuted(ctx, m)
+                                }
+                            },
+                        )
+                        Text(
+                            stringResource(R.string.beep_mute),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { volumeOpen = false }) { Text(stringResource(R.string.ok)) }
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)

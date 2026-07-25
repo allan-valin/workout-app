@@ -107,6 +107,9 @@
     <string name="start_timer">Start timer</string>
     <string name="session_running">Workout running</string>
     <string name="session_channel">Workout session</string>
+    <string name="rest_until">Rest until %1$s</string>
+    <string name="beep_volume">Alert volume</string>
+    <string name="beep_mute">Mute</string>
     <string name="start_workout">Start Workout</string>
     <string name="edit_training">Edit training</string>
     <string name="resume_workout">▶ Resume running workout</string>
