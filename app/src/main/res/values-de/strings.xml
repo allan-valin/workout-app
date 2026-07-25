@@ -95,6 +95,7 @@
     <string name="choose_image">Bild auswählen</string>
     <string name="add_own_image">Eigenes Referenzbild hinzufügen</string>
     <string name="estimated_time">vergangen / geschätzt</string>
+    <string name="elapsed_only">vergangen</string>
     <string name="tap_to_log_sets">Übung antippen, um Sätze zu erfassen</string>
     <string name="note">Notiz</string>
     <string name="rest">Pause</string>
@@ -172,6 +173,7 @@
     <string name="wger_refresh_failed">Aktualisierung fehlgeschlagen, vorhandene Daten behalten: %1$s</string>
     <string name="session_settings">Trainings-Session</string>
     <string name="prev_next_setting">Tasten für vorherige/nächste Übung</string>
+    <string name="show_estimate_setting">Geschätzte Zeit im Training anzeigen</string>
     <string name="spotify_setting">Spotify-Steuerung</string>
     <string name="spotify_setting_hint">Titel, Play/Skip und Herz für Lieblingssongs während des Trainings.</string>
     <string name="spotify_nothing_playing">Nichts läuft</string>

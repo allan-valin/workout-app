@@ -478,6 +478,7 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
     val current = state.exercises.getOrNull(state.currentIndex)
     val ctx = LocalContext.current
     val showClock by dev.allan.workoutapp.data.Settings.showClock(ctx).collectAsState(initial = true)
+    val showEstimate by dev.allan.workoutapp.data.Settings.showEstimate(ctx).collectAsState(initial = true)
     val beepVolume by dev.allan.workoutapp.data.Settings.beepVolume(ctx).collectAsState(initial = 90)
     val beepMuted by dev.allan.workoutapp.data.Settings.beepMuted(ctx).collectAsState(initial = false)
     val settingsScope = rememberCoroutineScope()
@@ -488,12 +489,15 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
                 // titleMedium + one line: the volume action shrank the title slot and
                 // titleLarge wrapped the clock mid-value.
                 Text(
-                    fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs),
+                    if (showEstimate) fmt(state.elapsedSecs) + " / " + fmt(state.estimatedTotalSecs)
+                    else fmt(state.elapsedSecs),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                 )
                 Text(
-                    stringResource(R.string.estimated_time),
+                    stringResource(
+                        if (showEstimate) R.string.estimated_time else R.string.elapsed_only
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -517,8 +521,8 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
             // Info sheet hosts description + persistent note + video, so one button covers all.
             // Icon-only: the "Info & notes" label ate ~130dp of the action row and squeezed the
             // clock out of the title slot past 100 minutes (Allan, 26/07). The content
-            // description still drives TalkBack and the long-press tooltip, so the label that
-            // explains the merged functions stays reachable.
+            // description keeps the label on TalkBack (no visual tooltip — that would need a
+            // TooltipBox, and the (i) glyph carries it well enough).
             IconButton(onClick = { current?.let { vm.openDescription(it.exerciseId, withImage = false) } }) {
                 Icon(Icons.Default.Info, contentDescription = stringResource(R.string.info_note))
             }

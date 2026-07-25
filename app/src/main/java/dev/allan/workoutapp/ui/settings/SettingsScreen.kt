@@ -431,6 +431,29 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                             },
                         )
                     }
+                    // The session top bar is tight on width; hiding the estimate gives the elapsed
+                    // value the whole slot (Allan, 26/07). The overview bar keeps the pair either
+                    // way — it has no actions competing for space.
+                    val showEstimate by dev.allan.workoutapp.data.Settings.showEstimate(context)
+                        .collectAsState(initial = true)
+                    androidx.compose.foundation.layout.Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.show_estimate_setting),
+                            modifier = Modifier.weight(1f),
+                        )
+                        androidx.compose.material3.Switch(
+                            checked = showEstimate,
+                            onCheckedChange = { value ->
+                                scope.launch {
+                                    dev.allan.workoutapp.data.Settings.setShowEstimate(context, value)
+                                }
+                            },
+                        )
+                    }
                     // Spotify strip in the session screen. Hidden entirely when no client id
                     // was compiled in or Spotify isn't installed — nothing to promise then.
                     if (dev.allan.workoutapp.session.SpotifyRemote.available(context)) {

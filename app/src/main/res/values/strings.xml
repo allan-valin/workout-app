@@ -95,6 +95,7 @@
     <string name="choose_image">Choose an image</string>
     <string name="add_own_image">Add your own image reference</string>
     <string name="estimated_time">elapsed / estimated</string>
+    <string name="elapsed_only">elapsed</string>
     <string name="tap_to_log_sets">Tap an exercise to log its sets</string>
     <string name="note">Note</string>
     <string name="rest">Rest</string>
@@ -172,6 +173,7 @@
     <string name="wger_refresh_failed">Refresh failed, existing data kept: %1$s</string>
     <string name="session_settings">Workout session</string>
     <string name="prev_next_setting">Previous/next exercise buttons</string>
+    <string name="show_estimate_setting">Show estimated time during workout</string>
     <string name="spotify_setting">Spotify controls</string>
     <string name="spotify_setting_hint">Track, play/skip and Liked Songs heart during a workout.</string>
     <string name="spotify_nothing_playing">Nothing playing</string>

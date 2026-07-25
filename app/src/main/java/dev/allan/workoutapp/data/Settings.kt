@@ -55,6 +55,17 @@ object Settings {
         context.dataStore.edit { it[SPOTIFY_ENABLED] = value }
     }
 
+    private val SHOW_ESTIMATE =
+        androidx.datastore.preferences.core.booleanPreferencesKey("session_show_estimate")
+
+    /** Show the "/ estimated" half of the session clock (default on). */
+    fun showEstimate(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[SHOW_ESTIMATE] ?: true }
+
+    suspend fun setShowEstimate(context: Context, value: Boolean) {
+        context.dataStore.edit { it[SHOW_ESTIMATE] = value }
+    }
+
     private val SHOW_CLOCK =
         androidx.datastore.preferences.core.booleanPreferencesKey("session_show_clock")
 
