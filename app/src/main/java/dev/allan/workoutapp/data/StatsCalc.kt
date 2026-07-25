@@ -12,6 +12,15 @@ import dev.allan.workoutapp.data.db.WeightMode
  */
 object StatsCalc {
 
+    /**
+     * Active seconds to report for a finished session. SessionManager's live counter is
+     * in-memory, so a process death (or an app update) mid-session zeroes it while the set
+     * logs survive — the summary used to claim "Active 0:00" for a session full of logged
+     * sets (Allan, 25/07). The logged seconds win whenever they are larger.
+     */
+    fun effectiveActiveSecs(sessionActiveSecs: Int, logs: List<SetLog>): Int =
+        maxOf(sessionActiveSecs, logs.sumOf { it.activeSecs ?: 0 })
+
     fun effectiveWeightKg(log: SetLog): Double = when (log.weightMode) {
         WeightMode.TOTAL -> log.weightKg
         WeightMode.PER_DUMBBELL -> log.weightKg * 2

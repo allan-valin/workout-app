@@ -103,6 +103,14 @@ data class SessionUiState(
 )
 
 /**
+ * Opening an exercise from the overview list. Clearing pendingSwipeTo is the fix for bug D
+ * (25/07): a cancelled auto-advance animation left a stale swipe request behind, and it then
+ * hijacked the next tap. An explicit tap always wins over a queued advance.
+ */
+fun SessionUiState.openingExercise(index: Int): SessionUiState =
+    copy(currentIndex = index, showList = false, pendingSwipeTo = null)
+
+/**
  * Superset-aware set order. Exercises marked supersetWithPrev form a chain with their
  * predecessor; a chain's sets interleave by round: A1, B1, A2, B2, … Rest only happens
  * after the last chain member of a round.
@@ -215,15 +223,20 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         // bug), the one with logged sets wins; empty ones are deleted, non-empty extras
         // are closed as finished so no logged set is ever dropped.
         val candidates = db.sessionDao().runningSessionsFor(workoutId)
-        val session: Session = if (candidates.isNotEmpty()) {
-            val keep = candidates.maxByOrNull { db.sessionDao().setLogCount(it.id) * 1_000_000_000L + it.startedAt }!!
-            candidates.filter { it.id != keep.id }.forEach { stray ->
-                if (db.sessionDao().setLogCount(stray.id) == 0) db.sessionDao().deleteSession(stray.id)
-                else db.sessionDao().updateSession(
-                    stray.copy(endedAt = System.currentTimeMillis(), status = SessionStatus.FINISHED)
-                )
+        val decision = dev.allan.workoutapp.session.SessionResume.decide(
+            candidates,
+            candidates.associate { it.id to db.sessionDao().setLogCount(it.id) },
+        )
+        val session: Session = if (decision.keep != null) {
+            decision.delete.forEach { db.sessionDao().deleteSession(it) }
+            decision.close.forEach { id ->
+                candidates.first { it.id == id }.let { stray ->
+                    db.sessionDao().updateSession(
+                        stray.copy(endedAt = System.currentTimeMillis(), status = SessionStatus.FINISHED)
+                    )
+                }
             }
-            keep
+            decision.keep
         } else {
             val id = db.sessionDao().insertSession(
                 Session(workoutId = workoutId, startedAt = System.currentTimeMillis())
@@ -338,8 +351,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     fun openExercise(index: Int) {
-        // An explicit tap overrides any queued auto-advance swipe.
-        _state.value = _state.value.copy(currentIndex = index, showList = false, pendingSwipeTo = null)
+        _state.value = _state.value.openingExercise(index)
     }
 
     fun showList() {

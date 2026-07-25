@@ -112,6 +112,37 @@ object PlanTransfer {
             .filter { it.isNotBlank() }
             .joinToString("") { word -> if (word.all { it.isDigit() }) word else word.first().toString() }
 
+    /**
+     * Name for an imported workout. Workout names are global (the Archive lists every workout
+     * by name), so a name already in use gets an "(<plan abbrev> dd/MM)" tag — and a counter
+     * if even that is taken. [taken] is compared case-insensitively.
+     */
+    fun uniqueWorkoutName(base: String, taken: Set<String>, planAbbrev: String, date: String): String {
+        val lower = taken.map { it.lowercase() }.toHashSet()
+        if (base.lowercase() !in lower) return base
+        val tag = if (planAbbrev.isBlank()) date else "$planAbbrev $date"
+        var candidate = "$base ($tag)"
+        var n = 2
+        while (candidate.lowercase() in lower) {
+            candidate = "$base ($tag $n)"
+            n++
+        }
+        return candidate
+    }
+
+    /**
+     * Row for a newly imported plan. isActive is ALWAYS false: honoring the file's `active`
+     * flag used to leave two plans active at once, which hid the superseded plan from both
+     * the Active view and the Archive (Allan, 25/07). Activation is a separate, explicit step.
+     */
+    fun newPlanRow(plan: PlanDto, renameTo: String?, now: Long): Plan = Plan(
+        name = renameTo ?: plan.name,
+        isActive = false,
+        cycleWeeks = plan.cycleWeeks?.coerceIn(1, 52),
+        startedAt = now,
+        createdAt = now,
+    )
+
     private val dayMap = mapOf(
         "MON" to 1, "TUE" to 2, "WED" to 3, "THU" to 4, "FRI" to 5, "SAT" to 6, "SUN" to 7,
     )
@@ -174,19 +205,8 @@ object PlanTransfer {
         val skipped = mutableListOf<String>()
         val renamed = mutableListOf<Pair<String, String>>()
 
-        // Never auto-activate from the file's `active` flag: activation is the user's
-        // call (asked after import) and must go through deactivateAllPlans — honoring
-        // the flag silently left the old active plan flagged active too, hiding it
-        // from both the Active view and the Archive (Allan, 25/07).
-        val planId = mergeIntoPlanId ?: db.planDao().insertPlan(
-            Plan(
-                name = renameTo ?: plan.name,
-                isActive = false,
-                cycleWeeks = plan.cycleWeeks?.coerceIn(1, 52),
-                startedAt = System.currentTimeMillis(),
-                createdAt = System.currentTimeMillis(),
-            )
-        )
+        val planId = mergeIntoPlanId
+            ?: db.planDao().insertPlan(newPlanRow(plan, renameTo, System.currentTimeMillis()))
         val abbrev = abbreviate(
             mergeIntoPlanId?.let { db.planDao().plan(it)?.name } ?: renameTo ?: plan.name
         )
@@ -240,20 +260,10 @@ object PlanTransfer {
         // import must not silently create same-name twins: rename the incoming one
         // with an abbreviated plan tag + date, and report it (Allan, 25/07).
         val base = w.name.ifBlank { fallbackName }
-        val taken = db.planDao().workoutNames().map { it.lowercase() }.toHashSet()
-        val name = if (base.lowercase() in taken) {
-            val date = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
-                .format(java.util.Date())
-            val tag = if (planAbbrev.isBlank()) date else "$planAbbrev $date"
-            var candidate = "$base ($tag)"
-            var n = 2
-            while (candidate.lowercase() in taken) {
-                candidate = "$base ($tag $n)"
-                n++
-            }
-            renamed += base to candidate
-            candidate
-        } else base
+        val date = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+            .format(java.util.Date())
+        val name = uniqueWorkoutName(base, db.planDao().workoutNames().toSet(), planAbbrev, date)
+        if (name != base) renamed += base to name
         val workoutId = db.planDao().insertWorkout(
             Workout(
                 name = name,

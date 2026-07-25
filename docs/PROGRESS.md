@@ -1240,3 +1240,25 @@ exercises / 10 custom).
   it), which is also what the kcal estimate uses.
 - CalorieCalcTest: 7 unit tests (MET selection per set kind, rest accounting, fallback
   spreading, zero-bodyweight guard). Full suite green: 52 tests, 0 failures.
+
+## Phase 30 — regression test suite from the audit (2026-07-25; Allan's request)
+
+Goal: the audit list should be enforced by tests, not by Allan finding breakage in the gym.
+Decision logic that only existed inside ViewModels/DAO call sites was extracted so it can be
+tested without Room:
+
+- session/SessionResume.kt — which RUNNING session to bind and what to do with strays
+  (delete empty, CLOSE non-empty, never delete logged sets). SessionViewModel now calls it.
+- SessionUiState.openingExercise(index) — the bug-D invariant "an explicit tap clears any
+  queued auto-advance swipe".
+- PlanTransfer.uniqueWorkoutName(base, taken, planAbbrev, date) and
+  PlanTransfer.newPlanRow(dto, renameTo, now) — the rename tag and the never-auto-activate
+  rule, both previously buried in importPlan/importWorkoutInto.
+- StatsCalc.effectiveActiveSecs(sessionActive, logs) — the summary's "Active 0:00 after a
+  process death" fallback.
+
+New suites: SessionResumeTest (7), SessionManagerTimerTest (10 — set-countdown
+pause/resume/cancel/ownership plus the Phase 9 stopwatch and rest accounting),
+ImportNamingTest (11), SessionFlowRegressionTest (11 — bug D, superset alternation and rest
+rules exactly as verified live, summary fallback), CalorieCalcTest (7).
+Suite total: 91 tests, 0 failures.

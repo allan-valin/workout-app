@@ -83,7 +83,7 @@ class SummaryViewModel(app: Application, private val sessionId: Long, private va
                 // (or an app update) zeroes them while the per-set logs survive. Fall back to
                 // the logged seconds so the summary never reports "Active 0:00" for a session
                 // that clearly logged sets.
-                val activeSecs = maxOf(session.activeSecs, logs.sumOf { it.activeSecs ?: 0 })
+                val activeSecs = StatsCalc.effectiveActiveSecs(session.activeSecs, logs)
                 _state.value = SummaryState(
                     workoutId = session.workoutId,
                     totalSecs = total.toInt(),
