@@ -19,6 +19,10 @@ object SessionManager {
         /** Timed-set countdown end instant. */
         val setCountdownEndAt: Long? = null,
         val setCountdownDurationSecs: Int = 0,
+        /** Remaining seconds of a PAUSED set countdown, null = not paused. */
+        val setCountdownPausedSecs: Int? = null,
+        /** Template id of the set the countdown was started for (running or paused). */
+        val setCountdownTemplateId: Long? = null,
         /** Start instant of the running stopwatch segment, null = paused/stopped. */
         val stopwatchStartedAt: Long? = null,
         /** Seconds accumulated by previous stopwatch segments (pause keeps them). */
@@ -82,15 +86,39 @@ object SessionManager {
         return if (gap > 180) 40 else gap.takeIf { it > 0 }
     }
 
-    fun startSetCountdown(durationSecs: Int) {
+    fun startSetCountdown(durationSecs: Int, templateId: Long? = null) {
         _state.value = _state.value.copy(
             setCountdownEndAt = System.currentTimeMillis() + durationSecs * 1000L,
             setCountdownDurationSecs = durationSecs,
+            setCountdownPausedSecs = null,
+            setCountdownTemplateId = templateId,
         )
     }
 
+    /** Freeze the running set countdown, keeping the remaining seconds. */
+    fun pauseSetCountdown() {
+        val s = _state.value
+        val endAt = s.setCountdownEndAt ?: return
+        val remaining = ((endAt - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0)
+        _state.value = s.copy(setCountdownEndAt = null, setCountdownPausedSecs = remaining)
+    }
+
+    /** Resume a paused set countdown; returns the new end instant for rescheduling the alert. */
+    fun resumeSetCountdown(): Long? {
+        val s = _state.value
+        val remaining = s.setCountdownPausedSecs ?: return null
+        val endAt = System.currentTimeMillis() + remaining * 1000L
+        _state.value = s.copy(setCountdownEndAt = endAt, setCountdownPausedSecs = null)
+        return endAt
+    }
+
     fun cancelSetCountdown() {
-        _state.value = _state.value.copy(setCountdownEndAt = null, setCountdownDurationSecs = 0)
+        _state.value = _state.value.copy(
+            setCountdownEndAt = null,
+            setCountdownDurationSecs = 0,
+            setCountdownPausedSecs = null,
+            setCountdownTemplateId = null,
+        )
     }
 
     /** Current stopwatch reading: accumulated segments + the running one. */

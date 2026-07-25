@@ -1182,3 +1182,10 @@ exercises / 10 custom).
   deleted, non-empty strays closed as FINISHED (no logged set dropped); global
   running-session queries now ORDER BY startedAt DESC. Verified: back out, start
   CARDIO mid-FULLBODY, discard, process restarts — FULLBODY resumed with all sets.
+- Sec-set timer controls (EMULATOR-VERIFIED): row play now toggles to pause while its
+  countdown runs (pause freezes remaining, play resumes, rescheduling the notification
+  alert); the timer panel, previously showing disabled stopwatch buttons during a set
+  countdown, now owns pause/resume + stop-reset for it. SessionManager gained
+  setCountdownPausedSecs + setCountdownTemplateId (so only the owning row shows pause).
+  Logging a timed set retires its countdown. New strings pause_timer/stop_timer (en,
+  pt-BR, de).

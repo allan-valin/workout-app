@@ -70,6 +70,10 @@ data class SessionUiState(
     val estimatedTotalSecs: Int = 0,
     val restRemainingSecs: Int? = null,
     val setCountdownRemainingSecs: Int? = null,
+    /** Remaining seconds of a paused set countdown, null = not paused. */
+    val setCountdownPausedSecs: Int? = null,
+    /** Which set (templateId) the running/paused countdown belongs to. */
+    val setCountdownTemplateId: Long? = null,
     val stopwatchSecs: Int = 0,
     val stopwatchRunning: Boolean = false,
     /** Live active-time total: booked seconds + the current stopwatch reading. */
@@ -322,6 +326,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     elapsedSecs = ((now - startedAt) / 1000L).toInt(),
                     restRemainingSecs = restRemaining?.takeIf { it > 0 },
                     setCountdownRemainingSecs = countdownRemaining?.takeIf { it > 0 },
+                    setCountdownPausedSecs = timers.setCountdownPausedSecs,
+                    setCountdownTemplateId = timers.setCountdownTemplateId,
                     stopwatchSecs = stopwatch,
                     stopwatchRunning = timers.stopwatchStartedAt != null,
                     activeSecs = timers.activeSecs + stopwatch,
@@ -469,6 +475,15 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
 
         // Superset pairs alternate without rest: A1, B1 (no pause after A1), rest after B1.
         // Legacy SUPERSET set rows keep their no-rest behavior too.
+        // Logging a timed set retires its countdown (running or paused) — otherwise a
+        // paused timer would linger in the panel with no set left to time.
+        if (set.valueUnit == ValueUnit.SECS &&
+            SessionManager.state.value.setCountdownTemplateId == set.templateId
+        ) {
+            SessionManager.cancelSetCountdown()
+            TimerService.showDefault(getApplication())
+        }
+
         val skipRest = set.type == SetType.SUPERSET ||
             SupersetOrder.restSkipped(_state.value.exercises, exerciseIndex, set)
         if (!skipRest) {
@@ -572,13 +587,35 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     fun startSetCountdown(set: SessionSet) {
-        SessionManager.startSetCountdown(set.value)
+        SessionManager.startSetCountdown(set.value, set.templateId)
         TimerService.showCountdown(
             getApplication(),
             System.currentTimeMillis() + set.value * 1000L,
             getApplication<Application>().getString(dev.allan.workoutapp.R.string.set_timer),
         )
         _state.value = _state.value.copy(timerPanelVisible = true)
+    }
+
+    /** Pause the running set countdown; the notification alert is cancelled with it. */
+    fun pauseSetCountdown() {
+        SessionManager.pauseSetCountdown()
+        TimerService.showDefault(getApplication())
+    }
+
+    /** Resume a paused set countdown and reschedule its end-of-set alert. */
+    fun resumeSetCountdown() {
+        val endAt = SessionManager.resumeSetCountdown() ?: return
+        TimerService.showCountdown(
+            getApplication(),
+            endAt,
+            getApplication<Application>().getString(dev.allan.workoutapp.R.string.set_timer),
+        )
+    }
+
+    /** Stop/reset the set countdown without logging anything. */
+    fun stopSetCountdown() {
+        SessionManager.cancelSetCountdown()
+        TimerService.showDefault(getApplication())
     }
 
     fun toggleStopwatch() {

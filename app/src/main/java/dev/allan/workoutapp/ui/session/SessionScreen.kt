@@ -920,11 +920,29 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                                     tint = DoneGreen,
                                 )
                             }
-                            set.valueUnit == ValueUnit.SECS -> IconButton(
-                                onClick = { vm.startSetCountdown(set) },
-                                modifier = Modifier.size(40.dp),
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.start_timer))
+                            set.valueUnit == ValueUnit.SECS -> {
+                                // Play → Pause → Play mirrors the countdown for THIS set;
+                                // other rows keep a plain play that (re)starts their own timer.
+                                val mine = state.setCountdownTemplateId == set.templateId
+                                val running = mine && state.setCountdownRemainingSecs != null
+                                val paused = mine && state.setCountdownPausedSecs != null
+                                IconButton(
+                                    onClick = {
+                                        when {
+                                            running -> vm.pauseSetCountdown()
+                                            paused -> vm.resumeSetCountdown()
+                                            else -> vm.startSetCountdown(set)
+                                        }
+                                    },
+                                    modifier = Modifier.size(40.dp),
+                                ) {
+                                    Icon(
+                                        if (running) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        contentDescription = stringResource(
+                                            if (running) R.string.pause_timer else R.string.start_timer
+                                        ),
+                                    )
+                                }
                             }
                         }
                     }
@@ -1078,6 +1096,7 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
     // total is deliberately absent here (shown only in the end-of-workout summary).
     val restRunning = state.restRemainingSecs != null
     val setCountdownRunning = state.setCountdownRemainingSecs != null
+    val setCountdownPaused = state.setCountdownPausedSecs != null
     Surface(tonalElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier
@@ -1089,7 +1108,7 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                 stringResource(
                     when {
                         restRunning -> R.string.rest
-                        setCountdownRunning -> R.string.set_timer
+                        setCountdownRunning || setCountdownPaused -> R.string.set_timer
                         else -> R.string.log_set_duration
                     }
                 ),
@@ -1099,12 +1118,16 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                 when {
                     restRunning -> fmt(state.restRemainingSecs ?: 0)
                     setCountdownRunning -> fmt(state.setCountdownRemainingSecs ?: 0)
+                    setCountdownPaused -> fmt(state.setCountdownPausedSecs ?: 0)
                     else -> fmt(state.stopwatchSecs)
                 },
                 style = MaterialTheme.typography.displaySmall,
                 textAlign = TextAlign.Center,
-                color = if (restRunning) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurface,
+                color = when {
+                    restRunning -> MaterialTheme.colorScheme.primary
+                    setCountdownPaused -> MaterialTheme.colorScheme.onSurfaceVariant
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
             )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1115,8 +1138,27 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                         Icon(Icons.Default.TimerOff, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text(stringResource(R.string.stop_rest), modifier = Modifier.padding(start = 4.dp))
                     }
+                    // Set countdown owns the panel: pause/resume + stop/reset (Allan, 25/07 —
+                    // the stopwatch buttons used to sit here disabled with no way to stop it).
+                    setCountdownRunning || setCountdownPaused -> {
+                        IconButton(
+                            onClick = {
+                                if (setCountdownRunning) vm.pauseSetCountdown() else vm.resumeSetCountdown()
+                            },
+                        ) {
+                            Icon(
+                                if (setCountdownRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = stringResource(
+                                    if (setCountdownRunning) R.string.pause_timer else R.string.start_timer
+                                ),
+                            )
+                        }
+                        IconButton(onClick = vm::stopSetCountdown) {
+                            Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stop_timer))
+                        }
+                    }
                     else -> {
-                        IconButton(onClick = vm::toggleStopwatch, enabled = !setCountdownRunning) {
+                        IconButton(onClick = vm::toggleStopwatch) {
                             Icon(
                                 if (state.stopwatchRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = stringResource(R.string.stopwatch),
@@ -1124,7 +1166,7 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                         }
                         IconButton(
                             onClick = vm::resetStopwatch,
-                            enabled = !setCountdownRunning && (state.stopwatchRunning || state.stopwatchSecs > 0),
+                            enabled = state.stopwatchRunning || state.stopwatchSecs > 0,
                         ) {
                             Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stopwatch_reset))
                         }
