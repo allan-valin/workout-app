@@ -396,7 +396,7 @@ fun SessionScreen(
             note = state.descriptionNote,
             onSaveNote = { txt -> state.descriptionExerciseId?.let { vm.saveNote(it, txt) } },
             machineTranslated = state.descriptionMachine,
-            onTranslate = vm::translateDescription,
+            onTranslate = if (state.descriptionCanTranslate) vm::translateDescription else null,
             translating = state.descriptionTranslating,
             extraContent = {
                 // Gallery (wger + user photos, last viewed wins) — except from the pager's

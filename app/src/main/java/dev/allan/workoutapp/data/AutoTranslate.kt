@@ -76,6 +76,27 @@ object AutoTranslate {
     }
 
     /**
+     * True when [text] is confidently NOT in [lang], i.e. there is something worth translating.
+     *
+     * The manual action used to offer itself on every non-machine description, including the
+     * genuinely Portuguese ones, which is noise (Allan, 26/07). ML Kit's language identifier
+     * ships a bundled model, so this costs no download and no network. Undetermined results
+     * ("und", short or mixed text) return false — when in doubt, don't nag.
+     */
+    suspend fun needsTranslation(text: String, lang: String): Boolean {
+        if (lang == "en" || text.isBlank()) return false
+        val identified = runCatching {
+            com.google.mlkit.nl.languageid.LanguageIdentification.getClient()
+                .use { it.identifyLanguage(text).await() }
+        }.onFailure {
+            android.util.Log.w("AutoTranslate", "language id failed", it)
+        }.getOrNull() ?: return false
+        // "und" means the identifier could not decide — treat as nothing to offer.
+        if (identified == "und") return false
+        return identified.substringBefore('-') != lang
+    }
+
+    /**
      * User-initiated translation of the description already on screen.
      *
      * WHY this exists separately from [ensure]: an exercise can carry a row tagged with the app

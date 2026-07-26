@@ -92,6 +92,8 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
         val machineTranslated: Boolean = false,
         /** A user-requested translation is in flight. */
         val translating: Boolean = false,
+        /** The shown description is in another language, so offering to translate it makes sense. */
+        val canTranslate: Boolean = false,
     )
 
     private val _detail = MutableStateFlow<Detail?>(null)
@@ -207,6 +209,13 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
             if (dev.allan.workoutapp.data.AutoTranslate.ensure(db, exerciseId, lang) &&
                 _detail.value?.exerciseId == exerciseId
             ) load()
+            // Only offer the manual action when the text really is in another language.
+            val offer = dev.allan.workoutapp.data.AutoTranslate.needsTranslation(
+                _detail.value?.description.orEmpty(), lang
+            )
+            _detail.value?.takeIf { it.exerciseId == exerciseId }?.let {
+                _detail.value = it.copy(canTranslate = offer)
+            }
         }
     }
 
@@ -230,6 +239,7 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
                     description = best?.description ?: current.description,
                     machineTranslated = best?.machine == true,
                     translating = false,
+                    canTranslate = false,
                 )
             } else {
                 _detail.value = current.copy(translating = false)
@@ -474,7 +484,7 @@ fun WorkoutViewScreen(
             note = d.note,
             onSaveNote = { txt -> vm.saveNote(d.exerciseId, txt) },
             machineTranslated = d.machineTranslated,
-            onTranslate = vm::translateDetail,
+            onTranslate = if (d.canTranslate) vm::translateDetail else null,
             translating = d.translating,
             extraContent = {
                 // Same info everywhere: active AND archived workout views show the gallery.

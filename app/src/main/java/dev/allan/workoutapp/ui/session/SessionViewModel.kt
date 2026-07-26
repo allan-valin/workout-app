@@ -101,6 +101,8 @@ data class SessionUiState(
     val descriptionMachine: Boolean = false,
     /** A user-requested translation is in flight for the open sheet. */
     val descriptionTranslating: Boolean = false,
+    /** The shown description is in another language, so offering to translate it makes sense. */
+    val descriptionCanTranslate: Boolean = false,
     val finished: Boolean = false,
 )
 
@@ -571,6 +573,13 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             if (dev.allan.workoutapp.data.AutoTranslate.ensure(db, exerciseId, lang) &&
                 _state.value.descriptionExerciseId == exerciseId
             ) load()
+            // Only offer the manual action when the text really is in another language.
+            val offer = dev.allan.workoutapp.data.AutoTranslate.needsTranslation(
+                _state.value.descriptionSheet.orEmpty(), lang
+            )
+            if (_state.value.descriptionExerciseId == exerciseId) {
+                _state.value = _state.value.copy(descriptionCanTranslate = offer)
+            }
         }
     }
 
@@ -591,6 +600,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 _state.value = _state.value.copy(
                     descriptionSheet = best?.description ?: _state.value.descriptionSheet,
                     descriptionMachine = best?.machine == true,
+                    descriptionCanTranslate = false,
                 )
             }
             _state.value = _state.value.copy(descriptionTranslating = false)

@@ -112,6 +112,9 @@ dependencies {
     implementation(libs.reorderable)
     // On-device translation for exercise names/descriptions (en -> app language).
     implementation("com.google.mlkit:translate:17.0.2")
+    // Language identification, so the translate action only offers itself when the description
+    // is actually in another language. Bundled model — nothing to download (Allan, 26/07).
+    implementation("com.google.mlkit:language-id:17.0.6")
     // Spotify App Remote: control playback and (the point of it) heart the current track
     // from the session screen. Spotify never published this to Maven — the AAR comes from
     // github.com/spotify/android-sdk releases and is vendored in app/libs. It needs gson.
