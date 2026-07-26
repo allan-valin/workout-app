@@ -99,6 +99,8 @@ data class SessionUiState(
     val descriptionNote: String? = null,
     /** The sheet's description is an on-device machine translation. */
     val descriptionMachine: Boolean = false,
+    /** A user-requested translation is in flight for the open sheet. */
+    val descriptionTranslating: Boolean = false,
     val finished: Boolean = false,
 )
 
@@ -569,6 +571,29 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             if (dev.allan.workoutapp.data.AutoTranslate.ensure(db, exerciseId, lang) &&
                 _state.value.descriptionExerciseId == exerciseId
             ) load()
+        }
+    }
+
+    /**
+     * User asked to translate the description on screen. Needed because an imported plan writes a
+     * single row tagged with the app language holding a Portuguese name and an English
+     * description, which AutoTranslate.ensure declines to touch (Allan, 26/07).
+     */
+    fun translateDescription() {
+        val exerciseId = _state.value.descriptionExerciseId ?: return
+        if (_state.value.descriptionTranslating) return
+        _state.value = _state.value.copy(descriptionTranslating = true)
+        viewModelScope.launch {
+            val ok = dev.allan.workoutapp.data.AutoTranslate.translateDescription(db, exerciseId, lang)
+            if (_state.value.descriptionExerciseId != exerciseId) return@launch
+            if (ok) {
+                val best = db.exerciseDao().translations(exerciseId).firstOrNull { it.lang == lang }
+                _state.value = _state.value.copy(
+                    descriptionSheet = best?.description ?: _state.value.descriptionSheet,
+                    descriptionMachine = best?.machine == true,
+                )
+            }
+            _state.value = _state.value.copy(descriptionTranslating = false)
         }
     }
 

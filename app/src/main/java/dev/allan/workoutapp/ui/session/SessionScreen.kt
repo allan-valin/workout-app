@@ -396,6 +396,8 @@ fun SessionScreen(
             note = state.descriptionNote,
             onSaveNote = { txt -> state.descriptionExerciseId?.let { vm.saveNote(it, txt) } },
             machineTranslated = state.descriptionMachine,
+            onTranslate = vm::translateDescription,
+            translating = state.descriptionTranslating,
             extraContent = {
                 // Gallery (wger + user photos, last viewed wins) — except from the pager's
                 // top-bar button, where the image is already on screen.

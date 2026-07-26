@@ -75,6 +75,67 @@ object AutoTranslate {
         return true
     }
 
+    /**
+     * User-initiated translation of the description already on screen.
+     *
+     * WHY this exists separately from [ensure]: an exercise can carry a row tagged with the app
+     * language whose description is still English — imported plans write one row using the app
+     * language for a generator-supplied Portuguese name plus an English description
+     * (PlanRepo.createCustom), and PtAliases copies the English description onto its pt row.
+     * [ensure] sees "a row for this language exists" and declines, so those descriptions stayed
+     * English forever with nothing offering to translate them (Allan, 26/07).
+     *
+     * Translates that row's description in place, keeping the name — the name is already in the
+     * target language and re-translating it would corrupt it. Unlike [ensure] this downloads the
+     * model on any connection: the user asked for it and is waiting.
+     *
+     * Returns true when the row was rewritten.
+     */
+    suspend fun translateDescription(db: AppDatabase, exerciseId: String, lang: String): Boolean {
+        if (lang == "en") return false
+        val target = TranslateLanguage.fromLanguageTag(lang) ?: return false
+        val rows = db.exerciseDao().translations(exerciseId)
+        val row = rows.firstOrNull { it.lang == lang && !it.machine }
+            ?: rows.firstOrNull { it.lang == "en" }
+            ?: return false
+        if (row.description.isBlank()) return false
+
+        val translated = withTimeoutOrNull(TIMEOUT_MS) {
+            runCatching {
+                val translator = Translation.getClient(
+                    TranslatorOptions.Builder()
+                        .setSourceLanguage(TranslateLanguage.ENGLISH)
+                        .setTargetLanguage(target)
+                        .build()
+                )
+                translator.use {
+                    it.downloadModelIfNeeded(DownloadConditions.Builder().build()).await()
+                    it.translate(row.description).await()
+                }
+            }.onFailure {
+                android.util.Log.w("AutoTranslate", "manual translate $exerciseId -> $lang failed", it)
+            }.getOrNull()
+        } ?: return false.also {
+            android.util.Log.w("AutoTranslate", "manual translate $exerciseId -> $lang gave up")
+        }
+
+        // Same rowId so REPLACE overwrites the row in place rather than adding a duplicate.
+        db.exerciseDao().insertTranslations(
+            listOf(
+                if (row.lang == lang) row.copy(description = translated, machine = true)
+                else ExerciseTranslation(
+                    exerciseId = exerciseId,
+                    lang = lang,
+                    name = row.name,
+                    description = translated,
+                    aliases = emptyList(),
+                    machine = true,
+                )
+            )
+        )
+        return true
+    }
+
     private suspend fun <T> com.google.android.gms.tasks.Task<T>.await(): T =
         suspendCancellableCoroutine { cont ->
             addOnSuccessListener { cont.resume(it) }

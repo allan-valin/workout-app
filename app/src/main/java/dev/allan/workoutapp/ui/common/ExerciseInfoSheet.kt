@@ -51,6 +51,14 @@ fun ExerciseInfoSheet(
     onSaveNote: (String) -> Unit = {},
     /** The shown description is an on-device machine translation — label it as such. */
     machineTranslated: Boolean = false,
+    /**
+     * Translate the shown description on demand. null hides the action. Needed because an
+     * exercise can carry a row tagged with the app language whose description is still English
+     * (imported plans, pt aliases), which AutoTranslate.ensure declines to touch — leaving the
+     * user staring at English with no way to ask (Allan, 26/07).
+     */
+    onTranslate: (() -> Unit)? = null,
+    translating: Boolean = false,
     /** Extra rows shown above the link field (muscles, aliases, attribution, image…). */
     extraContent: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -73,6 +81,18 @@ fun ExerciseInfoSheet(
                     stringResource(R.string.machine_translated),
                     style = MaterialTheme.typography.labelSmall,
                 )
+            } else if (onTranslate != null && description.isNotBlank()) {
+                OutlinedButton(
+                    onClick = onTranslate,
+                    enabled = !translating,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        stringResource(
+                            if (translating) R.string.translating else R.string.translate_description
+                        )
+                    )
+                }
             }
             extraContent()
 

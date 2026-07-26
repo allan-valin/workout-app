@@ -90,6 +90,8 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
         val note: String,
         val imagePath: String? = null,
         val machineTranslated: Boolean = false,
+        /** A user-requested translation is in flight. */
+        val translating: Boolean = false,
     )
 
     private val _detail = MutableStateFlow<Detail?>(null)
@@ -205,6 +207,33 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
             if (dev.allan.workoutapp.data.AutoTranslate.ensure(db, exerciseId, lang) &&
                 _detail.value?.exerciseId == exerciseId
             ) load()
+        }
+    }
+
+    /**
+     * User asked to translate the description on screen. Imported plans write a single row tagged
+     * with the app language holding a Portuguese name and an English description, which
+     * AutoTranslate.ensure declines to touch (Allan, 26/07).
+     */
+    fun translateDetail() {
+        val d = _detail.value ?: return
+        if (d.translating) return
+        _detail.value = d.copy(translating = true)
+        viewModelScope.launch {
+            val ok = dev.allan.workoutapp.data.AutoTranslate
+                .translateDescription(db, d.exerciseId, lang)
+            val current = _detail.value ?: return@launch
+            if (current.exerciseId != d.exerciseId) return@launch
+            if (ok) {
+                val best = db.exerciseDao().translations(d.exerciseId).firstOrNull { it.lang == lang }
+                _detail.value = current.copy(
+                    description = best?.description ?: current.description,
+                    machineTranslated = best?.machine == true,
+                    translating = false,
+                )
+            } else {
+                _detail.value = current.copy(translating = false)
+            }
         }
     }
 
@@ -445,6 +474,8 @@ fun WorkoutViewScreen(
             note = d.note,
             onSaveNote = { txt -> vm.saveNote(d.exerciseId, txt) },
             machineTranslated = d.machineTranslated,
+            onTranslate = vm::translateDetail,
+            translating = d.translating,
             extraContent = {
                 // Same info everywhere: active AND archived workout views show the gallery.
                 dev.allan.workoutapp.ui.common.ExerciseImageGallery(
