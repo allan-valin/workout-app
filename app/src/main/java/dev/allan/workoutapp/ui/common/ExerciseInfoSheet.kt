@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
@@ -54,7 +56,16 @@ fun ExerciseInfoSheet(
 ) {
     var overlayUrl by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Scrollable: a long description used to eat the sheet's whole height and squeeze the
+        // note and link fields into overlapping slivers with their labels clipped away
+        // (Allan, 26/07). Without a scroll the Column has no way to overflow, so the children
+        // are what gets compressed.
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Text(name, style = MaterialTheme.typography.headlineSmall)
             Text(description.ifBlank { stringResource(R.string.no_description) })
             if (machineTranslated) {

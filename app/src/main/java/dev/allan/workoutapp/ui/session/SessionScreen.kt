@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -519,12 +520,12 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
                 )
             }
             // Info sheet hosts description + persistent note + video, so one button covers all.
-            // Icon-only: the "Info & notes" label ate ~130dp of the action row and squeezed the
+            // Icon-only note glyph: the "Info & notes" label ate ~130dp of the action row and squeezed the
             // clock out of the title slot past 100 minutes (Allan, 26/07). The content
             // description keeps the label on TalkBack (no visual tooltip — that would need a
             // TooltipBox, and the (i) glyph carries it well enough).
             IconButton(onClick = { current?.let { vm.openDescription(it.exerciseId, withImage = false) } }) {
-                Icon(Icons.Default.Info, contentDescription = stringResource(R.string.info_note))
+                Icon(Icons.Default.EditNote, contentDescription = stringResource(R.string.info_note))
             }
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Default.MoreVert, contentDescription = null)
