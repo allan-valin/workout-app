@@ -1201,6 +1201,10 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
     val restRunning = state.restRemainingSecs != null
     val setCountdownRunning = state.setCountdownRemainingSecs != null
     val setCountdownPaused = state.setCountdownPausedSecs != null
+    // Nothing running + a timed set current → the panel is that set's countdown, ready to
+    // start, instead of the stopwatch (Allan, 02/08).
+    val pendingTimed = if (!restRunning && !setCountdownRunning && !setCountdownPaused)
+        state.pendingTimedSet() else null
     Surface(tonalElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier
@@ -1212,7 +1216,8 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                 stringResource(
                     when {
                         restRunning -> R.string.rest
-                        setCountdownRunning || setCountdownPaused -> R.string.set_timer
+                        setCountdownRunning || setCountdownPaused || pendingTimed != null ->
+                            R.string.set_timer
                         else -> R.string.log_set_duration
                     }
                 ),
@@ -1223,6 +1228,7 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                     restRunning -> fmt(state.restRemainingSecs ?: 0)
                     setCountdownRunning -> fmt(state.setCountdownRemainingSecs ?: 0)
                     setCountdownPaused -> fmt(state.setCountdownPausedSecs ?: 0)
+                    pendingTimed != null -> fmt(pendingTimed.value)
                     else -> fmt(state.stopwatchSecs)
                 },
                 style = MaterialTheme.typography.displaySmall,
@@ -1260,6 +1266,13 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                         IconButton(onClick = vm::stopSetCountdown) {
                             Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.stop_timer))
                         }
+                    }
+                    // Timed set current, nothing running: one play that starts its countdown.
+                    pendingTimed != null -> IconButton(onClick = vm::startCurrentSetCountdown) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = stringResource(R.string.start_timer),
+                        )
                     }
                     else -> {
                         IconButton(onClick = vm::toggleStopwatch) {

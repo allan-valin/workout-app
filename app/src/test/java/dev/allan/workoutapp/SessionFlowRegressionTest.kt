@@ -10,6 +10,7 @@ import dev.allan.workoutapp.ui.session.SessionSet
 import dev.allan.workoutapp.ui.session.SessionUiState
 import dev.allan.workoutapp.ui.session.SupersetOrder
 import dev.allan.workoutapp.ui.session.openingExercise
+import dev.allan.workoutapp.ui.session.pendingTimedSet
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -172,5 +173,38 @@ class SessionFlowRegressionTest {
     @Test
     fun `untimed logs contribute nothing`() {
         assertEquals(0, StatsCalc.effectiveActiveSecs(0, listOf(log(null), log(null))))
+    }
+
+    // ---- 02/08: the panel offers a timed set's countdown before it is started ----
+
+    @Test
+    fun `the current timed set is the panel's pending countdown`() {
+        val ex = exercise(
+            1, "Plank",
+            listOf(set(1, 0, unit = ValueUnit.SECS), set(2, 1, unit = ValueUnit.SECS)),
+        )
+        val state = SessionUiState(exercises = listOf(ex), currentStep = 0 to 1L)
+        assertEquals(1L, state.pendingTimedSet()?.templateId)
+    }
+
+    @Test
+    fun `rep sets have no pending countdown`() {
+        val ex = exercise(1, "Row", listOf(set(1, 0)))
+        val state = SessionUiState(exercises = listOf(ex), currentStep = 0 to 1L)
+        assertNull(state.pendingTimedSet())
+    }
+
+    @Test
+    fun `a finished timed set is not pending`() {
+        val ex = exercise(1, "Plank", listOf(set(1, 0, done = true, unit = ValueUnit.SECS)))
+        val state = SessionUiState(exercises = listOf(ex), currentStep = 0 to 1L)
+        assertNull(state.pendingTimedSet())
+    }
+
+    @Test
+    fun `no current step means no pending countdown`() {
+        val ex = exercise(1, "Plank", listOf(set(1, 0, unit = ValueUnit.SECS)))
+        val state = SessionUiState(exercises = listOf(ex), currentStep = null)
+        assertNull(state.pendingTimedSet())
     }
 }

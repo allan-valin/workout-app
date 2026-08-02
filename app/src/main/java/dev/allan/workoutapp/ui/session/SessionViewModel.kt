@@ -115,6 +115,18 @@ fun SessionUiState.openingExercise(index: Int): SessionUiState =
     copy(currentIndex = index, showList = false, pendingSwipeTo = null)
 
 /**
+ * The timed set the panel should offer a countdown for: the current step, when it is an
+ * unfinished SECS set. Null for rep sets — the panel keeps its stopwatch then (Allan, 02/08:
+ * with a timed set current the panel showed the stopwatch until you pressed play on the row).
+ */
+fun SessionUiState.pendingTimedSet(): SessionSet? {
+    val (exerciseIndex, templateId) = currentStep ?: return null
+    val set = exercises.getOrNull(exerciseIndex)?.sets?.firstOrNull { it.templateId == templateId }
+        ?: return null
+    return set.takeIf { it.valueUnit == ValueUnit.SECS && !it.done }
+}
+
+/**
  * The sets after taking a progression suggestion. Only undone REPS working sets change.
  * Weight changes reset the reps to the plan's floor: the point of changing the load is to
  * work through the range again (Allan, 02/08).
@@ -729,6 +741,11 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             getApplication<Application>().getString(dev.allan.workoutapp.R.string.set_timer),
         )
         _state.value = _state.value.copy(timerPanelVisible = true)
+    }
+
+    /** Play on the panel with a timed set current: start that set's countdown. */
+    fun startCurrentSetCountdown() {
+        _state.value.pendingTimedSet()?.let(::startSetCountdown)
     }
 
     /** Pause the running set countdown; the notification alert is cancelled with it. */
