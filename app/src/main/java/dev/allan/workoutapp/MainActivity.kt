@@ -252,6 +252,7 @@ fun AppRoot() {
                 onOpenPlan = { navController.navigate("plan/$it") },
                 onOpenWorkout = { navController.navigate("view/$it") },
                 onResumeSession = { navController.navigate("session/$it") },
+                onOpenSummary = { navController.navigate("summary/$it") },
                 onOpenBodyweight = { navController.navigate("bodyweight") },
                 onOpenProgression = { navController.navigate("progression") },
                 onOpenArchivePlans = { navController.navigate("archivePlans") },
@@ -470,6 +471,7 @@ private fun MainScaffold(
     onOpenPlan: (Long) -> Unit,
     onOpenWorkout: (Long) -> Unit,
     onResumeSession: (Long) -> Unit,
+    onOpenSummary: (Long) -> Unit,
     onOpenBodyweight: () -> Unit,
     onOpenProgression: () -> Unit,
     onOpenArchivePlans: () -> Unit,
@@ -486,6 +488,7 @@ private fun MainScaffold(
     val lastTrained by vm.lastTrained.collectAsState()
     val todayWorkouts by vm.todayWorkouts.collectAsState()
     val runningSession by vm.runningSession.collectAsState()
+    val lastFinishedSession by vm.lastFinishedSession.collectAsState()
     val completedWeekDays by vm.completedWeekDays.collectAsState()
     val exerciseCounts by vm.exerciseCounts.collectAsState()
 
@@ -573,6 +576,22 @@ private fun MainScaffold(
                             ) {
                                 Text(
                                     stringResource(R.string.resume_workout),
+                                    Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
+                        }
+                    }
+                    // The summary lives on a nav destination, so a process kill while the
+                    // screen was locked took it away with the back stack (Allan, 02/08).
+                    lastFinishedSession?.let { session ->
+                        item {
+                            Card(
+                                onClick = { onOpenSummary(session.id) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    stringResource(R.string.last_summary),
                                     Modifier.padding(16.dp),
                                     style = MaterialTheme.typography.titleMedium,
                                 )

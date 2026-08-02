@@ -116,6 +116,7 @@
     <string name="start_workout">Iniciar Treino</string>
     <string name="edit_training">Editar treino</string>
     <string name="resume_workout">▶ Continuar treino em andamento</string>
+    <string name="last_summary">Resumo do último treino</string>
     <string name="summary">Resumo do treino</string>
     <string name="total_time">Tempo total</string>
     <string name="active_time">Ativo</string>

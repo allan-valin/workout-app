@@ -144,6 +144,10 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
     val runningSession: StateFlow<Session?> = db.sessionDao().runningSessionFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    /** Last kept session, so its summary stays reachable after the back stack is gone. */
+    val lastFinishedSession: StateFlow<Session?> = db.sessionDao().lastFinishedSessionFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     val todayWorkouts: StateFlow<List<Workout>> =
         db.planDao().workoutsForDay(LocalDate.now().dayOfWeek.value)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

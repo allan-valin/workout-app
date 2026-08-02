@@ -547,6 +547,15 @@ interface SessionDao {
     @Query("SELECT * FROM session WHERE status IN ('FINISHED','AUTO_ENDED') ORDER BY startedAt")
     fun finishedSessionsFlow(): Flow<List<Session>>
 
+    /** Most recent kept session — the one the Home card links to (Allan, 02/08). */
+    @Query(
+        """
+        SELECT * FROM session WHERE status IN ('FINISHED','AUTO_ENDED')
+        ORDER BY startedAt DESC LIMIT 1
+        """
+    )
+    fun lastFinishedSessionFlow(): Flow<Session?>
+
     @Query(
         """
         SELECT sl.* FROM set_log sl
