@@ -792,6 +792,22 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             )
         }
 
+        // Pace feedback for the set just logged on this exercise — clears itself after 4 s.
+        state.paceNote?.takeIf { it.exerciseIndex == page }?.let { note ->
+            LaunchedEffect(note) {
+                kotlinx.coroutines.delay(4000)
+                vm.clearPaceNote()
+            }
+            Text(
+                if (note.fast) stringResource(R.string.pace_too_fast, note.actualSecs, note.expectedSecs)
+                else stringResource(R.string.pace_on_tempo),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (note.fast) MaterialTheme.colorScheme.error else DoneGreen,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
         // Sets table — the only scrollable part of the page.
         Box(Modifier.weight(1f)) {
         Column(

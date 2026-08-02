@@ -211,6 +211,8 @@
     <string name="suggestion_add_weight">Suggestion: +%1$s kg</string>
     <string name="suggestion_add_rep">Suggestion: +%1$d rep</string>
     <string name="suggestion_drop_weight">Suggestion: −%1$s kg</string>
+    <string name="pace_too_fast">Faster than the cadence (%1$ds vs %2$ds)</string>
+    <string name="pace_on_tempo">On cadence</string>
     <string name="export_plan_pdf">Export plan (PDF)</string>
     <string name="llm_title">Create a plan with AI</string>
     <string name="llm_hint">Any chatbot (Claude, ChatGPT, …) can build a plan file this app imports directly.</string>

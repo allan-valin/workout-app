@@ -211,6 +211,8 @@
     <string name="suggestion_add_weight">Vorschlag: +%1$s kg</string>
     <string name="suggestion_add_rep">Vorschlag: +%1$d Wiederholungen</string>
     <string name="suggestion_drop_weight">Vorschlag: −%1$s kg</string>
+    <string name="pace_too_fast">Schneller als die Kadenz (%1$ds statt %2$ds)</string>
+    <string name="pace_on_tempo">In der Kadenz</string>
     <string name="export_plan_pdf">Plan exportieren (PDF)</string>
     <string name="llm_title">Plan mit KI erstellen</string>
     <string name="llm_hint">Jeder Chatbot (Claude, ChatGPT, …) kann eine Plan-Datei erzeugen, die diese App direkt importiert.</string>

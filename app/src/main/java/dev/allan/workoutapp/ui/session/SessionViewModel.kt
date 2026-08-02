@@ -56,6 +56,14 @@ data class SessionExercise(
     val suggestion: dev.allan.workoutapp.data.ProgressionEngine.Suggestion? = null,
 )
 
+/** How the just-logged set compared to its cadence estimate (only "too fast" warns). */
+data class PaceNote(
+    val exerciseIndex: Int,
+    val fast: Boolean,
+    val actualSecs: Int,
+    val expectedSecs: Int,
+)
+
 data class SessionUiState(
     val sessionId: Long? = null,
     val workoutName: String = "",
@@ -99,6 +107,8 @@ data class SessionUiState(
     val descriptionNote: String? = null,
     /** The sheet's description is an on-device machine translation. */
     val descriptionMachine: Boolean = false,
+    /** Brief feedback after logging a set with a cadence, cleared a few seconds later. */
+    val paceNote: PaceNote? = null,
     /** A user-requested translation is in flight for the open sheet. */
     val descriptionTranslating: Boolean = false,
     /** The shown description is in another language, so offering to translate it makes sense. */
@@ -558,6 +568,23 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             }
         }
         SessionManager.addActiveSecs(active)
+
+        // Cadence check: only a real measurement says anything about pace (a booked default
+        // would just compare the estimate with itself), and only being faster than the
+        // cadence is a problem — going slower is fine (Allan, 02/08).
+        val expectedSecs = dev.allan.workoutapp.data.SetTiming.expectedSecs(set.value, set.tempo)
+        val paceNote = if (expectedSecs != null && set.valueUnit == ValueUnit.REPS && active > 0 &&
+            active != dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
+        ) {
+            PaceNote(
+                exerciseIndex = exerciseIndex,
+                fast = dev.allan.workoutapp.data.SetTiming.pace(active, expectedSecs) ==
+                    dev.allan.workoutapp.data.SetTiming.Pace.FAST,
+                actualSecs = active,
+                expectedSecs = expectedSecs,
+            )
+        } else null
+
         // The summary shows a timed set as the time its runs really took.
         val loggedActive =
             if (set.valueUnit == ValueUnit.SECS) SessionManager.bookedRunSecs(set.templateId) ?: set.value
@@ -613,13 +640,18 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         // exercise list (that's where "End workout" lives).
         val next = SupersetOrder.nextStepFrom(_state.value.exercises, exerciseIndex)
         _state.value = when {
-            next == null -> _state.value.copy(timerPanelVisible = true, showList = true)
+            next == null -> _state.value.copy(
+                timerPanelVisible = true,
+                showList = true,
+                paceNote = paceNote,
+            )
             next.first != exerciseIndex -> _state.value.copy(
                 timerPanelVisible = true,
                 pendingSwipeTo = next.first,
                 swipeToken = _state.value.swipeToken + 1,
+                paceNote = paceNote,
             )
-            else -> _state.value.copy(timerPanelVisible = true)
+            else -> _state.value.copy(timerPanelVisible = true, paceNote = paceNote)
         }
     }
 
@@ -637,6 +669,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             }
             updateSet(exerciseIndex, set.copy(done = false))
         }
+    }
+
+    fun clearPaceNote() {
+        _state.value = _state.value.copy(paceNote = null)
     }
 
     fun clearPendingSwipe() {
