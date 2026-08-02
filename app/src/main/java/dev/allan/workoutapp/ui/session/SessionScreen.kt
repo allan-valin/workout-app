@@ -394,7 +394,10 @@ fun SessionScreen(
             onSaveLink = { url -> state.descriptionExerciseId?.let { vm.saveVideoLink(it, url) } },
             onDismiss = vm::closeDescription,
             note = state.descriptionNote,
-            onSaveNote = { txt -> state.descriptionExerciseId?.let { vm.saveNote(it, txt) } },
+            notePinned = state.descriptionNotePinned,
+            onSaveNote = { txt, pinned ->
+                state.descriptionExerciseId?.let { vm.saveNote(it, txt, pinned) }
+            },
             machineTranslated = state.descriptionMachine,
             onTranslate = if (state.descriptionCanTranslate) vm::translateDescription else null,
             translating = state.descriptionTranslating,
@@ -665,6 +668,22 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                     )
                 }
             }
+        }
+
+        // Pinned note: the one thing about this exercise worth seeing every set. Secondary
+        // colour — tertiary is the superset chain line, error is the pace warning.
+        ex.pinnedNote?.let { note ->
+            Text(
+                note,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .clickable { vm.openDescription(ex.exerciseId, withImage = false) },
+            )
         }
 
         // Story-style progress bar: one segment per exercise; tap a segment to jump there.

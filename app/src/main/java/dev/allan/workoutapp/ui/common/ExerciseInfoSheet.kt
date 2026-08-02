@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -48,7 +49,9 @@ fun ExerciseInfoSheet(
     onDismiss: () -> Unit,
     /** Persistent per-exercise note (kept across sessions). null hides the note editor. */
     note: String? = null,
-    onSaveNote: (String) -> Unit = {},
+    /** Current pin state; null = this screen doesn't offer pinning, so the toggle is hidden. */
+    notePinned: Boolean? = null,
+    onSaveNote: (String, Boolean?) -> Unit = { _, _ -> },
     /** The shown description is an on-device machine translation — label it as such. */
     machineTranslated: Boolean = false,
     /**
@@ -100,6 +103,7 @@ fun ExerciseInfoSheet(
             // "note comes back empty" bug). Blank + save clears it. Shown in every ℹ sheet.
             if (note != null) {
                 var noteText by remember(note) { mutableStateOf(note) }
+                var pinned by remember(note, notePinned) { mutableStateOf(notePinned ?: false) }
                 OutlinedTextField(
                     value = noteText,
                     onValueChange = { noteText = it },
@@ -107,8 +111,27 @@ fun ExerciseInfoSheet(
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (noteText.trim() != note) {
-                    Button(onClick = { onSaveNote(noteText.trim()) }, modifier = Modifier.fillMaxWidth()) {
+                // Pin toggle only where the note can actually be shown (in-session).
+                if (notePinned != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Switch(
+                            checked = pinned,
+                            onCheckedChange = { pinned = it },
+                        )
+                        Text(
+                            stringResource(R.string.pin_note),
+                            modifier = Modifier.padding(start = 8.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+                // Flipping the toggle arms the button too, otherwise an unedited note
+                // could never be pinned.
+                if (noteText.trim() != note || pinned != (notePinned ?: false)) {
+                    Button(
+                        onClick = { onSaveNote(noteText.trim(), notePinned?.let { pinned }) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Text(stringResource(R.string.save))
                     }
                 }

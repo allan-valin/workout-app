@@ -591,6 +591,24 @@ interface SessionDao {
     @Query("SELECT text FROM exercise_note WHERE exerciseId = :exerciseId ORDER BY updatedAt DESC LIMIT 1")
     suspend fun noteText(exerciseId: String): String?
 
+    /** Latest note text, but only when it is pinned (the in-session line). */
+    @Query(
+        """
+        SELECT text FROM exercise_note WHERE exerciseId = :exerciseId AND pinned = 1
+        ORDER BY updatedAt DESC LIMIT 1
+        """
+    )
+    suspend fun pinnedNote(exerciseId: String): String?
+
+    /** Whether the exercise's latest note is pinned (false when there is no note). */
+    @Query(
+        """
+        SELECT COALESCE((SELECT pinned FROM exercise_note WHERE exerciseId = :exerciseId
+        ORDER BY updatedAt DESC LIMIT 1), 0)
+        """
+    )
+    suspend fun noteIsPinned(exerciseId: String): Boolean
+
     @Query("DELETE FROM exercise_note WHERE exerciseId = :exerciseId")
     suspend fun deleteNotesFor(exerciseId: String)
 }

@@ -303,7 +303,7 @@ fun ExerciseLibraryScreen(
             onSaveLink = { url -> vm.saveVideoLink(d.hit.id, url) },
             onDismiss = vm::closeDetail,
             note = d.note,
-            onSaveNote = { txt -> vm.saveNote(d.hit.id, txt) },
+            onSaveNote = { txt, _ -> vm.saveNote(d.hit.id, txt) },
             machineTranslated = shownTranslation?.machine == true,
         ) {
             d.hit.category?.let { Text(it, style = MaterialTheme.typography.labelLarge) }

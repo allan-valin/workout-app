@@ -763,7 +763,7 @@ fun WorkoutEditorScreen(
             onSaveLink = { url -> vm.saveVideoLink(info.exerciseId, url) },
             onDismiss = vm::closeDescription,
             note = info.note,
-            onSaveNote = { txt -> vm.saveNote(info.exerciseId, txt) },
+            onSaveNote = { txt, _ -> vm.saveNote(info.exerciseId, txt) },
             machineTranslated = info.machineTranslated,
             extraContent = {
                 // Gallery: pick/add the representative image from the editor too

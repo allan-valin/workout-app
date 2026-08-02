@@ -196,7 +196,17 @@ object PlanRepo {
     }
 
     /** Saves the single persistent note for an exercise (blank clears it). */
-    suspend fun saveExerciseNote(db: AppDatabase, exerciseId: String, text: String) {
+    /**
+     * @param pinned null keeps whatever the note already had — screens that don't offer the
+     *        pin toggle (library, editor, workout view) must not silently unpin a note.
+     */
+    suspend fun saveExerciseNote(
+        db: AppDatabase,
+        exerciseId: String,
+        text: String,
+        pinned: Boolean? = null,
+    ) {
+        val keep = pinned ?: db.sessionDao().noteIsPinned(exerciseId)
         db.sessionDao().deleteNotesFor(exerciseId)
         if (text.isNotBlank()) {
             db.sessionDao().insertNote(
@@ -204,6 +214,7 @@ object PlanRepo {
                     exerciseId = exerciseId,
                     text = text,
                     updatedAt = System.currentTimeMillis(),
+                    pinned = keep,
                 )
             )
         }

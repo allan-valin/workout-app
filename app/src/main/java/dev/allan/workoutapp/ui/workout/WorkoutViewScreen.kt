@@ -482,7 +482,7 @@ fun WorkoutViewScreen(
             onSaveLink = { url -> vm.saveVideoLink(d.exerciseId, url) },
             onDismiss = vm::closeDetail,
             note = d.note,
-            onSaveNote = { txt -> vm.saveNote(d.exerciseId, txt) },
+            onSaveNote = { txt, _ -> vm.saveNote(d.exerciseId, txt) },
             machineTranslated = d.machineTranslated,
             onTranslate = if (d.canTranslate) vm::translateDetail else null,
             translating = d.translating,

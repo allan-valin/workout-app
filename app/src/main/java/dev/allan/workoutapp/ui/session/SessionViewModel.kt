@@ -54,6 +54,8 @@ data class SessionExercise(
     val supersetWithPrev: Boolean = false,
     /** Science-based progression hint; applied only when the user taps it. */
     val suggestion: dev.allan.workoutapp.data.ProgressionEngine.Suggestion? = null,
+    /** Pinned note text, shown as a line under the image; null = nothing pinned. */
+    val pinnedNote: String? = null,
 )
 
 /** How the just-logged set compared to its cadence estimate (only "too fast" warns). */
@@ -105,6 +107,8 @@ data class SessionUiState(
     val descriptionExerciseId: String? = null,
     val descriptionVideoUrl: String? = null,
     val descriptionNote: String? = null,
+    /** Whether that note is pinned under the exercise image during the session. */
+    val descriptionNotePinned: Boolean = false,
     /** The sheet's description is an on-device machine translation. */
     val descriptionMachine: Boolean = false,
     /** Brief feedback after logging a set with a cadence, cleared a few seconds later. */
@@ -353,6 +357,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 imagePath = exercise?.imagePath,
                 sets = sets,
                 supersetWithPrev = we.supersetWithPrev,
+                pinnedNote = db.sessionDao().pinnedNote(we.exerciseId)?.takeIf { it.isNotBlank() },
                 suggestion = if (we.id in handledSuggestions) null
                 else dev.allan.workoutapp.data.ProgressionEngine.suggest(
                     templates = weTemplates,
@@ -700,6 +705,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     descriptionExerciseId = exerciseId,
                     descriptionVideoUrl = db.exerciseDao().videoLink(exerciseId),
                     descriptionNote = db.sessionDao().noteText(exerciseId) ?: "",
+                    descriptionNotePinned = db.sessionDao().noteIsPinned(exerciseId),
                     descriptionMachine = best?.machine == true,
                 )
             }
@@ -820,9 +826,22 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         TimerService.showDefault(getApplication())
     }
 
-    fun saveNote(exerciseId: String, text: String) {
-        _state.value = _state.value.copy(descriptionNote = text)
-        viewModelScope.launch { PlanRepo.saveExerciseNote(db, exerciseId, text) }
+    /** @param pinned null keeps the note's current pin state. */
+    fun saveNote(exerciseId: String, text: String, pinned: Boolean? = null) {
+        _state.value = _state.value.copy(
+            descriptionNote = text,
+            descriptionNotePinned = pinned ?: _state.value.descriptionNotePinned,
+        )
+        viewModelScope.launch {
+            PlanRepo.saveExerciseNote(db, exerciseId, text, pinned)
+            val isPinned = pinned ?: db.sessionDao().noteIsPinned(exerciseId)
+            val shown = text.takeIf { isPinned && it.isNotBlank() }
+            _state.value = _state.value.copy(
+                exercises = _state.value.exercises.map {
+                    if (it.exerciseId == exerciseId) it.copy(pinnedNote = shown) else it
+                }
+            )
+        }
     }
 
     /** In-session plan edits — write to the set template, then refresh the SessionSet list.

@@ -252,6 +252,8 @@ data class ExerciseNote(
     val sessionId: Long? = null,
     val text: String,
     val updatedAt: Long,
+    /** Shown as a line under the exercise image during the session (Allan, 02/08). */
+    val pinned: Boolean = false,
 )
 
 @Serializable
