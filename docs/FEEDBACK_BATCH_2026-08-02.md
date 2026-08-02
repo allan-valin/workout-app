@@ -26,13 +26,19 @@ Answers Allan gave while this was written (2026-08-02) are marked **[decided]**.
   for that set; sets logged with no run at all still book `set.value` (unchanged
   behaviour for people who never press play).
 
-### A3. Supersets: shared timing on quick successive registers
+### A3. Supersets: the first set's timer already covers the second
 - Today: each `logSet` consumes the stopwatch (`SessionManager.consumeStopwatch()`),
   so the second exercise of a superset — registered seconds after the first, no timer
-  restarted — falls through to `gapActiveSecs()` (a ~2 s gap) or the rep estimate.
-- Wanted: two registers within **20 s** of each other where only the first had a
-  measured duration → the second books the same measured duration. No timer on either
-  → both book the default (A4).
+  restarted — falls through to `gapActiveSecs()` or the rep estimate and *adds* time
+  that was already counted.
+- Reality (Allan, 02/08): both exercises are done back to back with no chance to touch
+  the phone in between, so one timer run of e.g. 2 min covers **both** sets.
+- Wanted:
+  - First set logged with a **measured** duration (stopwatch) → it books that duration;
+    a second set logged within **20 s** books **0** — the measurement already spans it.
+  - **No** timer on the first → each set books its own default (A4). Nothing is shared.
+  - The 20 s window is what distinguishes "registered one after the other" from two
+    genuinely separate sets; it is the only tunable here.
 
 ### A4. Default active time from tempo
 - Today: rep sets with no stopwatch and no usable gap book `set.value * 3`

@@ -209,7 +209,8 @@
     <string name="toggle_theme">Toggle light/dark theme</string>
     <string name="home_empty_hint">No workout plan yet. Create one here, or import a plan JSON in Settings.</string>
     <string name="suggestion_add_weight">Suggestion: +%1$s kg</string>
-    <string name="suggestion_add_rep">Suggestion: +1 rep</string>
+    <string name="suggestion_add_rep">Suggestion: +%1$d rep</string>
+    <string name="suggestion_drop_weight">Suggestion: −%1$s kg</string>
     <string name="export_plan_pdf">Export plan (PDF)</string>
     <string name="llm_title">Create a plan with AI</string>
     <string name="llm_hint">Any chatbot (Claude, ChatGPT, …) can build a plan file this app imports directly.</string>

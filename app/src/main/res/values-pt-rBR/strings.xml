@@ -209,7 +209,8 @@
     <string name="toggle_theme">Alternar tema claro/escuro</string>
     <string name="home_empty_hint">Nenhum plano de treino ainda. Crie um aqui ou importe um JSON em Ajustes.</string>
     <string name="suggestion_add_weight">Sugestão: +%1$s kg</string>
-    <string name="suggestion_add_rep">Sugestão: +1 repetição</string>
+    <string name="suggestion_add_rep">Sugestão: +%1$d repetições</string>
+    <string name="suggestion_drop_weight">Sugestão: −%1$s kg</string>
     <string name="export_plan_pdf">Exportar plano (PDF)</string>
     <string name="llm_title">Criar plano com IA</string>
     <string name="llm_hint">Qualquer chatbot (Claude, ChatGPT, …) pode gerar um arquivo de plano que este app importa diretamente.</string>

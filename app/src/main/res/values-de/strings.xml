@@ -209,7 +209,8 @@
     <string name="toggle_theme">Helles/dunkles Design umschalten</string>
     <string name="home_empty_hint">Noch kein Trainingsplan. Erstelle hier einen oder importiere ein Plan-JSON in den Einstellungen.</string>
     <string name="suggestion_add_weight">Vorschlag: +%1$s kg</string>
-    <string name="suggestion_add_rep">Vorschlag: +1 Wiederholung</string>
+    <string name="suggestion_add_rep">Vorschlag: +%1$d Wiederholungen</string>
+    <string name="suggestion_drop_weight">Vorschlag: −%1$s kg</string>
     <string name="export_plan_pdf">Plan exportieren (PDF)</string>
     <string name="llm_title">Plan mit KI erstellen</string>
     <string name="llm_hint">Jeder Chatbot (Claude, ChatGPT, …) kann eine Plan-Datei erzeugen, die diese App direkt importiert.</string>

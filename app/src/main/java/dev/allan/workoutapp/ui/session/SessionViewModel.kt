@@ -432,7 +432,9 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 !working -> set
                 s.kind == dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_WEIGHT ->
                     set.copy(weightKg = set.weightKg + s.weightIncrementKg)
-                else -> set.copy(value = set.value + 1)
+                s.kind == dev.allan.workoutapp.data.ProgressionEngine.Kind.DROP_WEIGHT ->
+                    set.copy(weightKg = (set.weightKg - s.weightIncrementKg).coerceAtLeast(0.0))
+                else -> set.copy(value = set.value + s.repIncrement)
             }
         }
         val exercises = _state.value.exercises.toMutableList()

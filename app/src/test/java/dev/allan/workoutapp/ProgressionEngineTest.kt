@@ -61,17 +61,32 @@ class ProgressionEngineTest {
         assertEquals(5.0, s!!.weightIncrementKg, 1e-9) // 5% of 100
     }
 
+    /**
+     * Changed 02/08: waiting for two sessions was too slow (Allan), so one uniform session
+     * at the ceiling already suggests the weight step. The old test asserted null here.
+     */
     @Test
-    fun `single session at ceiling is not enough`() {
+    fun `single uniform session at ceiling is enough`() {
         val history = (0..2).map { log(1, it, 12) }
-        assertNull(ProgressionEngine.suggest(templates, history, chest, WeightMode.TOTAL))
+        val s = ProgressionEngine.suggest(templates, history, chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_WEIGHT, s?.kind)
     }
 
+    /**
+     * Changed 02/08: only the last session is read now, so a weight change since the session
+     * before it is irrelevant — the increment simply follows the weight actually used last.
+     * Mixed weights *within* one session are still refused (see the test below).
+     */
     @Test
-    fun `weight changed between sessions blocks weight suggestion`() {
+    fun `weight changed between sessions follows the latest weight`() {
         val history = (0..2).map { log(2, it, 12, weight = 42.5) } + (0..2).map { log(1, it, 12) }
-        // Ceiling hit at a new weight → no ADD_WEIGHT (and no ADD_REP: already at top).
-        assertNull(ProgressionEngine.suggest(templates, history, chest, WeightMode.TOTAL))
+        val s = ProgressionEngine.suggest(templates, history, chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_WEIGHT, s?.kind)
+        assertEquals(
+            ProgressionEngine.incrementFor(42.5, chest, WeightMode.TOTAL),
+            s!!.weightIncrementKg,
+            1e-9,
+        )
     }
 
     @Test
@@ -82,7 +97,7 @@ class ProgressionEngineTest {
     }
 
     @Test
-    fun `below the range suggests nothing`() {
+    fun `a spread of rep counts suggests nothing`() {
         val history = listOf(log(1, 0, 10), log(1, 1, 9), log(1, 2, 8))
         assertNull(ProgressionEngine.suggest(templates, history, chest, WeightMode.TOTAL))
     }
@@ -93,18 +108,97 @@ class ProgressionEngineTest {
         assertNull(ProgressionEngine.suggest(templates, history, chest, WeightMode.TOTAL))
     }
 
+    /**
+     * Changed 02/08: without an explicit range max the rep suggestion runs up to target + 4
+     * (Allan: "if I manage 16 reps in a 12 set, suggest +4"); only past that does it become
+     * a weight step. The old ceiling was target + 2.
+     */
     @Test
-    fun `no explicit range falls back to target plus two`() {
+    fun `no explicit range keeps adding reps up to target plus four`() {
         val fixed = listOf(template(0, min = 10, max = null))
-        val atCeiling = listOf(log(2, 0, 12), log(1, 0, 12))
-        val s = ProgressionEngine.suggest(fixed, atCeiling, chest, WeightMode.TOTAL)
-        assertEquals(ProgressionEngine.Kind.ADD_WEIGHT, s?.kind)
+
+        val atCeiling = listOf(log(1, 0, 14))
+        val ceilingSuggestion = ProgressionEngine.suggest(fixed, atCeiling, chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_REP, ceilingSuggestion?.kind)
+        assertEquals(4, ceilingSuggestion!!.repIncrement)
+
+        val beyond = listOf(log(1, 0, 15))
+        assertEquals(
+            ProgressionEngine.Kind.ADD_WEIGHT,
+            ProgressionEngine.suggest(fixed, beyond, chest, WeightMode.TOTAL)?.kind,
+        )
 
         val inside = listOf(log(1, 0, 11))
+        val insideSuggestion = ProgressionEngine.suggest(fixed, inside, chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_REP, insideSuggestion?.kind)
+        assertEquals(1, insideSuggestion!!.repIncrement)
+    }
+
+    // ── 02/08 rules: one uniform session is enough, and the rep suggestion carries the
+    // real surplus. A session with a spread of rep counts says nothing yet.
+
+    private fun uniform(session: Long, reps: Int, weight: Double = 40.0) =
+        listOf(log(session, 0, reps, weight), log(session, 1, reps, weight), log(session, 2, reps, weight))
+
+    private val range14to16 = listOf(template(0, 14, 16), template(1, 14, 16), template(2, 14, 16))
+
+    @Test
+    fun `range max reached suggests weight`() {
+        val s = ProgressionEngine.suggest(range14to16, uniform(1, 16), chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_WEIGHT, s!!.kind)
+    }
+
+    @Test
+    fun `inside range suggests one rep`() {
+        val s = ProgressionEngine.suggest(range14to16, uniform(1, 15), chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_REP, s!!.kind)
+        assertEquals(1, s.repIncrement)
+    }
+
+    @Test
+    fun `below floor suggests dropping weight`() {
+        val s = ProgressionEngine.suggest(range14to16, uniform(1, 12), chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.DROP_WEIGHT, s!!.kind)
         assertEquals(
-            ProgressionEngine.Kind.ADD_REP,
-            ProgressionEngine.suggest(fixed, inside, chest, WeightMode.TOTAL)?.kind,
+            ProgressionEngine.incrementFor(40.0, chest, WeightMode.TOTAL),
+            s.weightIncrementKg,
+            1e-9,
         )
+    }
+
+    @Test
+    fun `fixed target overshoot suggests the real surplus`() {
+        val fixed = listOf(template(0, 12, null), template(1, 12, null), template(2, 12, null))
+        val s = ProgressionEngine.suggest(fixed, uniform(1, 16), chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_REP, s!!.kind)
+        assertEquals(4, s.repIncrement)
+    }
+
+    @Test
+    fun `fixed target beyond plus four suggests weight`() {
+        val fixed = listOf(template(0, 12, null), template(1, 12, null), template(2, 12, null))
+        val s = ProgressionEngine.suggest(fixed, uniform(1, 17), chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_WEIGHT, s!!.kind)
+    }
+
+    @Test
+    fun `mixed rep counts suggest nothing`() {
+        val history = listOf(log(1, 0, 12), log(1, 1, 14), log(1, 2, 14))
+        assertNull(ProgressionEngine.suggest(range14to16, history, chest, WeightMode.TOTAL))
+    }
+
+    @Test
+    fun `mixed weights inside one session suggest nothing`() {
+        val history = listOf(log(1, 0, 16, 40.0), log(1, 1, 16, 42.5), log(1, 2, 16, 40.0))
+        assertNull(ProgressionEngine.suggest(range14to16, history, chest, WeightMode.TOTAL))
+    }
+
+    @Test
+    fun `only the newest session counts`() {
+        // Older session below the floor, newest one at the top: the newest wins.
+        val history = uniform(2, 16) + uniform(1, 10)
+        val s = ProgressionEngine.suggest(range14to16, history, chest, WeightMode.TOTAL)
+        assertEquals(ProgressionEngine.Kind.ADD_WEIGHT, s!!.kind)
     }
 
     @Test

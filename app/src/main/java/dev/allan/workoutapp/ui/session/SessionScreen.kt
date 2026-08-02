@@ -721,14 +721,17 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                 androidx.compose.material3.AssistChip(
                     onClick = { vm.applySuggestion(page) },
                     label = {
+                        val kg = if (s.weightIncrementKg % 1.0 == 0.0) "${s.weightIncrementKg.toInt()}"
+                        else "${s.weightIncrementKg}"
                         Text(
-                            if (s.kind == dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_WEIGHT)
-                                stringResource(
-                                    R.string.suggestion_add_weight,
-                                    if (s.weightIncrementKg % 1.0 == 0.0) "${s.weightIncrementKg.toInt()}"
-                                    else "${s.weightIncrementKg}",
-                                )
-                            else stringResource(R.string.suggestion_add_rep)
+                            when (s.kind) {
+                                dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_WEIGHT ->
+                                    stringResource(R.string.suggestion_add_weight, kg)
+                                dev.allan.workoutapp.data.ProgressionEngine.Kind.DROP_WEIGHT ->
+                                    stringResource(R.string.suggestion_drop_weight, kg)
+                                dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_REP ->
+                                    stringResource(R.string.suggestion_add_rep, s.repIncrement)
+                            }
                         )
                     },
                 )

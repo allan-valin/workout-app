@@ -819,7 +819,7 @@ git push origin main
 
 **Interfaces:**
 - Consumes: `SetTiming.SHARE_WINDOW_MS`, `SetTiming.measuredActiveSecs`, `SetTiming.defaultActiveSecs` (Task 4).
-- Produces on `SessionManager`: `completeSetCountdown(now: Long = System.currentTimeMillis())` (books the run and clears the countdown), `bookedRunSecs(templateId: Long): Int?`, `clearBookedRuns(templateId: Long)`, `shareableSecs(now: Long = System.currentTimeMillis()): Int?`, `recordMeasured(secs: Int, now: Long = System.currentTimeMillis())`.
+- Produces on `SessionManager`: `completeSetCountdown(now: Long = System.currentTimeMillis())` (books the run and clears the countdown), `bookedRunSecs(templateId: Long): Int?`, `clearBookedRuns(templateId: Long)`, `coveredByPreviousMeasure(now: Long = System.currentTimeMillis()): Boolean`, `recordMeasured(secs: Int, now: Long = System.currentTimeMillis())`.
 - New `TimerState` fields: `runSecsByTemplate: Map<Long, Int>`, `lastMeasuredSecs: Int?`, `lastMeasuredAt: Long?`.
 
 - [ ] **Step 1: Write the failing test**
@@ -855,17 +855,24 @@ Append to `app/src/test/java/dev/allan/workoutapp/SessionManagerTimerTest.kt`:
     }
 
     /**
-     * Superset: A and B registered seconds apart, only A was timed — B books A's duration
-     * instead of a two-second gap.
+     * Superset: both exercises are done back to back, so one 2-minute stopwatch run covers
+     * both sets. A books the measurement, B — registered seconds later — books nothing.
      */
     @Test
-    fun `a measured duration is shareable inside the window`() {
+    fun `a set logged right after a measured one is already covered`() {
         SessionManager.clear()
         SessionManager.startSession(1, System.currentTimeMillis())
         val now = System.currentTimeMillis()
-        SessionManager.recordMeasured(38, now)
-        assertEquals(38, SessionManager.shareableSecs(now + 5_000))
-        assertNull(SessionManager.shareableSecs(now + 25_000))
+        SessionManager.recordMeasured(120, now)
+        assertTrue(SessionManager.coveredByPreviousMeasure(now + 5_000))
+        assertFalse(SessionManager.coveredByPreviousMeasure(now + 25_000))
+    }
+
+    @Test
+    fun `nothing measured means nothing is covered`() {
+        SessionManager.clear()
+        SessionManager.startSession(1, System.currentTimeMillis())
+        assertFalse(SessionManager.coveredByPreviousMeasure())
     }
 ```
 
@@ -927,17 +934,19 @@ and add these functions after `cancelSetCountdown`:
         )
     }
 
-    /** Remember a measured duration so a superset partner logged right after can reuse it. */
+    /** Remember when a real measurement was booked, so the set logged right after it knows. */
     fun recordMeasured(secs: Int, now: Long = System.currentTimeMillis()) {
         _state.value = _state.value.copy(lastMeasuredSecs = secs, lastMeasuredAt = now)
     }
 
-    /** The neighbouring set's measured duration, if it was measured just now. */
-    fun shareableSecs(now: Long = System.currentTimeMillis()): Int? {
-        val s = _state.value
-        val at = s.lastMeasuredAt ?: return null
-        if (now - at > dev.allan.workoutapp.data.SetTiming.SHARE_WINDOW_MS) return null
-        return s.lastMeasuredSecs
+    /**
+     * True when a measured duration was booked moments ago: in a superset both exercises are
+     * done back to back, so that one measurement already spans the set being logged now and
+     * it must not book anything of its own (Allan, 02/08).
+     */
+    fun coveredByPreviousMeasure(now: Long = System.currentTimeMillis()): Boolean {
+        val at = _state.value.lastMeasuredAt ?: return false
+        return now - at <= dev.allan.workoutapp.data.SetTiming.SHARE_WINDOW_MS
     }
 ```
 
@@ -966,20 +975,23 @@ its `SessionManager.addActiveSecs(active)` line with:
         // Active time. Timed sets: whatever their countdown runs already booked (one run per
         // leg counts twice) — those seconds are on the clock, so the set books nothing more;
         // a timed set that was never run still books its nominal duration. Rep sets: the
-        // stopwatch, else a superset partner's duration measured seconds ago, else the gap
-        // since rest ended, else the cadence estimate (docs/FEEDBACK_BATCH_2026-08-02.md A2–A5).
+        // stopwatch, else nothing at all when a measurement moments ago already spanned this
+        // set (superset partner), else the gap since rest ended, else the cadence estimate
+        // (docs/FEEDBACK_BATCH_2026-08-02.md A2–A5).
         val tempo = set.tempo
         val active: Int = when (set.valueUnit) {
             ValueUnit.SECS -> if (SessionManager.bookedRunSecs(set.templateId) != null) 0 else set.value
             ValueUnit.REPS -> {
                 val measured = SessionManager.consumeStopwatch()
-                    ?: SessionManager.shareableSecs()
-                    ?: SessionManager.gapActiveSecs()
-                if (measured != null) {
-                    dev.allan.workoutapp.data.SetTiming.measuredActiveSecs(measured)
-                        .also { SessionManager.recordMeasured(measured) }
-                } else {
-                    dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, tempo)
+                when {
+                    measured != null ->
+                        dev.allan.workoutapp.data.SetTiming.measuredActiveSecs(measured)
+                            .also { SessionManager.recordMeasured(measured) }
+                    // The previous set's timer covered this one too — book nothing.
+                    SessionManager.coveredByPreviousMeasure() -> 0
+                    else -> SessionManager.gapActiveSecs()
+                        ?.let { dev.allan.workoutapp.data.SetTiming.measuredActiveSecs(it) }
+                        ?: dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, tempo)
                 }
             }
         }
@@ -1029,8 +1041,9 @@ Expected: BUILD SUCCESSFUL, all tests pass.
 On `testphone`, in a workout with one timed set (e.g. 45 s) and one superset pair:
 1. Run the timed set's countdown to the end twice, then register it → end the workout →
    the summary's active time contains 90 s for that set, not 45 s.
-2. In the superset, start the timer on A, register A, then register B within a few seconds →
-   both book the same duration minus 5 s.
+2. In the superset, run the stopwatch across both exercises (e.g. 2 min), register A, then
+   register B within a few seconds → the session's active total grows by ~2 min once, not by
+   2 min + 40 s. With no stopwatch at all, registering A then B books a default for each.
 3. Register a rep set with a cadence `1-0-1-0` and no timer → books 2 s × reps.
 
 - [ ] **Step 8: Commit and push**
@@ -2050,7 +2063,8 @@ B2 → Task 1; B3, B4 → Task 3; C1 → Task 9; C2 → Task 8; D1 → Task 10; 
 1. A5's "−5 s for getting into position" is applied to *measured* rep-set durations, not to
    timed-set countdowns and not to the tempo/40 s default (his "(not timed sets)" note).
 2. A6's threshold is 15 % (the middle of his "10–20 %"), and only "too fast" is a warning.
-3. A3's "quick succession" window is 20 s.
+3. A3's "registered one after the other" window is 20 s (Allan, 02/08: one timer run spans
+   both superset sets, so the second books 0; with no timer each books its own default).
 4. B2's ADD_WEIGHT at the range max still holds for explicit ranges (14–16 → weight at 16),
    while a fixed target (3×12) allows the rep suggestion up to target + 4 before flipping to
    weight — this is the reading that satisfies both "+4 reps for 16 on a 12 target" and

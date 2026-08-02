@@ -11,26 +11,37 @@ import kotlin.math.roundToInt
 /**
  * Double-progression suggestions, never auto-applied (docs/PROGRESSION.md for sources).
  *
- * Rules, based on the ACSM progression position stand ("increase load 2–10% when the
- * current workload can be performed 1–2 reps over target on consecutive sessions") and
- * the NSCA 2-for-2 rule; load- and rep-progression are equally effective, so the user
- * picks which suggestion to take:
+ * Grounded in the ACSM progression position stand ("increase load 2–10% when the current
+ * workload can be performed 1–2 reps over target") and the NSCA 2-for-2 rule; load- and
+ * rep-progression are equally effective, so the user picks which suggestion to take.
  *
- * 1. ADD_WEIGHT — the last two sessions used the same weight AND every working set hit
- *    the top of the rep range both times. Increment: ~2.5% (upper body) / ~5% (lower
- *    body) of the current weight, rounded to 1.25 kg plates, at least one plate step.
- * 2. ADD_REP — the last session hit the bottom of the range on every working set but
- *    not yet the top: add one rep before adding weight.
+ * Rules as of 02/08 (docs/FEEDBACK_BATCH_2026-08-02.md, B2). One finished session is
+ * enough — the suggestion shows at the next workout — but only when that session was
+ * UNIFORM: every working set logged, all at the same rep count, all at the same weight.
+ * A spread (12/14/14) means the exercise hasn't settled, so nothing is suggested.
+ *
+ * With a uniform session at reps R, weight W and floor F = targetValue:
+ *  - explicit range max M: R >= M          -> ADD_WEIGHT
+ *  - no range max:         R >  F + 4      -> ADD_WEIGHT
+ *  - R < F                                 -> DROP_WEIGHT (one increment step down)
+ *  - otherwise                             -> ADD_REP by max(1, R - F)
+ *
+ * Increment: ~2.5% (upper body) / ~5% (lower body) of the current weight, rounded to
+ * 1.25 kg plates, at least one plate step.
  *
  * Only REPS sets of type NORMAL / FAILURE count ("working sets"). Timed sets, warmups
- * and drops never trigger suggestions. Without an explicit range (targetValueMax null)
- * the fixed target + 2 acts as the ceiling (2-for-2).
+ * and drops never trigger suggestions.
  */
 object ProgressionEngine {
 
-    enum class Kind { ADD_WEIGHT, ADD_REP }
+    enum class Kind { ADD_WEIGHT, ADD_REP, DROP_WEIGHT }
 
-    data class Suggestion(val kind: Kind, val weightIncrementKg: Double = 0.0)
+    data class Suggestion(
+        val kind: Kind,
+        val weightIncrementKg: Double = 0.0,
+        /** Reps to add for ADD_REP — the real surplus over the target, at least 1. */
+        val repIncrement: Int = 0,
+    )
 
     /** wger muscle ids trained by big lower-body lifts — these take bigger jumps. */
     private val lowerBodyMuscles = setOf(7, 8, 10, 11, 15)
@@ -62,42 +73,29 @@ object ProgressionEngine {
         if (working.isEmpty()) return null
         val workingIndexes = working.map { it.setIndex }.toSet()
 
-        // Split history into sessions, newest first; keep only working-set logs.
-        val sessions = history
+        // Only the newest session is read: waiting for two in a row was too slow (Allan, 02/08).
+        val last = history
             .filter { it.valueUnit == ValueUnit.REPS && it.setIndex in workingIndexes }
             .groupBy { it.sessionId }
             .values
-            .sortedByDescending { logs -> logs.maxOf { it.completedAt } }
-        if (sessions.isEmpty()) return null
+            .maxByOrNull { logs -> logs.maxOf { it.completedAt } }
+            ?: return null
 
-        val last = sessions[0]
-        if (last.size < working.size) return null // exercise not completed last time
+        if (last.size < working.size) return null            // exercise not completed
+        val reps = last.first().value
+        if (last.any { it.value != reps }) return null        // rep counts not uniform
+        val weight = last.first().weightKg
+        if (last.any { it.weightKg != weight }) return null   // weights not uniform
 
-        fun ceilingFor(setIndex: Int): Int {
-            val t = working.first { it.setIndex == setIndex }
-            return t.targetValueMax ?: (t.targetValue + 2)
+        val floor = working.minOf { it.targetValue }
+        val rangeMax = working.mapNotNull { it.targetValueMax }.maxOrNull()
+        val step = incrementFor(weight, primaryMuscles, weightMode)
+
+        return when {
+            rangeMax != null && reps >= rangeMax -> Suggestion(Kind.ADD_WEIGHT, step)
+            rangeMax == null && reps > floor + 4 -> Suggestion(Kind.ADD_WEIGHT, step)
+            reps < floor -> Suggestion(Kind.DROP_WEIGHT, step)
+            else -> Suggestion(Kind.ADD_REP, repIncrement = maxOf(1, reps - floor))
         }
-
-        fun floorFor(setIndex: Int): Int = working.first { it.setIndex == setIndex }.targetValue
-
-        val lastAtCeiling = last.all { it.value >= ceilingFor(it.setIndex) }
-        val lastWeight = last.maxOf { it.weightKg }
-
-        if (lastAtCeiling && sessions.size >= 2) {
-            val prev = sessions[1]
-            val prevAtCeiling = prev.size >= working.size &&
-                prev.all { it.value >= ceilingFor(it.setIndex) }
-            val sameWeight = prev.maxOf { it.weightKg } == lastWeight
-            if (prevAtCeiling && sameWeight) {
-                return Suggestion(
-                    Kind.ADD_WEIGHT,
-                    incrementFor(lastWeight, primaryMuscles, weightMode),
-                )
-            }
-        }
-        if (!lastAtCeiling && last.all { it.value >= floorFor(it.setIndex) }) {
-            return Suggestion(Kind.ADD_REP)
-        }
-        return null
     }
 }
