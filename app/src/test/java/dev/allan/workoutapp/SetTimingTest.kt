@@ -68,6 +68,33 @@ class SetTimingTest {
     }
 
     @Test
+    fun `the workout estimate uses the same cadence rule as the booking`() {
+        val slow = dev.allan.workoutapp.ui.session.SessionExercise(
+            workoutExerciseId = 1,
+            exerciseId = "wger:1",
+            name = "Squat",
+            weightMode = dev.allan.workoutapp.data.db.WeightMode.TOTAL,
+            barWeightKg = 20.0,
+            imagePath = null,
+            sets = listOf(
+                dev.allan.workoutapp.ui.session.SessionSet(
+                    templateId = 1,
+                    setIndex = 0,
+                    type = dev.allan.workoutapp.data.db.SetType.NORMAL,
+                    weightKg = 40.0,
+                    value = 10,
+                    valueUnit = dev.allan.workoutapp.data.db.ValueUnit.REPS,
+                    restSecs = 60,
+                    targetMin = 10,
+                    tempo = "3-1-2-1",
+                )
+            ),
+        )
+        // 60 s setup + 10 reps × 7 s + 60 s rest — not the flat 40 s default.
+        assertEquals(190, dev.allan.workoutapp.ui.session.estimateWorkoutSecs(listOf(slow)))
+    }
+
+    @Test
     fun `exactly at the tolerance edge is still on tempo`() {
         // 40 s expected, 15 % tolerance → 34 s is the first "fast" reading.
         assertEquals(SetTiming.Pace.ON_TEMPO, SetTiming.pace(actualSecs = 34, expectedSecs = 40))

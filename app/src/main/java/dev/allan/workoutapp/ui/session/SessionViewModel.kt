@@ -213,12 +213,14 @@ object SupersetOrder {
 
 /**
  * Rough workout time budget: per exercise a 60 s setup buffer, plus per set the work time
- * (set seconds for timed sets, else 40 s) and its rest. Reference only — not exact.
+ * and its rest. Timed sets count their duration; rep sets use the same cadence rule the
+ * booking uses (SetTiming.defaultActiveSecs) so plan and reality agree. Reference only.
  */
 fun estimateWorkoutSecs(exercises: List<SessionExercise>): Int =
     exercises.sumOf { ex ->
         60 + ex.sets.sumOf { set ->
-            val work = if (set.valueUnit == ValueUnit.SECS) set.value else 40
+            val work = if (set.valueUnit == ValueUnit.SECS) set.value
+            else dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
             work + set.restSecs
         }
     }
@@ -370,7 +372,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 val restRemaining = timers.restEndAt?.let { ((it - now) / 1000L).toInt() }
                 if (restRemaining != null && restRemaining <= 0) SessionManager.stopRest()
                 val countdownRemaining = timers.setCountdownEndAt?.let { ((it - now) / 1000L).toInt() }
-                if (countdownRemaining != null && countdownRemaining <= 0) SessionManager.cancelSetCountdown()
+                // A run that reached zero books its seconds; only runs stopped by hand are lost.
+                if (countdownRemaining != null && countdownRemaining <= 0) {
+                    SessionManager.completeSetCountdown()
+                }
                 val stopwatch = SessionManager.stopwatchSecs(now)
                 _state.value = _state.value.copy(
                     elapsedSecs = ((now - startedAt) / 1000L).toInt(),
@@ -516,16 +521,35 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             return
         }
 
-        // Active time: timed sets count their duration; rep sets use the running
-        // stopwatch when present, else the gap since the last rest ended (>3 min
-        // means "forgot to log" and books only 40 s), else a 3 s/rep estimate.
-        val active = when (set.valueUnit) {
-            ValueUnit.SECS -> set.value
-            ValueUnit.REPS -> SessionManager.consumeStopwatch()
-                ?: SessionManager.gapActiveSecs()
-                ?: (set.value * 3)
+        // Active time (docs/FEEDBACK_BATCH_2026-08-02.md A2–A5). Timed sets: whatever their
+        // countdown runs already booked — one run per leg counts twice, so the set itself adds
+        // nothing; a timed set never run still books its nominal duration. Rep sets: the
+        // stopwatch, else nothing when a measurement moments ago already spanned this set
+        // (superset partner), else the gap since rest ended, else the cadence estimate.
+        val active: Int = when (set.valueUnit) {
+            ValueUnit.SECS -> if (SessionManager.bookedRunSecs(set.templateId) != null) 0 else set.value
+            ValueUnit.REPS -> {
+                val stopwatch = SessionManager.consumeStopwatch()
+                when {
+                    stopwatch != null ->
+                        dev.allan.workoutapp.data.SetTiming.measuredActiveSecs(stopwatch)
+                            .also { SessionManager.recordMeasured(stopwatch) }
+                    // The previous set's timer covered this one too — book nothing.
+                    SessionManager.coveredByPreviousMeasure() -> 0
+                    else -> SessionManager.gapActiveSecs()
+                        ?.let { gap ->
+                            dev.allan.workoutapp.data.SetTiming.measuredActiveSecs(gap)
+                                .also { SessionManager.recordMeasured(gap) }
+                        }
+                        ?: dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
+                }
+            }
         }
         SessionManager.addActiveSecs(active)
+        // The summary shows a timed set as the time its runs really took.
+        val loggedActive =
+            if (set.valueUnit == ValueUnit.SECS) SessionManager.bookedRunSecs(set.templateId) ?: set.value
+            else active
 
         viewModelScope.launch {
             db.sessionDao().insertSetLog(
@@ -540,7 +564,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     barWeightKg = ex.barWeightKg,
                     value = set.value,
                     valueUnit = set.valueUnit,
-                    activeSecs = active,
+                    activeSecs = loggedActive,
                     restSecs = set.restSecs,
                     completedAt = System.currentTimeMillis(),
                 )
@@ -551,7 +575,9 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         // Superset pairs alternate without rest: A1, B1 (no pause after A1), rest after B1.
         // Legacy SUPERSET set rows keep their no-rest behavior too.
         // Logging a timed set retires its countdown (running or paused) — otherwise a
-        // paused timer would linger in the panel with no set left to time.
+        // paused timer would linger in the panel with no set left to time. Only completed
+        // runs book time (SessionManager.completeSetCountdown); a countdown cut short here
+        // is discarded on purpose.
         if (set.valueUnit == ValueUnit.SECS &&
             SessionManager.state.value.setCountdownTemplateId == set.templateId
         ) {
@@ -591,7 +617,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         val ex = _state.value.exercises[exerciseIndex]
         viewModelScope.launch {
             db.sessionDao().setLog(sessionId, ex.workoutExerciseId, set.setIndex)?.let { log ->
+                // The log carries what the set really cost, including seconds booked by its
+                // countdown runs — give all of it back and forget the runs.
                 log.activeSecs?.let { SessionManager.addActiveSecs(-it) }
+                SessionManager.clearBookedRuns(set.templateId)
                 db.sessionDao().deleteSetLog(sessionId, ex.workoutExerciseId, set.setIndex)
             }
             updateSet(exerciseIndex, set.copy(done = false))

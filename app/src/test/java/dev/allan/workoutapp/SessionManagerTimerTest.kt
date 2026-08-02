@@ -2,6 +2,7 @@ package dev.allan.workoutapp
 
 import dev.allan.workoutapp.session.SessionManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -116,5 +117,61 @@ class SessionManagerTimerTest {
         SessionManager.addActiveSecs(30)
         SessionManager.addActiveSecs(12)
         assertEquals(42, SessionManager.state.value.activeSecs)
+    }
+
+    // ---- 02/08: every countdown run books, supersets share one measurement ----
+
+    /**
+     * Allan, 02/08: the same 45 s timer run twice (one leg each) booked 45 s once. Each
+     * completed run books, and the set itself then books nothing more.
+     */
+    @Test
+    fun `each completed countdown run books its own seconds`() {
+        SessionManager.startSession(1, System.currentTimeMillis())
+        SessionManager.startSetCountdown(45, templateId = 7L)
+        SessionManager.completeSetCountdown()
+        SessionManager.startSetCountdown(45, templateId = 7L)
+        SessionManager.completeSetCountdown()
+        assertEquals(90, SessionManager.state.value.activeSecs)
+        assertEquals(90, SessionManager.bookedRunSecs(7L))
+        assertNull(SessionManager.state.value.setCountdownEndAt)
+        assertNull(SessionManager.state.value.setCountdownTemplateId)
+    }
+
+    @Test
+    fun `completing without a running countdown books nothing`() {
+        SessionManager.startSession(1, System.currentTimeMillis())
+        SessionManager.completeSetCountdown()
+        assertEquals(0, SessionManager.state.value.activeSecs)
+        assertNull(SessionManager.bookedRunSecs(7L))
+    }
+
+    @Test
+    fun `clearing booked runs forgets the set`() {
+        SessionManager.startSession(1, System.currentTimeMillis())
+        SessionManager.startSetCountdown(30, templateId = 7L)
+        SessionManager.completeSetCountdown()
+        SessionManager.clearBookedRuns(7L)
+        assertNull(SessionManager.bookedRunSecs(7L))
+    }
+
+    /**
+     * Superset: both exercises are done back to back, so one 2-minute stopwatch run covers
+     * both sets. The first books the measurement, the second — registered seconds later —
+     * books nothing at all (Allan, 02/08).
+     */
+    @Test
+    fun `a set logged right after a measured one is already covered`() {
+        SessionManager.startSession(1, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        SessionManager.recordMeasured(120, now)
+        assertTrue(SessionManager.coveredByPreviousMeasure(now + 5_000))
+        assertFalse(SessionManager.coveredByPreviousMeasure(now + 25_000))
+    }
+
+    @Test
+    fun `nothing measured means nothing is covered`() {
+        SessionManager.startSession(1, System.currentTimeMillis())
+        assertFalse(SessionManager.coveredByPreviousMeasure())
     }
 }

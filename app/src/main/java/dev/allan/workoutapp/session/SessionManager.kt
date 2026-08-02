@@ -33,6 +33,11 @@ object SessionManager {
         /** Instant the last rest ended — fallback active-time anchor when the
          *  stopwatch was never started for the following set. */
         val lastRestEndedAt: Long? = null,
+        /** Seconds already booked per timed set, keyed by templateId (runs add up). */
+        val runSecsByTemplate: Map<Long, Int> = emptyMap(),
+        /** Last real measured set duration and when it was booked (superset coverage). */
+        val lastMeasuredSecs: Int? = null,
+        val lastMeasuredAt: Long? = null,
     )
 
     private val _state = MutableStateFlow(TimerState())
@@ -119,6 +124,58 @@ object SessionManager {
             setCountdownPausedSecs = null,
             setCountdownTemplateId = null,
         )
+    }
+
+    /**
+     * A countdown that ran to the end: book its full duration as active time and remember it
+     * against the set, so running the same timer twice (left leg, right leg) counts twice and
+     * logging the set afterwards doesn't book it a third time (Allan, 02/08). A countdown
+     * stopped early goes through cancelSetCountdown and books nothing, on purpose.
+     */
+    fun completeSetCountdown(now: Long = System.currentTimeMillis()) {
+        val s = _state.value
+        val duration = s.setCountdownDurationSecs
+        val templateId = s.setCountdownTemplateId
+        if (duration <= 0 || templateId == null) {
+            cancelSetCountdown()
+            return
+        }
+        _state.value = s.copy(
+            setCountdownEndAt = null,
+            setCountdownDurationSecs = 0,
+            setCountdownPausedSecs = null,
+            setCountdownTemplateId = null,
+            activeSecs = s.activeSecs + duration,
+            runSecsByTemplate = s.runSecsByTemplate +
+                (templateId to (s.runSecsByTemplate[templateId] ?: 0) + duration),
+            lastMeasuredSecs = duration,
+            lastMeasuredAt = now,
+        )
+    }
+
+    /** Seconds already booked by finished countdown runs of this set, null = none. */
+    fun bookedRunSecs(templateId: Long): Int? = _state.value.runSecsByTemplate[templateId]
+
+    /** Forget a set's booked runs (used when un-logging it). */
+    fun clearBookedRuns(templateId: Long) {
+        _state.value = _state.value.copy(
+            runSecsByTemplate = _state.value.runSecsByTemplate - templateId
+        )
+    }
+
+    /** Remember when a real measurement was booked, so the set logged right after knows. */
+    fun recordMeasured(secs: Int, now: Long = System.currentTimeMillis()) {
+        _state.value = _state.value.copy(lastMeasuredSecs = secs, lastMeasuredAt = now)
+    }
+
+    /**
+     * True when a measured duration was booked moments ago: in a superset both exercises are
+     * done back to back with no chance to touch the phone, so that one measurement already
+     * spans the set being logged now and it must not book anything of its own (Allan, 02/08).
+     */
+    fun coveredByPreviousMeasure(now: Long = System.currentTimeMillis()): Boolean {
+        val at = _state.value.lastMeasuredAt ?: return false
+        return now - at <= dev.allan.workoutapp.data.SetTiming.SHARE_WINDOW_MS
     }
 
     /** Current stopwatch reading: accumulated segments + the running one. */
