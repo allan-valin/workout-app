@@ -1263,6 +1263,45 @@ private fun SpotifyBar(spotify: dev.allan.workoutapp.session.SpotifyRemote.State
     }
 }
 
+/**
+ * The panel's two lines — which role it is wearing, and the number. Split out of [TimerPanel]
+ * (which needs the view model for its buttons) so the rendering itself can be asserted by
+ * `TimerReadoutTest` instead of being eyeballed on a screenshot.
+ */
+@Composable
+internal fun TimerReadout(state: SessionUiState, pendingTimed: SessionSet?) {
+    val restRunning = state.restRemainingSecs != null
+    val setCountdownRunning = state.setCountdownRemainingSecs != null
+    val setCountdownPaused = state.setCountdownPausedSecs != null
+    Text(
+        stringResource(
+            when {
+                restRunning -> R.string.rest
+                setCountdownRunning || setCountdownPaused || pendingTimed != null ->
+                    R.string.set_timer
+                else -> R.string.log_set_duration
+            }
+        ),
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
+        when {
+            restRunning -> fmt(state.restRemainingSecs ?: 0)
+            setCountdownRunning -> fmt(state.setCountdownRemainingSecs ?: 0)
+            setCountdownPaused -> fmt(state.setCountdownPausedSecs ?: 0)
+            pendingTimed != null -> fmt(pendingTimed.value)
+            else -> fmt(state.stopwatchSecs)
+        },
+        style = MaterialTheme.typography.displaySmall,
+        textAlign = TextAlign.Center,
+        color = when {
+            restRunning -> MaterialTheme.colorScheme.primary
+            setCountdownPaused -> MaterialTheme.colorScheme.onSurfaceVariant
+            else -> MaterialTheme.colorScheme.onSurface
+        },
+    )
+}
+
 @Composable
 private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
     // One centered timer wearing three hats: rest countdown → timed-set countdown →
@@ -1282,33 +1321,7 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                stringResource(
-                    when {
-                        restRunning -> R.string.rest
-                        setCountdownRunning || setCountdownPaused || pendingTimed != null ->
-                            R.string.set_timer
-                        else -> R.string.log_set_duration
-                    }
-                ),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Text(
-                when {
-                    restRunning -> fmt(state.restRemainingSecs ?: 0)
-                    setCountdownRunning -> fmt(state.setCountdownRemainingSecs ?: 0)
-                    setCountdownPaused -> fmt(state.setCountdownPausedSecs ?: 0)
-                    pendingTimed != null -> fmt(pendingTimed.value)
-                    else -> fmt(state.stopwatchSecs)
-                },
-                style = MaterialTheme.typography.displaySmall,
-                textAlign = TextAlign.Center,
-                color = when {
-                    restRunning -> MaterialTheme.colorScheme.primary
-                    setCountdownPaused -> MaterialTheme.colorScheme.onSurfaceVariant
-                    else -> MaterialTheme.colorScheme.onSurface
-                },
-            )
+            TimerReadout(state, pendingTimed)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,

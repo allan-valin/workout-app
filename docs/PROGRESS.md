@@ -1335,4 +1335,9 @@ versionCode 7 / versionName 0.7.0. TDD throughout: every task started from a fai
 - Why: the 02/08 migration check was done by building two APKs and tapping through the UI, which
   cost a whole session (and OOM-froze the machine when the second Gradle daemon collided with
   the running AVD). This makes it `./gradlew connectedDebugAndroidTest`.
+- `TimerReadoutTest` closes the last `n/v` row: the two readout lines were split out of
+  `TimerPanel` (which needs the view model for its buttons) into an internal `TimerReadout`, so
+  the rendering can be asserted — "Set timer / 0:45" for a SECS set, "Log set duration / 0:00"
+  for a rep set, and a running rest outranking a pending timed set. No behaviour change.
+- 5 instrumented tests, 260 unit tests, all green.
 
