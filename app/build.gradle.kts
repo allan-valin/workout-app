@@ -14,8 +14,8 @@ android {
         applicationId = "dev.allan.workoutapp"
         minSdk = 29
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.6.0"
+        versionCode = 7
+        versionName = "0.7.0"
 
         // Spotify App Remote credentials. The client id is per-developer (register the app
         // at developer.spotify.com with this applicationId + your signing SHA1), so it lives

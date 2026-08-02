@@ -1288,3 +1288,34 @@ Suite total: 91 tests, 0 failures.
 - EMULATOR: only the disabled path is testable (verified: switch hidden, no crash, session
   screen unchanged). REDMI CHECKLIST: register the app, set SPOTIFY_CLIENT_ID, then confirm
   connect, transport, and that the heart actually saves to Liked Songs.
+
+## Phase 32 — 02/08 feedback batch (timing, suggestions, summary, notes)
+
+Spec: `docs/FEEDBACK_BATCH_2026-08-02.md`. Plan:
+`docs/superpowers/plans/2026-08-02-session-timing-suggestions-notes.md`. DB v9 → v11,
+versionCode 7 / versionName 0.7.0. TDD throughout: every task started from a failing test.
+
+- ProgressionEngine rewritten: one *uniform* finished session (same reps, same weight on
+  every working set) drives the chip instead of two sessions in a row; ADD_REP carries the
+  real surplus over the target; a session below the floor suggests DROP_WEIGHT. Ceiling is
+  the explicit range max, or target + 4 when the target is fixed.
+- ROOT CAUSE of the "app forgets my changes" reports: `startOrResume()` re-runs on every
+  ON_RESUME (SessionScreen's lifecycle observer) and on every in-session template edit, and
+  it rebuilt every SessionSet from the drafts while recomputing the suggestion. apply and
+  dismiss only touched in-memory state. Now: apply writes drafts, and apply / dismiss /
+  manual edit persist a `session_suggestion_state` row (v10). Logging a set deliberately
+  does NOT answer the chip.
+- Active time: completed set countdowns book their seconds as they finish (same timer twice
+  = two bookings); a rep set logged within 20 s of a measured one books nothing, because in
+  a superset one stopwatch run spans both exercises; otherwise the cadence estimate
+  (`SetTiming`, sum of tempo phases × reps) or 40 s. Measured durations lose 5 s for getting
+  into position. The workout estimate uses the same rule.
+- Panel offers a timed set's countdown before it is started; a set logged faster than its
+  cadence (>15 %) gets a brief red note, slower is fine.
+- Rest notification spells the remaining m:ss out and re-posts every second (HyperOS never
+  ticked the chronometer). Home tab gains a card to the last kept session's summary.
+- Set rows: reps get −/+ steppers matching weight; column weights rebalanced (3.4 / 2.6).
+- Notes can be pinned (v11 `exercise_note.pinned`) and then show as a tappable line under the
+  exercise image. Only the in-session sheet offers the toggle; other sheets preserve it.
+- STILL TO VERIFY: the whole batch is build + unit-test green and NOT yet emulator-verified.
+
