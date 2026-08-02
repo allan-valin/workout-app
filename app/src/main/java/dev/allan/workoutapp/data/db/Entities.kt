@@ -192,6 +192,20 @@ data class SessionSetDraft(
 )
 
 /**
+ * "This exercise's progression chip has been answered in this session" — set when the user
+ * applies it, dismisses it, or edits the reps by hand. Persisted because
+ * SessionViewModel.startOrResume() re-runs on every ON_RESUME and every in-session template
+ * edit, and would otherwise recompute the chip and show it again (Allan, 02/08).
+ */
+@Serializable
+@Entity(tableName = "session_suggestion_state", primaryKeys = ["sessionId", "workoutExerciseId"])
+data class SessionSuggestionState(
+    val sessionId: Long,
+    val workoutExerciseId: Long,
+    val handled: Boolean = true,
+)
+
+/**
  * User-added video link (e.g. YouTube) per exercise. Lives in its own table so wger
  * snapshot refreshes (which replace the exercise tables) never touch it.
  */

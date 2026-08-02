@@ -519,6 +519,15 @@ interface SessionDao {
     @Query("DELETE FROM session_set_draft WHERE sessionId = :sessionId")
     suspend fun deleteDrafts(sessionId: Long)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSuggestionState(state: SessionSuggestionState)
+
+    @Query("SELECT * FROM session_suggestion_state WHERE sessionId = :sessionId")
+    suspend fun suggestionStates(sessionId: Long): List<SessionSuggestionState>
+
+    @Query("DELETE FROM session_suggestion_state WHERE sessionId = :sessionId")
+    suspend fun deleteSuggestionStates(sessionId: Long)
+
     @Query("SELECT * FROM set_log WHERE sessionId = :sessionId ORDER BY completedAt")
     suspend fun setLogs(sessionId: Long): List<SetLog>
 
