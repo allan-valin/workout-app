@@ -115,6 +115,34 @@ fun SessionUiState.openingExercise(index: Int): SessionUiState =
     copy(currentIndex = index, showList = false, pendingSwipeTo = null)
 
 /**
+ * The sets after taking a progression suggestion. Only undone REPS working sets change.
+ * Weight changes reset the reps to the plan's floor: the point of changing the load is to
+ * work through the range again (Allan, 02/08).
+ */
+fun applySuggestedSets(
+    sets: List<SessionSet>,
+    suggestion: dev.allan.workoutapp.data.ProgressionEngine.Suggestion,
+): List<SessionSet> {
+    return sets.map { set ->
+        val working = !set.done && set.valueUnit == ValueUnit.REPS &&
+            (set.type == SetType.NORMAL || set.type == SetType.FAILURE)
+        if (!working) return@map set
+        when (suggestion.kind) {
+            dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_WEIGHT -> set.copy(
+                weightKg = set.weightKg + suggestion.weightIncrementKg,
+                value = set.targetMin,
+            )
+            dev.allan.workoutapp.data.ProgressionEngine.Kind.DROP_WEIGHT -> set.copy(
+                weightKg = (set.weightKg - suggestion.weightIncrementKg).coerceAtLeast(0.0),
+                value = set.targetMin,
+            )
+            dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_REP ->
+                set.copy(value = set.value + suggestion.repIncrement)
+        }
+    }
+}
+
+/**
  * Superset-aware set order. Exercises marked supersetWithPrev form a chain with their
  * predecessor; a chain's sets interleave by round: A1, B1, A2, B2, … Rest only happens
  * after the last chain member of a round.
@@ -263,6 +291,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         if (templateSnapshot.isEmpty()) templateSnapshot = templates
         val loggedSets = db.sessionDao().setLogs(session.id)
         val drafts = db.sessionDao().drafts(session.id).associateBy { it.templateId }
+        // Chips already answered this session stay gone — recomputing them here is what made
+        // a dismissed suggestion come back on every resume (Allan, 02/08).
+        val handledSuggestions = db.sessionDao().suggestionStates(session.id)
+            .filter { it.handled }.map { it.workoutExerciseId }.toSet()
 
         val exercises = wes.map { we ->
             val previous = db.sessionDao().previousLogs(we.id)
@@ -297,7 +329,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 imagePath = exercise?.imagePath,
                 sets = sets,
                 supersetWithPrev = we.supersetWithPrev,
-                suggestion = dev.allan.workoutapp.data.ProgressionEngine.suggest(
+                suggestion = if (we.id in handledSuggestions) null
+                else dev.allan.workoutapp.data.ProgressionEngine.suggest(
                     templates = weTemplates,
                     history = previous,
                     primaryMuscles = exercise?.primaryMuscles ?: emptyList(),
@@ -382,6 +415,19 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     /**
+     * A number the user typed or stepped by hand. Same write as [updateSet], plus: editing
+     * the value yourself answers the progression chip, which used to keep nagging after a
+     * manual change (Allan, 02/08). Logging a set goes through [updateSet] directly and
+     * deliberately leaves the chip alone.
+     */
+    fun editSetValue(exerciseIndex: Int, set: SessionSet) {
+        updateSet(exerciseIndex, set)
+        if (_state.value.exercises.getOrNull(exerciseIndex)?.suggestion != null) {
+            dismissSuggestion(exerciseIndex)
+        }
+    }
+
+    /**
      * Weight edit with forward-fill: sets after this one that are still 0 kg and undone
      * get the same weight, so one input covers the usual same-weight-all-sets case.
      */
@@ -405,6 +451,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         )
         newSets.filterIndexed { i, s -> i == editedIndex || s.weightKg != ex.sets[i].weightKg }
             .forEach(::saveDraft)
+        // Setting the weight yourself answers a weight suggestion (only ever called from the UI).
+        if (_state.value.exercises.getOrNull(exerciseIndex)?.suggestion != null) {
+            dismissSuggestion(exerciseIndex)
+        }
     }
 
     private fun saveDraft(set: SessionSet) {
@@ -425,21 +475,14 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     fun applySuggestion(exerciseIndex: Int) {
         val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
         val s = ex.suggestion ?: return
-        val newSets = ex.sets.map { set ->
-            val working = !set.done && set.valueUnit == ValueUnit.REPS &&
-                (set.type == SetType.NORMAL || set.type == SetType.FAILURE)
-            when {
-                !working -> set
-                s.kind == dev.allan.workoutapp.data.ProgressionEngine.Kind.ADD_WEIGHT ->
-                    set.copy(weightKg = set.weightKg + s.weightIncrementKg)
-                s.kind == dev.allan.workoutapp.data.ProgressionEngine.Kind.DROP_WEIGHT ->
-                    set.copy(weightKg = (set.weightKg - s.weightIncrementKg).coerceAtLeast(0.0))
-                else -> set.copy(value = set.value + s.repIncrement)
-            }
-        }
+        val newSets = applySuggestedSets(ex.sets, s)
         val exercises = _state.value.exercises.toMutableList()
         exercises[exerciseIndex] = ex.copy(sets = newSets, suggestion = null)
         _state.value = _state.value.copy(exercises = exercises)
+        // Drafts are what startOrResume() reads back — without this write the applied
+        // numbers died on the next ON_RESUME or template edit (Allan, 02/08).
+        newSets.forEach(::saveDraft)
+        markSuggestionHandled(ex.workoutExerciseId)
     }
 
     fun dismissSuggestion(exerciseIndex: Int) {
@@ -447,6 +490,20 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         val exercises = _state.value.exercises.toMutableList()
         exercises[exerciseIndex] = ex.copy(suggestion = null)
         _state.value = _state.value.copy(exercises = exercises)
+        markSuggestionHandled(ex.workoutExerciseId)
+    }
+
+    /** Remember, for this session, that the chip was answered — apply, ✕, or a manual edit. */
+    private fun markSuggestionHandled(workoutExerciseId: Long) {
+        val sessionId = _state.value.sessionId ?: return
+        viewModelScope.launch {
+            db.sessionDao().upsertSuggestionState(
+                dev.allan.workoutapp.data.db.SessionSuggestionState(
+                    sessionId = sessionId,
+                    workoutExerciseId = workoutExerciseId,
+                )
+            )
+        }
     }
 
     /** Log a set: write SetLog, mark done, start its rest countdown, show timer panel.
@@ -837,6 +894,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 )
             )
             db.sessionDao().deleteDrafts(sessionId)
+            db.sessionDao().deleteSuggestionStates(sessionId)
             SessionManager.clear()
             TimerService.stop(getApplication())
             _state.value = _state.value.copy(finished = true)

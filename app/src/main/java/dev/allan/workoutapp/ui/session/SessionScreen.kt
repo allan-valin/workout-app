@@ -1050,7 +1050,7 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             onDismiss = { editTarget = null },
             onConfirm = { newValue ->
                 if (field == "weight") vm.updateWeight(page, set, newValue.coerceAtLeast(0.0))
-                else vm.updateSet(page, set.copy(value = newValue.toInt().coerceAtLeast(0)))
+                else vm.editSetValue(page, set.copy(value = newValue.toInt().coerceAtLeast(0)))
                 editTarget = null
             },
             weightMode = if (field == "weight") ex.weightMode else null,
