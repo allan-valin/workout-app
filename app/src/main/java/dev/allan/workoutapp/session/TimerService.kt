@@ -34,6 +34,7 @@ class TimerService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var alertRunnable: Runnable? = null
+    private var tickRunnable: Runnable? = null
 
     // Latest beep prefs, cached so fireAlert (main thread) never blocks on DataStore.
     private val settingsScope =
@@ -66,13 +67,16 @@ class TimerService : Service() {
                 val label = intent.getStringExtra(EXTRA_LABEL) ?: getString(R.string.rest)
                 notify(buildNotification(title = label, chronometerBase = endAt, countDown = true))
                 scheduleAlert(endAt)
+                scheduleTick(label, endAt)
             }
             ACTION_SHOW_DEFAULT -> {
                 cancelAlert()
+                cancelTick()
                 notify(defaultNotification())
             }
             ACTION_STOP -> {
                 cancelAlert()
+                cancelTick()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -109,12 +113,15 @@ class TimerService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .apply {
-                // Text fallback for skins that don't tick the chronometer (HyperOS):
-                // countdowns name their end time explicitly.
+                // The chronometer is not ticked by every skin (HyperOS), which made the rest
+                // countdown look frozen — the remaining time is spelled out here and the
+                // notification is re-posted every second by scheduleTick() (Allan, 02/08).
                 if (countDown) {
-                    val end = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-                        .format(java.util.Date(chronometerBase))
-                    setContentText(getString(R.string.rest_until, end))
+                    val remaining = ((chronometerBase - System.currentTimeMillis()) / 1000L)
+                        .coerceAtLeast(0L).toInt()
+                    setContentText(
+                        getString(R.string.rest_remaining, remaining / 60, remaining % 60)
+                    )
                 }
             }
             .setContentIntent(tapIntent)
@@ -158,11 +165,31 @@ class TimerService : Service() {
         }
         val r = Runnable {
             fireAlert()
+            cancelTick()
             // Countdown over — swap the notification back to session elapsed time.
             notify(defaultNotification())
         }
         alertRunnable = r
         handler.postDelayed(r, delay)
+    }
+
+    /** Re-post the countdown notification once a second so the remaining time really moves. */
+    private fun scheduleTick(label: String, endAt: Long) {
+        cancelTick()
+        val r = object : Runnable {
+            override fun run() {
+                if (System.currentTimeMillis() >= endAt) return
+                notify(buildNotification(title = label, chronometerBase = endAt, countDown = true))
+                handler.postDelayed(this, 1000)
+            }
+        }
+        tickRunnable = r
+        handler.postDelayed(r, 1000)
+    }
+
+    private fun cancelTick() {
+        tickRunnable?.let(handler::removeCallbacks)
+        tickRunnable = null
     }
 
     private fun cancelAlert() {
