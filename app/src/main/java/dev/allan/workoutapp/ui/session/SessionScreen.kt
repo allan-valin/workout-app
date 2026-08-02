@@ -905,11 +905,12 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                             }
                         }
                     }
-                    // − weight + quick-steppers around the tap-to-edit weight button. The
-                    // horizontal padding keeps the wider column from crowding its neighbours.
+                    // − weight + and − reps + share one stepper shape, so both numbers read the
+                    // same size (Allan, 02/08). Weight keeps the wider column: "137.5" has to
+                    // fit on one line.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(RowWeights.WEIGHT).padding(horizontal = 6.dp),
+                        modifier = Modifier.weight(RowWeights.WEIGHT).padding(horizontal = 2.dp),
                     ) {
                         IconButton(
                             onClick = { vm.updateWeight(page, set, (set.weightKg - 1.0).coerceAtLeast(0.0)) },
@@ -924,10 +925,14 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                         }
                         OutlinedButton(
                             onClick = { editTarget = set to "weight" },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp),
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("${if (set.weightKg % 1.0 == 0.0) set.weightKg.toInt() else set.weightKg}")
+                            Text(
+                                "${if (set.weightKg % 1.0 == 0.0) set.weightKg.toInt() else set.weightKg}",
+                                maxLines = 1,
+                                softWrap = false,
+                            )
                         }
                         IconButton(
                             onClick = { vm.updateWeight(page, set, set.weightKg + 1.0) },
@@ -941,12 +946,41 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
                             )
                         }
                     }
-                    OutlinedButton(
-                        onClick = { editTarget = set to "value" },
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
-                        modifier = Modifier.weight(RowWeights.VALUE),
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(RowWeights.VALUE).padding(horizontal = 2.dp),
                     ) {
-                        Text("${set.value}")
+                        IconButton(
+                            onClick = {
+                                vm.editSetValue(page, set.copy(value = (set.value - 1).coerceAtLeast(0)))
+                            },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Remove,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { editTarget = set to "value" },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("${set.value}", maxLines = 1, softWrap = false)
+                        }
+                        IconButton(
+                            onClick = { vm.editSetValue(page, set.copy(value = set.value + 1)) },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     // Reference goal from the plan (what you aim for, not what you log) — tap to edit.
                     // Single line always: "14–16" wrapping its last digit onto a second line
@@ -1128,8 +1162,9 @@ private fun SessionHeader(text: String, modifier: Modifier = Modifier) {
  */
 private object RowWeights {
     const val TYPE = 0.7f
-    const val WEIGHT = 4.2f
-    const val VALUE = 1.2f
+    // Both number cells are steppers now, so they share the width more evenly (02/08).
+    const val WEIGHT = 3.4f
+    const val VALUE = 2.6f
     const val TARGET = 1.3f
     const val PLAY = 0.45f
     const val CHECK = 0.65f
