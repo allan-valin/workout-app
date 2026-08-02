@@ -187,16 +187,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Every migration, in one place so the instrumented migration test exercises exactly
+         * what the app ships (AppDatabaseMigrationTest). Keep new migrations appended here.
+         */
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+            MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+        )
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "workout.db",
-                ).addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                    MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
-                )
+                ).addMigrations(*ALL_MIGRATIONS)
                     .build().also { instance = it }
             }
     }

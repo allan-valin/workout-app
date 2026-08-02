@@ -1317,5 +1317,22 @@ versionCode 7 / versionName 0.7.0. TDD throughout: every task started from a fai
 - Set rows: reps get −/+ steppers matching weight; column weights rebalanced (3.4 / 2.6).
 - Notes can be pinned (v11 `exercise_note.pinned`) and then show as a tappable line under the
   exercise image. Only the in-session sheet offers the toggle; other sheets preserve it.
-- STILL TO VERIFY: the whole batch is build + unit-test green and NOT yet emulator-verified.
+- VERIFIED 02/08 (emulator pass, see `docs/AUDIT_2026-07-25.md`): all 12 rows of the batch are
+  `OK`. A v9 build was installed, seeded, then upgraded in place — `user_version` 9 → 11 with no
+  data loss. Evidence came from `set_log`/`session_suggestion_state` rows rather than
+  screenshots: 40 s flat default, 31 s (36 measured − 5), 27 s then **0** for the partner logged
+  3 s later, `handled=1` plus drafts at 20.0/11. Remaining: the Redmi (deferred to 1.0) and the
+  Compose rendering of the countdown panel.
+
+## Phase 33 — migrations get an automated test
+
+- `app/src/androidTest/.../AppDatabaseMigrationTest.kt`: Room `MigrationTestHelper` seeds a v9
+  database, runs the shipped migrations to 11, and asserts the pre-existing note survived with
+  `pinned = 0`, plus a v1 → v11 walk so every intermediate step validates. 2 tests, both green
+  on `testphone`.
+- `AppDatabase.ALL_MIGRATIONS` is now public so the test exercises exactly what `get()` ships,
+  instead of a copy that can drift.
+- Why: the 02/08 migration check was done by building two APKs and tapping through the UI, which
+  cost a whole session (and OOM-froze the machine when the second Gradle daemon collided with
+  the running AVD). This makes it `./gradlew connectedDebugAndroidTest`.
 
