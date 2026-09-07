@@ -1341,3 +1341,19 @@ versionCode 7 / versionName 0.7.0. TDD throughout: every task started from a fai
   for a rep set, and a running rest outranking a pending timed set. No behaviour change.
 - 5 instrumented tests, 260 unit tests, all green.
 
+
+## Phase 34 — 07/08–29/08 feedback batch (NEXT UP, not started)
+
+Spec: `docs/FEEDBACK_BATCH_2026-08-29.md` — 19 items from Allan's gym sessions, batches A–F:
+A session-screen correctness (missing images, set-type repaint, fast-swipe freeze, skipped-set
+highlight, cadence in supersets), B timers (log button follows the timer, cardio auto-chaining,
+cadence blink), C no-surprise UX (undo for accidental un-log, note background, IME padding,
+keep-screen-on), D editor/session colour parity, E muscle attribution + weight-evolution export,
+F brainstorm-first features (mirror mode, Spotify everywhere, watch notifications).
+
+Six **[ask]** questions are listed in the doc — answer them before starting B2, B3, C4, E2, F2, F3.
+
+New cycle imported 2026-09-07: `~/Downloads/plan_fortalecimento_fase2.json`, generated from
+`Rotina: FORTALECIMENTO - fase 2.pdf` (6 workouts, 57 exercises). Cadences from the PDF live in
+the exercise `note` because the transfer schema has no per-set `tempo` field — see the last
+section of the batch doc.
