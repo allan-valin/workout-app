@@ -152,6 +152,7 @@
     <string name="export_sets_csv">Export sets (CSV)</string>
     <string name="export_sessions_csv">Export sessions (CSV)</string>
     <string name="export_body_csv">Export body weight (CSV)</string>
+    <string name="export_weights_csv">Export weight evolution (CSV)</string>
     <string name="backup">Backup</string>
     <string name="export_backup">Full backup (JSON)</string>
     <string name="restore_backup">Restore backup</string>
@@ -305,9 +306,9 @@
     <string name="swap_default_config">Default (3 × 10, 60 s rest)</string>
     <string name="muscles_worked">Muscles worked</string>
     <string name="muscles_worked_cycle">Muscles worked this cycle</string>
-    <string name="muscle_legend_header">Shade = training volume</string>
+    <string name="muscle_legend_header">Shade = working sets (secondary muscles count half)</string>
     <string name="switch_model">Switch model</string>
-    <string name="muscle_legend_unit">exercises</string>
+    <string name="muscle_legend_unit">sets</string>
     <string name="movement">Movement</string>
     <string name="movement_download">Download movement animation</string>
     <string name="movement_failed">Download failed — tap to retry</string>

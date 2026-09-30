@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter
 object CsvExport {
 
     private val dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    private val dayFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
     private fun ts(millis: Long): String =
         dateFmt.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
@@ -48,6 +49,51 @@ object CsvExport {
                 .append(log.valueUnit.name).append(',')
                 .append(log.activeSecs ?: "").append(',')
                 .append(log.restSecs ?: "").append('\n')
+        }
+        return sb.toString()
+    }
+
+    /** One trained (exercise, day) with the heaviest working weight of that day. */
+    data class WeightPoint(val exerciseName: String, val date: String, val weightKg: Double)
+
+    /**
+     * Weight evolution of the active cycle as a pivot table: one row per exercise, one column
+     * per training day, cell = top working (non-warm-up) weight that day — readable in a
+     * spreadsheet as-is (Allan, 29/08). Sessions count when they belong to one of the active
+     * plan's workouts and started after the plan did.
+     */
+    suspend fun weightEvolution(db: AppDatabase, lang: String): String {
+        val plan = db.planDao().activePlanNow() ?: return weightPivot(emptyList())
+        val workoutIds = db.planDao().workoutsList(plan.id).map { it.id }.toSet()
+        val since = plan.startedAt ?: 0L
+        val sessions = db.sessionDao().finishedSessions()
+            .filter { it.workoutId in workoutIds && it.startedAt >= since }
+            .associateBy { it.id }
+        val names = mutableMapOf<String, String>()
+        val points = db.sessionDao().allSetLogs()
+            .filter { it.sessionId in sessions && it.type != dev.allan.workoutapp.data.db.SetType.WARMUP && it.weightKg > 0.0 }
+            .map { log ->
+                WeightPoint(
+                    exerciseName = names.getOrPut(log.exerciseId) { PlanRepo.displayName(db, log.exerciseId, lang) },
+                    date = dayFmt.format(Instant.ofEpochMilli(log.completedAt).atZone(ZoneId.systemDefault())),
+                    weightKg = log.weightKg,
+                )
+            }
+        return weightPivot(points)
+    }
+
+    /** Pure pivot builder behind [weightEvolution]; exercises sorted by name, days ascending. */
+    fun weightPivot(points: List<WeightPoint>): String {
+        val days = points.map { it.date }.distinct().sorted()
+        val byExercise = points.groupBy { it.exerciseName }.toSortedMap()
+        val sb = StringBuilder("exercise")
+        days.forEach { sb.append(',').append(it) }
+        sb.append('\n')
+        byExercise.forEach { (name, pts) ->
+            val top = pts.groupBy { it.date }.mapValues { (_, p) -> p.maxOf { it.weightKg } }
+            sb.append(esc(name))
+            days.forEach { d -> sb.append(',').append(top[d]?.toString() ?: "") }
+            sb.append('\n')
         }
         return sb.toString()
     }

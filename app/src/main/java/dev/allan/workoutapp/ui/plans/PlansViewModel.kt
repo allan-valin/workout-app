@@ -55,14 +55,19 @@ class PlansViewModel(app: Application) : AndroidViewModel(app) {
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val activePlanMuscleLoad: StateFlow<Map<Int, Float>> =
         activePlanWorkouts.map { workouts ->
-            val pairs = mutableListOf<Pair<List<Int>, List<Int>>>()
+            val entries = mutableListOf<dev.allan.workoutapp.data.MuscleMap.Entry>()
             workouts.forEach { w ->
                 db.planDao().workoutExercisesList(w.id).forEach { we ->
                     val ex = db.exerciseDao().exercise(we.exerciseId)
-                    pairs += (ex?.primaryMuscles ?: emptyList()) to (ex?.secondaryMuscles ?: emptyList())
+                    entries += dev.allan.workoutapp.data.MuscleMap.Entry(
+                        primary = ex?.primaryMuscles ?: emptyList(),
+                        secondary = ex?.secondaryMuscles ?: emptyList(),
+                        sets = db.planDao().setTemplatesList(we.id)
+                            .count { it.type != dev.allan.workoutapp.data.db.SetType.WARMUP },
+                    )
                 }
             }
-            dev.allan.workoutapp.data.MuscleMap.muscleLoad(pairs)
+            dev.allan.workoutapp.data.MuscleMap.muscleLoad(entries)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     /** Workout ids currently in the active plan — labels them in Archive/Add screens. */

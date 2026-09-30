@@ -54,6 +54,7 @@ import dev.allan.workoutapp.data.db.SessionStatus
 import dev.allan.workoutapp.session.SessionManager
 import dev.allan.workoutapp.session.TimerService
 import dev.allan.workoutapp.data.db.SetTemplate
+import dev.allan.workoutapp.data.db.SetType
 import dev.allan.workoutapp.data.db.ValueUnit
 import dev.allan.workoutapp.data.db.Workout
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,11 +128,15 @@ class WorkoutViewViewModel(app: Application, private val workoutId: Long, privat
     val muscleLoad: StateFlow<Map<Int, Float>> =
         db.planDao().workoutExercises(workoutId)
             .map { wes ->
-                val pairs = wes.map { we ->
+                val entries = wes.map { we ->
                     val ex = db.exerciseDao().exercise(we.exerciseId)
-                    (ex?.primaryMuscles ?: emptyList()) to (ex?.secondaryMuscles ?: emptyList())
+                    dev.allan.workoutapp.data.MuscleMap.Entry(
+                        primary = ex?.primaryMuscles ?: emptyList(),
+                        secondary = ex?.secondaryMuscles ?: emptyList(),
+                        sets = db.planDao().setTemplatesList(we.id).count { it.type != SetType.WARMUP },
+                    )
                 }
-                dev.allan.workoutapp.data.MuscleMap.muscleLoad(pairs)
+                dev.allan.workoutapp.data.MuscleMap.muscleLoad(entries)
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 

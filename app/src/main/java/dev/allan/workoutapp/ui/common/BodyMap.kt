@@ -32,6 +32,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import dev.allan.workoutapp.R
 import dev.allan.workoutapp.data.MuscleMap
+import dev.allan.workoutapp.data.MuscleNames
+import kotlin.math.roundToInt
 import dev.allan.workoutapp.data.Settings
 import kotlinx.coroutines.launch
 
@@ -58,6 +60,12 @@ fun BodyMap(
     val female by Settings.bodyFemale(context).collectAsState(initial = false)
     val scope = rememberCoroutineScope()
     val suffix = if (female) "-f" else ""
+    // Shading is relative to the heaviest muscle: the load is in working sets now, so the
+    // absolute 1..4 scale of the exercise-count days would saturate on any real workout.
+    val max = load.values.maxOrNull()?.takeIf { it > 0f } ?: 1f
+    val db = remember { (context.applicationContext as dev.allan.workoutapp.WorkoutApp).db }
+    val muscles by remember { db.exerciseDao().muscles() }.collectAsState(initial = emptyList())
+    val lang = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language
     Column(modifier) {
         if (title != null) {
             Text(
@@ -67,11 +75,25 @@ fun BodyMap(
                 modifier = Modifier.padding(bottom = 4.dp),
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BodyView("body/front$suffix.svg", suffix, BODY_ASPECT, MuscleMap.FRONT_IDS, load, loader, Modifier.weight(1f))
-            BodyView("body/back$suffix.svg", suffix, BODY_ASPECT, MuscleMap.BACK_IDS, load, loader, Modifier.weight(1f))
+        // The ranking in words, so "targets quads the most" can be checked against the
+        // numbers instead of a shade (Allan, 29/08).
+        val top = MuscleMap.topShares(load, 3)
+        if (top.isNotEmpty() && muscles.isNotEmpty()) {
+            val byId = muscles.associateBy { it.id }
+            Text(
+                top.joinToString(" · ") { (id, share) ->
+                    val name = byId[id]?.let { MuscleNames.display(it.nameEn, lang) } ?: "#$id"
+                    "$name ${(share * 100).roundToInt()}%"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
         }
-        Legend(onSwitchModel = { scope.launch { Settings.setBodyFemale(context, !female) } })
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            BodyView("body/front$suffix.svg", suffix, BODY_ASPECT, MuscleMap.FRONT_IDS, load, max, loader, Modifier.weight(1f))
+            BodyView("body/back$suffix.svg", suffix, BODY_ASPECT, MuscleMap.BACK_IDS, load, max, loader, Modifier.weight(1f))
+        }
+        Legend(max, onSwitchModel = { scope.launch { Settings.setBodyFemale(context, !female) } })
     }
 }
 
@@ -82,6 +104,7 @@ private fun BodyView(
     aspect: Float,
     ids: Set<Int>,
     load: Map<Int, Float>,
+    max: Float,
     loader: ImageLoader,
     modifier: Modifier,
 ) {
@@ -105,22 +128,17 @@ private fun BodyView(
                 imageLoader = loader,
                 contentDescription = null,
                 contentScale = ContentScale.FillBounds,
-                colorFilter = ColorFilter.tint(loadColor(l)),
+                colorFilter = ColorFilter.tint(loadColor(l / max)),
                 modifier = Modifier.fillMaxWidth().aspectRatio(aspect),
             )
         }
     }
 }
 
-/** Legend: colored squares mapping shade -> number of exercises hitting the muscle. */
+/** Legend: colored squares mapping shade -> working sets on the muscle (quarters of the max). */
 @Composable
-private fun Legend(onSwitchModel: () -> Unit) {
-    val steps = listOf(
-        1f to "1",
-        2f to "2",
-        3f to "3",
-        4f to "4+",
-    )
+private fun Legend(max: Float, onSwitchModel: () -> Unit) {
+    val steps = listOf(0.25f, 0.5f, 0.75f, 1f).map { t -> t to fmtSets(max * t) }
     Column(Modifier.padding(top = 8.dp)) {
         Text(
             androidx.compose.ui.res.stringResource(R.string.muscle_legend_header),
@@ -166,13 +184,17 @@ private fun Legend(onSwitchModel: () -> Unit) {
     }
 }
 
+/** "3" or "1.5" — half sets exist because a secondary muscle counts half. */
+private fun fmtSets(v: Float): String =
+    if (v == v.roundToInt().toFloat()) v.roundToInt().toString() else String.format(java.util.Locale.ROOT, "%.1f", v)
+
 /**
- * Light blue at load ~1 up to deep blue at load >=4 — the over/under-trained signal.
- * Blue matches the app's icon/accent language (Allan 2026-07-11).
+ * Light blue for the lightest-loaded muscle up to deep blue for the heaviest ([t] = share of
+ * the max) — the over/under-trained signal. Blue matches the app's icon/accent language
+ * (Allan 2026-07-11).
  */
-private fun loadColor(load: Float): Color {
+private fun loadColor(t: Float): Color {
     val light = Color(0xFF90CAF9)
     val deep = Color(0xFF1565C0)
-    val t = ((load - 1f) / 3f).coerceIn(0f, 1f)
-    return androidx.compose.ui.graphics.lerp(light, deep, t)
+    return androidx.compose.ui.graphics.lerp(light, deep, t.coerceIn(0f, 1f))
 }

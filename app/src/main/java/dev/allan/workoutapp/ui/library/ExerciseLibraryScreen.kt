@@ -2,6 +2,7 @@ package dev.allan.workoutapp.ui.library
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -400,7 +401,9 @@ private fun CustomExerciseDialog(
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                modifier = Modifier
+                    .imePadding()
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState()),
             ) {
                 NamePartSlot(
                     labelText = stringResource(R.string.filter_pattern),
@@ -450,6 +453,7 @@ private fun CustomExerciseDialog(
                     onValueChange = { description = it },
                     label = { Text(stringResource(R.string.description)) },
                     minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,

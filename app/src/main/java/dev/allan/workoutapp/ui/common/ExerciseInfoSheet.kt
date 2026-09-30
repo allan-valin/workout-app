@@ -3,6 +3,7 @@ package dev.allan.workoutapp.ui.common
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -71,8 +72,11 @@ fun ExerciseInfoSheet(
         // note and link fields into overlapping slivers with their labels clipped away
         // (Allan, 26/07). Without a scroll the Column has no way to overflow, so the children
         // are what gets compressed.
+        // imePadding BEFORE the scroll: the viewport shrinks above the keyboard, so the focused
+        // note/link field is brought into view instead of hiding behind it (Allan, 29/08).
         Column(
             Modifier
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

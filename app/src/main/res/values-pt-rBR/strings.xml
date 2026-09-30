@@ -152,6 +152,7 @@
     <string name="export_sets_csv">Exportar séries (CSV)</string>
     <string name="export_sessions_csv">Exportar sessões (CSV)</string>
     <string name="export_body_csv">Exportar peso corporal (CSV)</string>
+    <string name="export_weights_csv">Exportar evolução das cargas (CSV)</string>
     <string name="backup">Backup</string>
     <string name="export_backup">Backup completo (JSON)</string>
     <string name="restore_backup">Restaurar backup</string>
@@ -305,9 +306,9 @@
     <string name="swap_default_config">Padrão (3 × 10, 60 s de descanso)</string>
     <string name="muscles_worked">Músculos trabalhados</string>
     <string name="muscles_worked_cycle">Músculos trabalhados no ciclo</string>
-    <string name="muscle_legend_header">Tom = volume de treino</string>
+    <string name="muscle_legend_header">Tom = séries de trabalho (músculos secundários contam metade)</string>
     <string name="switch_model">Trocar modelo</string>
-    <string name="muscle_legend_unit">exercícios</string>
+    <string name="muscle_legend_unit">séries</string>
     <string name="movement">Movimento</string>
     <string name="movement_download">Baixar animação do movimento</string>
     <string name="movement_failed">Falha no download — toque para tentar de novo</string>

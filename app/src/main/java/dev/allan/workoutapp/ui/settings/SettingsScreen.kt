@@ -251,6 +251,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             val content = when (kind) {
                 "sets" -> CsvExport.sets(db, lang)
                 "sessions" -> CsvExport.sessions(db)
+                "weights" -> CsvExport.weightEvolution(db, lang)
                 else -> CsvExport.body(db)
             }
             write(uri, content)
@@ -383,6 +384,10 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                         onClick = { csvKind = "sessions"; exportCsvLauncher.launch("workout_sessions.csv") },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.export_sessions_csv)) }
+                    OutlinedButton(
+                        onClick = { csvKind = "weights"; exportCsvLauncher.launch("weight_evolution.csv") },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.export_weights_csv)) }
                     OutlinedButton(
                         onClick = { csvKind = "body"; exportCsvLauncher.launch("body_weight.csv") },
                         modifier = Modifier.fillMaxWidth(),
