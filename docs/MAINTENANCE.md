@@ -156,3 +156,12 @@ spacer below the content and `scrollTo(maxValue)` once the spacer is laid out
 (`liftOnFocus()`); verified with the note field at y≈980 against a keyboard top of 1517.
 Diagnose with `adb shell dumpsys window windows` (`sim={adjust=…}` per window) and
 `dumpsys window | grep imeInputTarget`.
+
+## Emulator UI driving (`tools/emu_ui.py`, 2026-09-30)
+
+`python3 tools/emu_ui.py dump|tap|tapxy|swipe|back|text|shot` wraps `adb shell uiautomator dump`
++ `input` for headless passes (see the file's docstring for the traps). Verify with assertions
+where possible: pull the DB (`adb root`; `adb pull /data/data/dev.allan.workoutapp/databases/`
+all three files, then `sqlite3`), `content query --uri content://media/external/video/media`
+for recordings, `dumpsys window windows` for window flags, pixel sampling of screenshots for
+colours. The release build has no `sqlite3` on the device and no `run-as`.
