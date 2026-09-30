@@ -1404,6 +1404,10 @@ exercise" off the bottom with no scroll — the sheet scrolls now and the action
 the title. Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), E2 CSV
 content (WeightPivotTest), F2.
 
+DEMO DEBT (MAINTENANCE rule): `docs/demo.html` was NOT touched for Phase 34 — it has not been
+synced since Phase 12, so the demo lags 20+ phases. Decision for Allan: rewrite the demo from the
+current app, or drop the "mirrors the app" claim from README/MAINTENANCE.
+
 Follow-up same session: `sets[].tempo` added to the transfer JSON (`PlanTransfer.SetDto`, import
 + export, generator doc row + example; `PlanTransferTempoTest`). Cadences from the next cycle PDF
 go straight into the sets instead of the exercise note.
