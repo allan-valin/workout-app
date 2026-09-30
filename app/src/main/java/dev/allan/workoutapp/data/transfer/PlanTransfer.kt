@@ -89,6 +89,8 @@ object PlanTransfer {
         @SerialName("value_max") val valueMax: Int? = null,
         val unit: String = "REPS",
         @SerialName("rest_secs") val restSecs: Int = 90,
+        /** Optional cadence, e.g. "3-1-1-0" (eccentric–pause–concentric–pause seconds). Blank = none. */
+        val tempo: String = "",
     )
 
     data class ImportReport(
@@ -304,6 +306,7 @@ object PlanTransfer {
                         targetValueMax = s.valueMax?.takeIf { it > s.value },
                         valueUnit = runCatching { ValueUnit.valueOf(s.unit) }.getOrDefault(ValueUnit.REPS),
                         restSecs = s.restSecs.coerceIn(0, 3600),
+                        tempo = s.tempo.trim(),
                     )
                 )
             }
@@ -414,6 +417,7 @@ object PlanTransfer {
                         valueMax = s.targetValueMax,
                         unit = s.valueUnit.name,
                         restSecs = s.restSecs,
+                        tempo = s.tempo,
                     )
                 },
             )

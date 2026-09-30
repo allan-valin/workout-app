@@ -34,8 +34,8 @@ Output a single JSON code block (or downloadable `.json` file) named like
             "note": "Pause 1s at chest",
             "sets": [
               { "type": "WARMUP", "weight_kg": 20, "value": 12, "unit": "REPS", "rest_secs": 60 },
-              { "type": "NORMAL", "weight_kg": 40, "value": 10, "value_max": 12, "unit": "REPS", "rest_secs": 120 },
-              { "type": "NORMAL", "weight_kg": 40, "value": 10, "value_max": 12, "unit": "REPS", "rest_secs": 120 },
+              { "type": "NORMAL", "weight_kg": 40, "value": 10, "value_max": 12, "unit": "REPS", "rest_secs": 120, "tempo": "3-1-1-0" },
+              { "type": "NORMAL", "weight_kg": 40, "value": 10, "value_max": 12, "unit": "REPS", "rest_secs": 120, "tempo": "3-1-1-0" },
               { "type": "FAILURE", "weight_kg": 40, "value": 8,  "unit": "REPS", "rest_secs": 180 }
             ]
           },
@@ -86,6 +86,7 @@ Output a single JSON code block (or downloadable `.json` file) named like
 | `sets[].value` + `unit` | `REPS` (count) or `SECS` (timed set → in-app countdown). |
 | `sets[].value_max` | Optional top of the rep range (`REPS` only), e.g. value 10 + value_max 12 = "10–12 reps". Drives the app's progression suggestions — include it for NORMAL sets. |
 | `sets[].rest_secs` | Rest AFTER this set. Sensible defaults: 60 warmup, 90–120 hypertrophy, 180 strength. |
+| `sets[].tempo` | Optional cadence string shown big during the set, e.g. `"3-1-1-0"` = 3 s eccentric, 1 s pause, 1 s concentric, 0 s pause. Omit or `""` for none. The app treats cadence per exercise, so put the same value on every set of the exercise (added 2026-09-30; older files without it still import). |
 
 `primary_muscle` / `secondary_muscles` values (custom_fallback):
 `chest, lats, upper_back, lower_back, traps, front_delts, side_delts, rear_delts, biceps, triceps, forearms, abs, obliques, quads, hamstrings, glutes, calves, adductors, abductors, neck, full_body, cardio`

@@ -1389,3 +1389,7 @@ pager stayed; un-log → snackbar → UNDO → set_log row back (pulled DB); mir
 MediaStore row; note field lifted above the keyboard; Plank timer + swipe → "Log set · Plank".
 Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), A6, B3, D1 (editor
 letter colours), E2 CSV content (WeightPivotTest), F2, custom-exercise dialog keyboard lift.
+
+Follow-up same session: `sets[].tempo` added to the transfer JSON (`PlanTransfer.SetDto`, import
++ export, generator doc row + example; `PlanTransferTempoTest`). Cadences from the next cycle PDF
+go straight into the sets instead of the exercise note.
