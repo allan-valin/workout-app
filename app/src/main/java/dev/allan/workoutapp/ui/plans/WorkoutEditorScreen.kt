@@ -189,12 +189,23 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         }
     }
 
-    /** Most recent OTHER use of [exerciseId] that has set templates (highest id = newest). */
+    /**
+     * "This exercise's last config": the OTHER use of [exerciseId] that was trained most
+     * recently, with the logged weights on top of its templates; if it was never trained
+     * anywhere, the newest row that has templates. Picking the highest id used to land on an
+     * untrained archived copy and bring its stale weights along (Allan, 16/09).
+     */
     private suspend fun findIncomingConfig(excludeWeId: Long, exerciseId: String): List<SetTemplate>? {
-        db.planDao().workoutExercisesByExercise(exerciseId)
+        val candidates = db.planDao().workoutExercisesByExercise(exerciseId)
             .filter { it.id != excludeWeId }
             .sortedByDescending { it.id }
-            .forEach { c -> db.planDao().setTemplatesList(c.id).takeIf { it.isNotEmpty() }?.let { return it } }
+        val trained = dev.allan.workoutapp.data.TemplateCarry.lastTrained(candidates.map { it.id }) {
+            db.sessionDao().previousLogs(it)
+        }
+        if (trained != null) {
+            PlanRepo.trainedTemplates(db, trained).takeIf { it.isNotEmpty() }?.let { return it }
+        }
+        candidates.forEach { c -> db.planDao().setTemplatesList(c.id).takeIf { it.isNotEmpty() }?.let { return it } }
         return null
     }
 

@@ -135,12 +135,18 @@ object PlanRepo {
         )
         db.planDao().workoutExercisesList(sourceWorkoutId).forEach { we ->
             val newWeId = db.planDao().insertWorkoutExercise(we.copy(id = 0, workoutId = newWorkoutId))
-            db.planDao().setTemplatesList(we.id).forEach { t ->
+            // Carry the trained weights, not the day-one targets — the copy has no log history
+            // of its own to prefill from (Allan, 16/09: archived copy showed the warm-up weight).
+            trainedTemplates(db, we.id).forEach { t ->
                 db.planDao().insertSetTemplate(t.copy(id = 0, workoutExerciseId = newWeId))
             }
         }
         return newWorkoutId
     }
+
+    /** [weId]'s set templates with the last finished session's weight/type per slot on top. */
+    suspend fun trainedTemplates(db: AppDatabase, weId: Long): List<dev.allan.workoutapp.data.db.SetTemplate> =
+        TemplateCarry.effective(db.planDao().setTemplatesList(weId), db.sessionDao().previousLogs(weId))
 
     /** Creates a fresh empty workout and links it into [planId]. Returns the new id. */
     suspend fun createWorkout(db: AppDatabase, planId: Long, name: String, daysOfWeek: List<Int>): Long {

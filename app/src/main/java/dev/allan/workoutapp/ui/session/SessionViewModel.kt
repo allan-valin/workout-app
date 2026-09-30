@@ -460,21 +460,14 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     /**
-     * Weight edit with forward-fill: sets after this one that are still 0 kg and undone
-     * get the same weight, so one input covers the usual same-weight-all-sets case.
+     * Weight edit with forward-fill ([forwardFillWeight]): later same-type sets that are still
+     * 0 kg and undone get the same weight, so one input covers the same-weight-all-sets case.
      */
     fun updateWeight(exerciseIndex: Int, set: SessionSet, weightKg: Double) {
         val ex = _state.value.exercises.getOrNull(exerciseIndex) ?: return
         val editedIndex = ex.sets.indexOfFirst { it.templateId == set.templateId }
         if (editedIndex < 0) return
-        val newSets = ex.sets.mapIndexed { i, s ->
-            when {
-                i == editedIndex -> s.copy(weightKg = weightKg)
-                i > editedIndex && !s.done && s.weightKg == 0.0 && weightKg > 0.0 ->
-                    s.copy(weightKg = weightKg)
-                else -> s
-            }
-        }
+        val newSets = forwardFillWeight(ex.sets, editedIndex, weightKg)
         val exercises = _state.value.exercises.toMutableList()
         exercises[exerciseIndex] = ex.copy(sets = newSets)
         _state.value = _state.value.copy(
