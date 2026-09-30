@@ -1,5 +1,10 @@
 # Feedback batch — 07/08 → 29/08 2026 (Allan, gym sessions on the Redmi)
 
+**Status 2026-09-30 (Phase 34, v0.8.0):** DONE — A1 A2 A3 A4 A5 A6 B1 B3 C1 C2 C3 C4 D1 E1 E2
+F1 F2, plus the 16/09 archive/swap weight bug (see the last section). **Open:** B2 (needs the
+"cardio workout" rule), F3 (needs the watch model). The [ask] answers assumed are listed in
+`PROGRESS.md` Phase 34.
+
 19 items from WhatsApp, grouped into batches A–F in implementation order. Line references are
 from the code as of `cb4e821`. Every batch ends with a unit/instrumented test, an emulator pass
 and a commit/push (checkpoint discipline).
@@ -186,3 +191,19 @@ Open questions are marked **[ask]** — they change what gets built and are chea
   the JSON schema still has no per-set `tempo` field, so cadences from the PDF went into the
   exercise `note`. Adding `tempo` to `PlanTransfer.SetDto` (+ the generator doc) is a small
   additive task worth doing before the next cycle.
+
+---
+
+## Added 16/09 — archive copy shows the warm-up weight on every set; swap picks the wrong config
+
+- Reported: "When archiving, weight of first (warmup) set overwrites the ones on the rest, when
+  you visualize the archived version. If swapping one for it, it got the weight wrong, I selected
+  to use this exercise last config but it used the config from the exercise being swapped out."
+- Root cause: `SetTemplate.targetWeightKg` is the day-one target; sessions prefill from the last
+  finished log (`previousLogs(weId)`) and never write it back. A copy (`PlanRepo.copyWorkout`)
+  gets new ids with no logs, so it restarts at 0 kg, and the session forward-fill then spreads
+  the first typed (warm-up) weight over every 0-kg set. The swap's "last config"
+  (`findIncomingConfig`) took the highest workout-exercise id = that untrained copy.
+- Fixed (commit 6789120): `TemplateCarry.effective` overlays the latest log per slot before
+  copying; the swap picks the most recently *trained* use (`TemplateCarry.lastTrained`); the
+  forward-fill only fills sets of the same type. Tests: `TemplateCarryTest`, `WeightFillTest`.

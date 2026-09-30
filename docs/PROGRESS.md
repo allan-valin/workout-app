@@ -1342,18 +1342,50 @@ versionCode 7 / versionName 0.7.0. TDD throughout: every task started from a fai
 - 5 instrumented tests, 260 unit tests, all green.
 
 
-## Phase 34 — 07/08–29/08 feedback batch (NEXT UP, not started)
+## Phase 34 — 07/08–29/08 + 16/09 feedback batch (DONE 2026-09-30; EMULATOR-VERIFIED same session)
 
-Spec: `docs/FEEDBACK_BATCH_2026-08-29.md` — 19 items from Allan's gym sessions, batches A–F:
-A session-screen correctness (missing images, set-type repaint, fast-swipe freeze, skipped-set
-highlight, cadence in supersets), B timers (log button follows the timer, cardio auto-chaining,
-cadence blink), C no-surprise UX (undo for accidental un-log, note background, IME padding,
-keep-screen-on), D editor/session colour parity, E muscle attribution + weight-evolution export,
-F brainstorm-first features (mirror mode, Spotify everywhere, watch notifications).
+Spec: `docs/FEEDBACK_BATCH_2026-08-29.md` (status per item at the top of that file). Versions:
+DB unchanged (v9), versionCode 8 / versionName 0.8.0. Unit tests 154 → all green.
 
-Six **[ask]** questions are listed in the doc — answer them before starting B2, B3, C4, E2, F2, F3.
+Shipped, in commit order (all on main):
+- **16/09 archive/swap weights** — `TemplateCarry`: a workout copy (archive "use as base") and a
+  swap's "use this exercise's last config" now carry the LAST LOGGED weight/type per slot instead
+  of the day-one template target; the swap picks the most recently *trained* use of the exercise,
+  not the newest row id (which was the untrained archived copy). Session forward-fill only fills
+  sets of the same type, so a warm-up weight no longer spreads over the working sets.
+- **E1** muscle map weighted by working sets (secondary = half), shading relative to the heaviest
+  muscle, top-3 line with shares ("Brachialis 11% · Abs 11% · Quads 10%" on FULLBODY B).
+- **E2** Settings → "Export weight evolution (CSV)": pivot, one row per exercise, one column per
+  training day of the active cycle, cell = heaviest working weight (`CsvExport.weightEvolution`).
+- **C3** note/link editor above the keyboard — see the MAINTENANCE note: the Material3 sheet
+  window never receives an IME inset, so the sheet scrolls the focused field up by hand.
+- **A1–A6, B1, B3, C1, C2, C4, D1** as specified: marker follows the last logged set
+  (`SupersetOrder.nextStepAfter`, skipped chain members deferred), set type from the plan not
+  the last log, image slot re-expands on page entry, no auto-advance against a drag, partner's
+  tempo shown in a superset, log button follows the running set timer ("Log set · Plank"),
+  timer panel blinks on a cadenced set, un-log → "Set unlogged · UNDO" snackbar (re-inserts the
+  same log row incl. its seconds), pinned note in a filled container, screen kept on during a
+  session (Settings switch, default on; FLAG_KEEP_SCREEN_ON verified with dumpsys), set-type
+  colours shared with the editor.
+- **F1 mirror mode** — Videocam button in the session top bar: full-screen front-camera preview
+  (CameraX 1.4.2), optional VIDEO-ONLY recording (no RECORD_AUDIO, so no audio focus and the
+  music keeps playing), clips saved to `Movies/WorkoutApp/workout_<date>_<time>.mp4` and never
+  touched again. Verified on the emulator with `hw.camera.front = emulated`: 12.7 s clip in
+  MediaStore. Devices without a front camera fall back to the back camera; none → toast + close.
+- **F2** Spotify strip above the bottom nav on every screen; AppRoot owns the connection
+  (ON_START connect / ON_STOP disconnect). Not emulator-verifiable (no Spotify on the AVD).
 
-New cycle imported 2026-09-07: `~/Downloads/plan_fortalecimento_fase2.json`, generated from
-`Rotina: FORTALECIMENTO - fase 2.pdf` (6 workouts, 57 exercises). Cadences from the PDF live in
-the exercise `note` because the transfer schema has no per-set `tempo` field — see the last
-section of the batch doc.
+Decisions taken on the six [ask] questions without Allan (cheap to flip):
+- B3 blink: once per second (as asked), not per tempo phase.
+- C4 keep-screen-on: session only, not whole app.
+- E2 export: pivot table (exercise × day), max working weight — the "table" reading.
+- F2 Spotify: one strip above the global bottom nav, same widget as the session's.
+- B2 cardio auto-chain and F3 watch notifications: NOT built — B2 needs the "workout is cardio"
+  rule decided (flag vs every-exercise-is-cardio), F3 needs the watch model.
+
+Emulator pass (AVD testphone, release APK, plan `plan_fortalecimento_fase2.json` imported via
+SAF): FULLBODY B map + top-3 line; CORE session: log RT1 with Plank untouched → marker on RT2,
+pager stayed; un-log → snackbar → UNDO → set_log row back (pulled DB); mirror record/stop →
+MediaStore row; note field lifted above the keyboard; Plank timer + swipe → "Log set · Plank".
+Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), A6, B3, D1 (editor
+letter colours), E2 CSV content (WeightPivotTest), F2, custom-exercise dialog keyboard lift.

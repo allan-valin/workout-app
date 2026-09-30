@@ -335,4 +335,5 @@
     <string name="stop_recording">Stop recording</string>
     <string name="camera_permission_needed">Camera permission is needed for the mirror</string>
     <string name="recording_saved">Recording saved to Movies/WorkoutApp</string>
+    <string name="no_camera">No camera on this device</string>
 </resources>

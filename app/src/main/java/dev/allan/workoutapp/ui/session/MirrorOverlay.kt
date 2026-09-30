@@ -101,6 +101,7 @@ fun MirrorOverlay(onClose: () -> Unit) {
             .build()
     }
     var recording by remember { mutableStateOf<Recording?>(null) }
+    var canRecord by remember { mutableStateOf(false) }
     var recordingSecs by remember { mutableStateOf(0L) }
     val savedMsg = stringResource(R.string.recording_saved)
     DisposableEffect(Unit) { onDispose { recording?.stop() } }
@@ -121,14 +122,21 @@ fun MirrorOverlay(onClose: () -> Unit) {
                                 val provider = future.get()
                                 val preview = Preview.Builder().build().also { it.surfaceProvider = surfaceProvider }
                                 provider.unbindAll()
-                                runCatching {
-                                    provider.bindToLifecycle(
-                                        lifecycleOwner, CameraSelector.DEFAULT_FRONT_CAMERA, preview, videoCapture,
-                                    )
-                                }.onFailure {
-                                    // No front camera (or the device refuses the combination): preview only.
-                                    provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_FRONT_CAMERA, preview)
+                                // Front camera first; a device without one falls back to the back
+                                // camera; one that refuses preview+video keeps the preview only; no
+                                // camera at all says so and closes (crashed the emulator otherwise).
+                                val selector = listOf(CameraSelector.DEFAULT_FRONT_CAMERA, CameraSelector.DEFAULT_BACK_CAMERA)
+                                    .firstOrNull { runCatching { provider.hasCamera(it) }.getOrDefault(false) }
+                                if (selector == null) {
+                                    Toast.makeText(ctx, R.string.no_camera, Toast.LENGTH_LONG).show()
+                                    onClose()
+                                    return@addListener
                                 }
+                                val bound = runCatching {
+                                    provider.bindToLifecycle(lifecycleOwner, selector, preview, videoCapture)
+                                }.isSuccess
+                                if (!bound) runCatching { provider.bindToLifecycle(lifecycleOwner, selector, preview) }
+                                canRecord = bound
                             }, ContextCompat.getMainExecutor(ctx))
                         }
                     },
@@ -156,7 +164,7 @@ fun MirrorOverlay(onClose: () -> Unit) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val active = recording != null
                     Button(
-                        enabled = granted,
+                        enabled = granted && canRecord,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (active) Color.White else MaterialTheme.colorScheme.error,
                             contentColor = if (active) Color.Black else Color.White,

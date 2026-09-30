@@ -399,6 +399,7 @@ private fun CustomExerciseDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.new_custom_exercise)) },
         text = {
+            dev.allan.workoutapp.ui.common.resizeForKeyboard()
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier

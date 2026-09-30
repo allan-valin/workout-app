@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.imePadding
+import kotlinx.coroutines.launch
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,7 +42,7 @@ import dev.allan.workoutapp.R
  * description, an editable video link (blank + save = delete), and Watch / Open buttons
  * whenever a link is saved, so a video can be added straight from the exercise.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ExerciseInfoSheet(
     name: String,
@@ -72,12 +74,36 @@ fun ExerciseInfoSheet(
         // note and link fields into overlapping slivers with their labels clipped away
         // (Allan, 26/07). Without a scroll the Column has no way to overflow, so the children
         // are what gets compressed.
-        // imePadding BEFORE the scroll: the viewport shrinks above the keyboard, so the focused
-        // note/link field is brought into view instead of hiding behind it (Allan, 29/08).
+        // The sheet lives in its own window, created with adjust=nothing, so the keyboard never
+        // reported an inset and the note/link field hid behind it (Allan, 29/08; seen with
+        // dumpsys window on the emulator). Ask that window to resize; then imePadding BEFORE
+        // the scroll shrinks the viewport above the keyboard and the focused field is brought
+        // into view.
+        resizeForKeyboard()
+        // Belt and braces: the IME inset does not reach this window on every device/version,
+        // so a focused field is also scrolled to the top of the sheet by hand, with a spacer
+        // below the content giving the scroll enough room (verified on the emulator, where the
+        // inset never arrived).
+        val scrollState = rememberScrollState()
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+        var fieldFocused by remember { mutableStateOf(false) }
+        // Lift = jump to the end of the scroll range once the spacer below the content is laid
+        // out: the spacer is a keyboard's height, so everything above it ends up above the
+        // keyboard. Needs no field positions and no window insets.
+        fun liftOnFocus() = Modifier.onFocusChanged { f ->
+            if (f.isFocused) {
+                fieldFocused = true
+                scope.launch {
+                    val before = scrollState.maxValue
+                    repeat(30) { androidx.compose.runtime.withFrameNanos { }; if (scrollState.maxValue > before) return@repeat }
+                    scrollState.scrollTo(scrollState.maxValue)
+                }
+            }
+        }
         Column(
             Modifier
                 .imePadding()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -113,7 +139,7 @@ fun ExerciseInfoSheet(
                     onValueChange = { noteText = it },
                     label = { Text(stringResource(R.string.note)) },
                     minLines = 2,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().then(liftOnFocus()),
                 )
                 // Pin toggle only where the note can actually be shown (in-session).
                 if (notePinned != null) {
@@ -149,7 +175,7 @@ fun ExerciseInfoSheet(
                 onValueChange = { linkText = it },
                 label = { Text(stringResource(R.string.video_link)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().then(liftOnFocus()),
             )
             if (linkText.trim() != (videoUrl ?: "")) {
                 Button(onClick = { onSaveLink(linkText) }, modifier = Modifier.fillMaxWidth()) {
@@ -161,6 +187,10 @@ fun ExerciseInfoSheet(
                     )
                 }
             }
+            // Room for the lift-on-focus scroll (roughly a keyboard's height).
+            androidx.compose.foundation.layout.Spacer(
+                Modifier.height(if (fieldFocused) 340.dp else 0.dp)
+            )
             videoUrl?.let { url ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { overlayUrl = url }, modifier = Modifier.weight(1f)) {
@@ -223,4 +253,34 @@ fun VideoOverlayDialog(url: String, onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         },
     )
+}
+
+/**
+ * Make the enclosing dialog/sheet window resize for the soft keyboard. Material3's sheet
+ * dialog sets SOFT_INPUT_ADJUST_NOTHING on API 30+ (seen in the 1.3.2 bytecode) and re-applies
+ * it whenever its parameters update — every second in a session, because the ticking clock
+ * hands it a new onDismiss lambda. With adjust=nothing the window gets no IME inset at all, so
+ * imePadding() had nothing to pad. This keeps the mode at ADJUST_RESIZE for as long as the
+ * content is composed (one cheap attribute check per frame). Compose dialog windows expose
+ * themselves through [androidx.compose.ui.window.DialogWindowProvider]; the host view itself
+ * is the provider for a Material3 sheet, a plain Dialog's is one level up.
+ */
+@Composable
+fun resizeForKeyboard() {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.LaunchedEffect(view) {
+        var node: Any? = view
+        var window: android.view.Window? = null
+        while (node != null && window == null) {
+            if (node is androidx.compose.ui.window.DialogWindowProvider) window = node.window
+            node = (node as? android.view.View)?.parent
+        }
+        val w = window ?: return@LaunchedEffect
+        val mask = android.view.WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST
+        val resize = android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        while (true) {
+            if (w.attributes.softInputMode and mask != resize) w.setSoftInputMode(resize)
+            androidx.compose.runtime.withFrameNanos { }
+        }
+    }
 }

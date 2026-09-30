@@ -137,3 +137,22 @@ byte-identical to before. Do not "fix" that by hard-coding an id.
 **Cannot be emulator-verified**: the AVD has neither Spotify nor Play services, so only the
 disabled path is testable here (verified: switch hidden, no crash). The strip, the transport
 buttons and the heart need a real-device pass on the Redmi with the client id in place.
+
+## Emulator: front camera for mirror mode (2026-09-30)
+
+`~/.android/avd/testphone.avd/config.ini` now has `hw.camera.front = emulated` (was `none`);
+without it CameraX throws "No available camera can be found" and the mirror overlay closes
+with a toast. The emulated camera renders a moving colour test pattern — enough to verify
+preview + recording (MediaStore row under `Movies/WorkoutApp`).
+
+## Material3 ModalBottomSheet and the keyboard (2026-09-30)
+
+The sheet is its own window. Material3 1.3.2 creates it with `SOFT_INPUT_ADJUST_NOTHING` on
+API 30+ and re-applies that on every parameter update, and even after forcing
+`ADJUST_RESIZE` (`resizeForKeyboard()` in ExerciseInfoSheet.kt) the sheet's compose root never
+saw an IME inset on the emulator — `imePadding()` inside it, and M3's own, pads nothing, and
+`BringIntoViewRequester` did not scroll either. What works: on focus, add a keyboard-sized
+spacer below the content and `scrollTo(maxValue)` once the spacer is laid out
+(`liftOnFocus()`); verified with the note field at y≈980 against a keyboard top of 1517.
+Diagnose with `adb shell dumpsys window windows` (`sim={adjust=…}` per window) and
+`dumpsys window | grep imeInputTarget`.
