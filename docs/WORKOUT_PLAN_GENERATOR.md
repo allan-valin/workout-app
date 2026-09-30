@@ -191,6 +191,9 @@ Allan may paste exported CSVs. Columns:
 ```
 sets:     session_id, date, plan, workout, exercise_id, exercise_name, set_index,
           set_type, weight_kg, weight_mode, value, unit, active_secs, rest_secs
+weight_evolution: exercise, set, <one column per training day of the active cycle>; cell =
+          "weight x reps" ("BW x 46" bodyweight, "75s" timed, blank = not trained that day);
+          set = 1-based slot, "W" suffix = warm-up
 sessions: session_id, workout, started_at, ended_at, status, active_secs, rest_secs,
           idle_secs, total_volume_kg
 body:     date, weight_kg

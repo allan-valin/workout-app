@@ -1356,8 +1356,11 @@ session, see below):
   sets of the same type, so a warm-up weight no longer spreads over the working sets.
 - **E1** muscle map weighted by working sets (secondary = half), shading relative to the heaviest
   muscle, top-3 line with shares ("Brachialis 11% · Abs 11% · Quads 10%" on FULLBODY B).
-- **E2** Settings → "Export weight evolution (CSV)": pivot, one row per exercise, one column per
-  training day of the active cycle, cell = heaviest working weight (`CsvExport.weightEvolution`).
+- **E2** Settings → "Export weight evolution (CSV)": one row per SET of each exercise (name
+  repeated, set number, W = warm-up), one column per training day of the active cycle, cell =
+  "weight x reps" ("BW x 46" bodyweight, "75s" timed). Second cut after Allan installed 0.8.0:
+  the first cut (one row per exercise, max weight) said nothing for exercises where every set
+  differs or bodyweight work that progresses in reps (`CsvExport.weightEvolution`, `SetPivotTest`).
 - **C3** note/link editor above the keyboard — see the MAINTENANCE note: the Material3 sheet
   window never receives an IME inset, so the sheet scrolls the focused field up by hand.
 - **A1–A6, B1, B3, C1, C2, C4, D1** as specified: marker follows the last logged set
@@ -1379,7 +1382,7 @@ session, see below):
 Decisions taken on the six [ask] questions without Allan (cheap to flip):
 - B3 blink: once per second (as asked), not per tempo phase.
 - C4 keep-screen-on: session only, not whole app.
-- E2 export: pivot table (exercise × day), max working weight — the "table" reading.
+- E2 export: pivot table (exercise/set × day), weight x reps per cell — settled with Allan 30/09.
 - F2 Spotify: one strip above the global bottom nav, same widget as the session's.
 - B2 cardio auto-chain: built per EXERCISE, not per workout — an exercise flagged cardio (wger
   "Cardio" category or the custom-exercise switch) chains its timed sets: a finished countdown

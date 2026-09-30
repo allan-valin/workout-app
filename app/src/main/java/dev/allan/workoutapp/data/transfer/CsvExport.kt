@@ -2,6 +2,7 @@ package dev.allan.workoutapp.data.transfer
 
 import dev.allan.workoutapp.data.PlanRepo
 import dev.allan.workoutapp.data.db.AppDatabase
+import dev.allan.workoutapp.data.db.ValueUnit
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -53,17 +54,28 @@ object CsvExport {
         return sb.toString()
     }
 
-    /** One trained (exercise, day) with the heaviest working weight of that day. */
-    data class WeightPoint(val exerciseName: String, val date: String, val weightKg: Double)
+    /** One logged set: which exercise, which day, which slot, and what was done. */
+    data class SetPoint(
+        val exerciseName: String,
+        val date: String,
+        val setIndex: Int,
+        val type: dev.allan.workoutapp.data.db.SetType,
+        val weightKg: Double,
+        val value: Int,
+        val unit: ValueUnit,
+        val completedAt: Long,
+    )
 
     /**
-     * Weight evolution of the active cycle as a pivot table: one row per exercise, one column
-     * per training day, cell = top working (non-warm-up) weight that day — readable in a
-     * spreadsheet as-is (Allan, 29/08). Sessions count when they belong to one of the active
-     * plan's workouts and started after the plan did.
+     * Weight evolution of the active cycle: one row per SET of each exercise (name repeated,
+     * set number, W for warm-ups), one column per training day, cell = "weight x reps"
+     * ("BW x 46" for bodyweight work, "75s" / "24 x 40s" for timed sets). One value per
+     * exercise said nothing when every set has its own reps and weight, and bodyweight
+     * exercises progress in reps only (Allan, 30/09). Sessions count when they belong to one
+     * of the active plan's workouts and started after the plan did.
      */
     suspend fun weightEvolution(db: AppDatabase, lang: String): String {
-        val plan = db.planDao().activePlanNow() ?: return weightPivot(emptyList())
+        val plan = db.planDao().activePlanNow() ?: return setPivot(emptyList())
         val workoutIds = db.planDao().workoutsList(plan.id).map { it.id }.toSet()
         val since = plan.startedAt ?: 0L
         val sessions = db.sessionDao().finishedSessions()
@@ -71,31 +83,51 @@ object CsvExport {
             .associateBy { it.id }
         val names = mutableMapOf<String, String>()
         val points = db.sessionDao().allSetLogs()
-            .filter { it.sessionId in sessions && it.type != dev.allan.workoutapp.data.db.SetType.WARMUP && it.weightKg > 0.0 }
+            .filter { it.sessionId in sessions }
             .map { log ->
-                WeightPoint(
+                SetPoint(
                     exerciseName = names.getOrPut(log.exerciseId) { PlanRepo.displayName(db, log.exerciseId, lang) },
                     date = dayFmt.format(Instant.ofEpochMilli(log.completedAt).atZone(ZoneId.systemDefault())),
+                    setIndex = log.setIndex,
+                    type = log.type,
                     weightKg = log.weightKg,
+                    value = log.value,
+                    unit = log.valueUnit,
+                    completedAt = log.completedAt,
                 )
             }
-        return weightPivot(points)
+        return setPivot(points)
     }
 
-    /** Pure pivot builder behind [weightEvolution]; exercises sorted by name, days ascending. */
-    fun weightPivot(points: List<WeightPoint>): String {
+    /** Pure pivot builder behind [weightEvolution]; exercises sorted by name, sets and days ascending. */
+    fun setPivot(points: List<SetPoint>): String {
         val days = points.map { it.date }.distinct().sorted()
-        val byExercise = points.groupBy { it.exerciseName }.toSortedMap()
-        val sb = StringBuilder("exercise")
+        val sb = StringBuilder("exercise,set")
         days.forEach { sb.append(',').append(it) }
         sb.append('\n')
-        byExercise.forEach { (name, pts) ->
-            val top = pts.groupBy { it.date }.mapValues { (_, p) -> p.maxOf { it.weightKg } }
-            sb.append(esc(name))
-            days.forEach { d -> sb.append(',').append(top[d]?.toString() ?: "") }
-            sb.append('\n')
+        points.groupBy { it.exerciseName }.toSortedMap().forEach { (name, pts) ->
+            pts.groupBy { it.setIndex }.toSortedMap().forEach { (setIndex, slot) ->
+                // The newest log of a day wins the cell (two sessions on one day).
+                val byDay = slot.groupBy { it.date }.mapValues { (_, l) -> l.maxBy { it.completedAt } }
+                val warm = slot.any { it.type == dev.allan.workoutapp.data.db.SetType.WARMUP }
+                sb.append(esc(name)).append(',').append(setIndex + 1).append(if (warm) " W" else "")
+                days.forEach { d -> sb.append(',').append(byDay[d]?.let(::cell) ?: "") }
+                sb.append('\n')
+            }
         }
         return sb.toString()
+    }
+
+    private fun num(v: Double): String =
+        if (v == Math.rint(v)) v.toLong().toString() else v.toString()
+
+    private fun cell(p: SetPoint): String {
+        val work = if (p.unit == ValueUnit.SECS) p.value.toString() + "s" else p.value.toString()
+        return when {
+            p.unit == ValueUnit.SECS && p.weightKg <= 0.0 -> work
+            p.weightKg <= 0.0 -> "BW x " + work
+            else -> num(p.weightKg) + " x " + work
+        }
     }
 
     suspend fun sessions(db: AppDatabase): String {
