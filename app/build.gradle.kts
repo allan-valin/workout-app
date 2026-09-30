@@ -118,6 +118,12 @@ dependencies {
     implementation(libs.coil.gif)
     implementation(libs.coil.svg)
     implementation(libs.reorderable)
+    // Mirror mode (front-camera preview + silent recording so music keeps playing). Apache-2.0.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.video)
+    implementation(libs.androidx.camera.view)
     // On-device translation for exercise names/descriptions (en -> app language).
     implementation("com.google.mlkit:translate:17.0.2")
     // Language identification, so the translate action only offers itself when the description

@@ -75,6 +75,10 @@ data class SessionUiState(
     val showList: Boolean = true,
     /** exerciseIndex to templateId of the next expected set (superset-interleaved order). */
     val currentStep: Pair<Int, Long>? = null,
+    /** exerciseIndex to templateId of the set logged most recently — what [currentStep] follows. */
+    val lastLogged: Pair<Int, Long>? = null,
+    /** The log row an accidental un-log just removed; offers UNDO until it is consumed. */
+    val undoableUnlog: dev.allan.workoutapp.data.db.SetLog? = null,
     val elapsedSecs: Int = 0,
     /** Rough time budget for the whole workout, shown next to the elapsed clock. */
     val estimatedTotalSecs: Int = 0,
@@ -227,6 +231,50 @@ object SupersetOrder {
         return null
     }
 
+    /**
+     * Chain members that are actually being trained: once any member has a logged set, the
+     * members with none are being skipped and drop out of the interleaving (a superset with
+     * one exercise skipped used to park the marker on the skipped one — Allan, 29/08).
+     */
+    private fun activeMembers(exercises: List<SessionExercise>, chain: List<Int>): List<Int> {
+        val trained = chain.filter { i -> exercises[i].sets.any { it.done } }
+        return if (trained.isEmpty()) chain else trained
+    }
+
+    private fun firstUndone(steps: List<Pair<Int, SessionSet>>): Pair<Int, Long>? =
+        steps.firstOrNull { !it.second.done }?.let { (i, s) -> i to s.templateId }
+
+    /**
+     * THE marker rule: the next expected set is the first undone one AFTER the set logged
+     * last ([last] = exerciseIndex to templateId), in superset-interleaved order; then the
+     * chains ahead, wrapping round so skipped exercises and skipped chain members come
+     * last. Recomputing from the start of the workout (or of the chain) put the marker back
+     * on whatever was skipped every time the state was rebuilt (Allan, 29/08).
+     */
+    fun nextStepAfter(exercises: List<SessionExercise>, last: Pair<Int, Long>?): Pair<Int, Long>? {
+        if (exercises.isEmpty()) return null
+        if (last == null || last.first !in exercises.indices) return nextStep(exercises)
+        val (fromIndex, templateId) = last
+        val startChain = chain(exercises, fromIndex)
+        val active = activeMembers(exercises, startChain)
+        val ordered = interleaved(exercises, active)
+        val pos = ordered.indexOfFirst { it.second.templateId == templateId }
+        firstUndone(ordered.drop(pos + 1))?.let { return it }
+        val deferred = mutableListOf<Pair<Int, SessionSet>>()
+        var i = (startChain.last() + 1) % exercises.size
+        while (i !in startChain) {
+            val c = chain(exercises, i)
+            val act = activeMembers(exercises, c)
+            firstUndone(interleaved(exercises, act))?.let { return it }
+            (c - act.toSet()).takeIf { it.isNotEmpty() }?.let { deferred += interleaved(exercises, it) }
+            i = (c.last() + 1) % exercises.size
+        }
+        // Wrap: sets left behind in the current chain, then the skipped chain members.
+        firstUndone(ordered.take(pos + 1))?.let { return it }
+        (startChain - active.toSet()).takeIf { it.isNotEmpty() }?.let { deferred += interleaved(exercises, it) }
+        return firstUndone(deferred)
+    }
+
     /** True when another chain member still has an undone set in this round → skip rest. */
     fun restSkipped(exercises: List<SessionExercise>, exerciseIndex: Int, set: SessionSet): Boolean {
         val chain = chain(exercises, exerciseIndex)
@@ -336,7 +384,9 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 SessionSet(
                     templateId = t.id,
                     setIndex = t.setIndex,
-                    type = prev?.type ?: t.type,
+                    // The plan's type, not the last log's: a type changed mid-session was
+                    // repainted back to the old letter on every rebuild (Allan, 29/08: A2).
+                    type = t.type,
                     weightKg = draft?.weightKg ?: prev?.weightKg ?: t.targetWeightKg,
                     value = draft?.value ?: prev?.value ?: t.targetValue,
                     valueUnit = prev?.valueUnit ?: t.valueUnit,
@@ -367,11 +417,13 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 ),
             )
         }
+        val lastLogged = lastLoggedStep(loggedSets, exercises)
         _state.value = _state.value.copy(
             sessionId = session.id,
             workoutName = workout.name,
             exercises = exercises,
-            currentStep = SupersetOrder.nextStep(exercises),
+            lastLogged = lastLogged,
+            currentStep = SupersetOrder.nextStepAfter(exercises, lastLogged),
             estimatedTotalSecs = estimateWorkoutSecs(exercises),
             templatesChanged = _state.value.templatesChanged || session.templateSnapshotJson != null,
         )
@@ -390,6 +442,15 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     /** 1 Hz UI clock: recompute all countdowns from wall-clock instants. */
+    /** (exerciseIndex, templateId) of the newest row in [logs], or null when nothing is logged. */
+    private fun lastLoggedStep(logs: List<SetLog>, exercises: List<SessionExercise>): Pair<Int, Long>? {
+        val newest = logs.maxByOrNull { it.completedAt } ?: return null
+        val idx = exercises.indexOfFirst { it.workoutExerciseId == newest.workoutExerciseId }
+        if (idx < 0) return null
+        val templateId = exercises[idx].sets.firstOrNull { it.setIndex == newest.setIndex }?.templateId ?: return null
+        return idx to templateId
+    }
+
     private suspend fun ticker() {
         while (true) {
             val timers = SessionManager.state.value
@@ -439,9 +500,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         val exercises = _state.value.exercises.toMutableList()
         val ex = exercises[exerciseIndex]
         exercises[exerciseIndex] = ex.copy(sets = ex.sets.map { if (it.templateId == set.templateId) set else it })
+        // Editing numbers must not move the marker (Allan, 29/08: A5) — it only follows logs.
         _state.value = _state.value.copy(
             exercises = exercises,
-            currentStep = SupersetOrder.nextStepFrom(exercises, exerciseIndex),
+            currentStep = SupersetOrder.nextStepAfter(exercises, _state.value.lastLogged),
         )
         saveDraft(set)
     }
@@ -472,7 +534,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         exercises[exerciseIndex] = ex.copy(sets = newSets)
         _state.value = _state.value.copy(
             exercises = exercises,
-            currentStep = SupersetOrder.nextStepFrom(exercises, exerciseIndex),
+            currentStep = SupersetOrder.nextStepAfter(exercises, _state.value.lastLogged),
         )
         newSets.filterIndexed { i, s -> i == editedIndex || s.weightKg != ex.sets[i].weightKg }
             .forEach(::saveDraft)
@@ -607,6 +669,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 )
             )
         }
+        _state.value = _state.value.copy(lastLogged = exerciseIndex to set.templateId, undoableUnlog = null)
         updateSet(exerciseIndex, set.copy(done = true))
 
         // Superset pairs alternate without rest: A1, B1 (no pause after A1), rest after B1.
@@ -636,7 +699,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         // Auto-advance: follow the superset-aware next step relative to the exercise just
         // logged — skipped earlier exercises come last, not first. All done → back to the
         // exercise list (that's where "End workout" lives).
-        val next = SupersetOrder.nextStepFrom(_state.value.exercises, exerciseIndex)
+        val next = SupersetOrder.nextStepAfter(_state.value.exercises, exerciseIndex to set.templateId)
         _state.value = when {
             next == null -> _state.value.copy(
                 timerPanelVisible = true,
@@ -658,15 +721,42 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         val sessionId = _state.value.sessionId ?: return
         val ex = _state.value.exercises[exerciseIndex]
         viewModelScope.launch {
-            db.sessionDao().setLog(sessionId, ex.workoutExerciseId, set.setIndex)?.let { log ->
+            val removed = db.sessionDao().setLog(sessionId, ex.workoutExerciseId, set.setIndex)?.also { log ->
                 // The log carries what the set really cost, including seconds booked by its
                 // countdown runs — give all of it back and forget the runs.
                 log.activeSecs?.let { SessionManager.addActiveSecs(-it) }
                 SessionManager.clearBookedRuns(set.templateId)
                 db.sessionDao().deleteSetLog(sessionId, ex.workoutExerciseId, set.setIndex)
             }
+            // The marker re-anchors on whatever was logged before this one.
+            val remaining = db.sessionDao().setLogs(sessionId)
+            _state.value = _state.value.copy(
+                lastLogged = lastLoggedStep(remaining, _state.value.exercises),
+                undoableUnlog = removed,
+            )
             updateSet(exerciseIndex, set.copy(done = false))
         }
+    }
+
+    /**
+     * Put back the set an accidental tap un-logged: the same log row (its seconds included),
+     * done again, marker after it (Allan, 29/08: C1). No-op once the offer was consumed.
+     */
+    fun undoUnlog() {
+        val log = _state.value.undoableUnlog ?: return
+        val idx = _state.value.exercises.indexOfFirst { it.workoutExerciseId == log.workoutExerciseId }
+        val set = _state.value.exercises.getOrNull(idx)?.sets?.firstOrNull { it.setIndex == log.setIndex } ?: return
+        _state.value = _state.value.copy(undoableUnlog = null)
+        viewModelScope.launch {
+            db.sessionDao().insertSetLog(log.copy(id = 0))
+            log.activeSecs?.let { SessionManager.addActiveSecs(it) }
+            _state.value = _state.value.copy(lastLogged = idx to set.templateId)
+            updateSet(idx, set.copy(done = true))
+        }
+    }
+
+    fun dismissUndoUnlog() {
+        _state.value = _state.value.copy(undoableUnlog = null)
     }
 
     fun clearPaceNote() {

@@ -436,6 +436,26 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                             },
                         )
                     }
+                    val keepOn by dev.allan.workoutapp.data.Settings.keepScreenOn(context)
+                        .collectAsState(initial = true)
+                    androidx.compose.foundation.layout.Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.keep_screen_on_setting),
+                            modifier = Modifier.weight(1f),
+                        )
+                        androidx.compose.material3.Switch(
+                            checked = keepOn,
+                            onCheckedChange = { value ->
+                                scope.launch {
+                                    dev.allan.workoutapp.data.Settings.setKeepScreenOn(context, value)
+                                }
+                            },
+                        )
+                    }
                     // The session top bar is tight on width; hiding the estimate gives the elapsed
                     // value the whole slot (Allan, 26/07). The overview bar keeps the pair either
                     // way — it has no actions competing for space.

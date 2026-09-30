@@ -1358,6 +1358,7 @@ private fun SetRow(set: SetTemplate, onUpdate: (SetTemplate) -> Unit, onDelete: 
         // Set type: initial letter only; tinted = tappable/changeable.
         TintedDropdown(
             current = set.type.label().take(1),
+            currentColor = dev.allan.workoutapp.ui.common.setTypeColor(set.type),
             options = SetType.entries
                 .filter { it != SetType.SUPERSET } // superset is an exercise-level link now
                 .map { it to it.label() },
@@ -1431,6 +1432,8 @@ private fun SetType.label(): String = when (this) {
 @Composable
 private fun <T> TintedDropdown(
     current: String,
+    /** Colour of the current letter; null = the container's default text colour. */
+    currentColor: androidx.compose.ui.graphics.Color? = null,
     options: List<Pair<T, String>>,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
@@ -1451,7 +1454,7 @@ private fun <T> TintedDropdown(
             Text(
                 current,
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = currentColor ?: MaterialTheme.colorScheme.onSecondaryContainer,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
             )

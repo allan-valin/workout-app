@@ -149,4 +149,70 @@ class SupersetOrderTest {
         val a = exercise("A", sets(2))
         assertFalse(SupersetOrder.restSkipped(listOf(a), 0, a.sets[0]))
     }
+
+    // ---- nextStepAfter: the marker follows the LAST LOGGED set (Allan, 29/08: A4) ----
+
+    private fun done(sets: List<SessionSet>, vararg idx: Int) =
+        sets.mapIndexed { i, s -> if (i in idx) s.copy(done = true) else s }
+
+    @Test
+    fun `after a skipped set the marker sits after the last logged one, not on the skipped`() {
+        // A1 logged, A2/A3 skipped, B1 logged -> next is B2, not A2.
+        val a = exercise("A", done(sets(3), 0))
+        val b = exercise("B", done(sets(3), 0))
+        val exs = listOf(a, b)
+        assertEquals(1 to b.sets[1].templateId, SupersetOrder.nextStepAfter(exs, 1 to b.sets[0].templateId))
+    }
+
+    @Test
+    fun `superset with one member skipped keeps the marker on the trained member`() {
+        // A+B superset, A never logged, B1 logged -> next is B2 (A is being skipped).
+        val a = exercise("A", sets(3))
+        val b = exercise("B", done(sets(3), 0), superset = true)
+        val exs = listOf(a, b)
+        assertEquals(1 to b.sets[1].templateId, SupersetOrder.nextStepAfter(exs, 1 to b.sets[0].templateId))
+    }
+
+    @Test
+    fun `superset with both members trained alternates as before`() {
+        val a = exercise("A", done(sets(3), 0))
+        val b = exercise("B", done(sets(3), 0), superset = true)
+        val exs = listOf(a, b)
+        assertEquals(0 to a.sets[1].templateId, SupersetOrder.nextStepAfter(exs, 1 to b.sets[0].templateId))
+        // After A2 the partner's B2 is next.
+        val exs2 = listOf(exercise("A", done(sets(3), 0, 1)).let { it }, b)
+        val a2 = exs2[0]
+        assertEquals(1 to exs2[1].sets[1].templateId, SupersetOrder.nextStepAfter(exs2, 0 to a2.sets[1].templateId))
+    }
+
+    @Test
+    fun `skipped exercises come last, after the chains ahead`() {
+        // A untouched, B all done (last logged B3), C untouched -> C1, then wrap to A1.
+        val a = exercise("A", sets(2))
+        val b = exercise("B", done(sets(3), 0, 1, 2))
+        val c = exercise("C", sets(2))
+        assertEquals(2 to c.sets[0].templateId, SupersetOrder.nextStepAfter(listOf(a, b, c), 1 to b.sets[2].templateId))
+        val cDone = exercise("C", done(sets(2), 0, 1))
+        assertEquals(0 to a.sets[0].templateId, SupersetOrder.nextStepAfter(listOf(a, b, cDone), 2 to cDone.sets[1].templateId))
+    }
+
+    @Test
+    fun `skipped superset member is reached only when everything else is done`() {
+        val a = exercise("A", sets(2))
+        val b = exercise("B", done(sets(2), 0, 1), superset = true)
+        assertEquals(0 to a.sets[0].templateId, SupersetOrder.nextStepAfter(listOf(a, b), 1 to b.sets[1].templateId))
+    }
+
+    @Test
+    fun `nothing logged yet falls back to the first undone set`() {
+        val a = exercise("A", sets(2))
+        val b = exercise("B", sets(2))
+        assertEquals(0 to a.sets[0].templateId, SupersetOrder.nextStepAfter(listOf(a, b), null))
+    }
+
+    @Test
+    fun `everything done gives null`() {
+        val a = exercise("A", done(sets(2), 0, 1))
+        assertNull(SupersetOrder.nextStepAfter(listOf(a), 0 to a.sets[1].templateId))
+    }
 }

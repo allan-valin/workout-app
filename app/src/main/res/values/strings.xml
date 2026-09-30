@@ -176,6 +176,8 @@
     <string name="wger_refresh_failed">Refresh failed, existing data kept: %1$s</string>
     <string name="session_settings">Workout session</string>
     <string name="prev_next_setting">Previous/next exercise buttons</string>
+    <string name="keep_screen_on_setting">Keep the screen on during a workout</string>
+    <string name="set_unlogged">Set unlogged</string>
     <string name="show_estimate_setting">Show estimated time during workout</string>
     <string name="spotify_setting">Spotify controls</string>
     <string name="spotify_setting_hint">Track, play/skip and Liked Songs heart during a workout.</string>
@@ -328,4 +330,9 @@
     <string name="translate_description">Translate description</string>
     <string name="translating">Translating…</string>
     <string name="exercise_exists">Exercise already exists — using the existing one: %1$s</string>
+    <string name="mirror_mode">Mirror</string>
+    <string name="record">Record</string>
+    <string name="stop_recording">Stop recording</string>
+    <string name="camera_permission_needed">Camera permission is needed for the mirror</string>
+    <string name="recording_saved">Recording saved to Movies/WorkoutApp</string>
 </resources>

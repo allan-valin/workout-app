@@ -206,12 +206,40 @@ fun AppRoot() {
     val currentRoute = backStackEntry?.destination?.route
     // Global bottom nav on every screen EXCEPT an in-progress workout (session).
     val showBottomBar = currentRoute?.startsWith("session/") != true
+    // Spotify strip above the bottom nav on every screen (Allan, 22/08: "shown all over the
+    // app"). Connected while the app is in the foreground, released when it leaves it.
+    val context = LocalContext.current
+    val spotifyEnabled by dev.allan.workoutapp.data.Settings.spotifyEnabled(context)
+        .collectAsState(initial = false)
+    val spotify by dev.allan.workoutapp.session.SpotifyRemote.state.collectAsState()
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(spotifyEnabled, lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_START ->
+                    if (spotifyEnabled) dev.allan.workoutapp.session.SpotifyRemote.connect(context)
+                androidx.lifecycle.Lifecycle.Event.ON_STOP ->
+                    dev.allan.workoutapp.session.SpotifyRemote.disconnect()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (spotifyEnabled && lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+            dev.allan.workoutapp.session.SpotifyRemote.connect(context)
+        } else if (!spotifyEnabled) {
+            dev.allan.workoutapp.session.SpotifyRemote.disconnect()
+        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         // Only the bottom bar contributes padding; each screen owns its own top insets.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (showBottomBar) {
+            if (showBottomBar) Column {
+                if (spotifyEnabled && spotify.connected) {
+                    dev.allan.workoutapp.ui.session.SpotifyBar(spotify)
+                }
                 AppBottomBar(selected = selectedTab) { idx ->
                     val proceed = {
                         selectedTab = idx

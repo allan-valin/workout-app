@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -122,6 +123,8 @@ fun SessionScreen(
     )
     val state by vm.state.collectAsState()
     var confirmEnd by remember { mutableStateOf<Boolean?>(null) } // null=hidden, true=save, false=discard
+    var showMirror by remember { mutableStateOf(false) }
+    if (showMirror) MirrorOverlay(onClose = { showMirror = false })
     // After the session save/discard choice, if the plan was edited mid-session, ask whether
     // to keep those edits or treat them as one-time. Holds the session-save choice meanwhile.
     var askKeepPlan by remember { mutableStateOf<Boolean?>(null) }
@@ -143,6 +146,15 @@ fun SessionScreen(
 
     // One-time HyperOS onboarding: without these exemptions Xiaomi kills the timers.
     val context = LocalContext.current
+    // Screen stays on while a session is open, behind a Settings switch (Allan, 29/08: C4).
+    val keepScreenOn by dev.allan.workoutapp.data.Settings.keepScreenOn(context)
+        .collectAsState(initial = true)
+    androidx.compose.runtime.DisposableEffect(keepScreenOn) {
+        val window = generateSequence(context) { (it as? android.content.ContextWrapper)?.baseContext }
+            .filterIsInstance<android.app.Activity>().firstOrNull()?.window
+        if (keepScreenOn) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
     var showBatteryOnboarding by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (!dev.allan.workoutapp.data.Settings.batteryOnboardingShown(context).first()) {
@@ -154,9 +166,10 @@ fun SessionScreen(
     val spotifyEnabled by dev.allan.workoutapp.data.Settings.spotifyEnabled(context)
         .collectAsState(initial = false)
     val spotify by dev.allan.workoutapp.session.SpotifyRemote.state.collectAsState()
-    androidx.compose.runtime.DisposableEffect(spotifyEnabled) {
+    // AppRoot owns the connection's lifetime now (the strip shows all over the app, F2); the
+    // session only makes sure it is up.
+    LaunchedEffect(spotifyEnabled) {
         if (spotifyEnabled) dev.allan.workoutapp.session.SpotifyRemote.connect(context)
-        onDispose { dev.allan.workoutapp.session.SpotifyRemote.disconnect() }
     }
 
     // Templates can change while we're away (per-exercise edit mid-session) — reload
@@ -317,17 +330,37 @@ fun SessionScreen(
                 // when the pager snap interrupts it, which used to skip the clear and leave a
                 // stale request that hijacked the next overview tap (bug D, 25/07).
                 vm.clearPendingSwipe()
-                if (target in state.exercises.indices) pagerState.animateScrollToPage(target)
+                // A finger already dragging has chosen its page; animating against it left
+                // the pager stuck between pages (Allan, 29/08: A3).
+                if (target in state.exercises.indices && !pagerState.isScrollInProgress) {
+                    pagerState.animateScrollToPage(target)
+                }
             }
         }
         val prevNextEnabled by dev.allan.workoutapp.data.Settings.prevNextButtons(context)
             .collectAsState(initial = false)
         val pagerScope = androidx.compose.runtime.rememberCoroutineScope()
+        // Un-logging by accident is recoverable: "Set unlogged · UNDO" (Allan, 29/08: C1).
+        val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+        val unloggedMsg = stringResource(R.string.set_unlogged)
+        val undoLabel = stringResource(R.string.undo)
+        LaunchedEffect(state.undoableUnlog) {
+            if (state.undoableUnlog != null) {
+                val result = snackbarHostState.showSnackbar(
+                    message = unloggedMsg,
+                    actionLabel = undoLabel,
+                    duration = androidx.compose.material3.SnackbarDuration.Short,
+                )
+                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.undoUnlog()
+                else vm.dismissUndoUnlog()
+            }
+        }
 
         Scaffold(
             topBar = {
-                SessionTopBar(vm, state, onEnd = { save -> confirmEnd = save })
+                SessionTopBar(vm, state, onEnd = { save -> confirmEnd = save }, onMirror = { showMirror = true })
             },
+            snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },
         ) { padding ->
             Column(
                 Modifier
@@ -478,7 +511,12 @@ fun SessionScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (Boolean) -> Unit) {
+private fun SessionTopBar(
+    vm: SessionViewModel,
+    state: SessionUiState,
+    onEnd: (Boolean) -> Unit,
+    onMirror: () -> Unit = {},
+) {
     var menuOpen by remember { mutableStateOf(false) }
     var volumeOpen by remember { mutableStateOf(false) }
     val current = state.exercises.getOrNull(state.currentIndex)
@@ -531,6 +569,10 @@ private fun SessionTopBar(vm: SessionViewModel, state: SessionUiState, onEnd: (B
             // TooltipBox, and the (i) glyph carries it well enough).
             IconButton(onClick = { current?.let { vm.openDescription(it.exerciseId, withImage = false) } }) {
                 Icon(Icons.Default.EditNote, contentDescription = stringResource(R.string.info_note))
+            }
+            // Mirror mode: front camera over the session, optional silent recording (F1).
+            IconButton(onClick = onMirror) {
+                Icon(Icons.Default.Videocam, contentDescription = stringResource(R.string.mirror_mode))
             }
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Default.MoreVert, contentDescription = null)
@@ -604,6 +646,12 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
         }
     }
     var imageVisible by remember { mutableStateOf(true) }
+    // Coming back to this exercise shows its image again: a collapse from an earlier scroll
+    // stuck for the rest of the session — "image shows in the sheet, not in the workout"
+    // (Allan, 29/08: A1).
+    LaunchedEffect(state.currentIndex == page) {
+        if (state.currentIndex == page) { imageVisible = true; tableScroll.scrollTo(0) }
+    }
     val tableScrollConnection = remember(tableScroll) {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
             override fun onPreScroll(
@@ -676,10 +724,13 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             Text(
                 note,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
                 maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                // Filled container so the line reads as a note, not as body text (C2).
                 modifier = Modifier
+                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
                     .fillMaxWidth()
                     .padding(top = 4.dp)
                     .clickable { vm.openDescription(ex.exerciseId, withImage = false) },
@@ -767,6 +818,14 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
         // outlined pill = visibly tappable, info (i) on the right); one edit covers all
         // sets, and the value floats here under the image whenever it's active.
         val exTempo = ex.sets.firstOrNull { it.tempo.isNotBlank() }?.tempo ?: ""
+        // Shown: the cadence of the exercise whose set is next, when that is a superset
+        // partner of this page — the page flips between partners and a tempo defined on only
+        // one of them used to vanish (Allan, 29/08: A6). Editing still targets THIS exercise.
+        val shownTempo = state.currentStep?.first
+            ?.takeIf { it != page && it in SupersetOrder.chain(state.exercises, page) }
+            ?.let { state.exercises.getOrNull(it) }
+            ?.sets?.firstOrNull { it.tempo.isNotBlank() }?.tempo
+            ?: exTempo
         var showTempoEdit by remember { mutableStateOf(false) }
         var showTempoInfo by remember { mutableStateOf(false) }
         Row(
@@ -778,11 +837,11 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 OutlinedButton(onClick = { showTempoEdit = true }) {
                     Text(
-                        if (exTempo.isBlank()) stringResource(R.string.edit_cadence)
-                        else stringResource(R.string.cadence_value, exTempo),
-                        style = if (exTempo.isBlank()) MaterialTheme.typography.labelLarge
+                        if (shownTempo.isBlank()) stringResource(R.string.edit_cadence)
+                        else stringResource(R.string.cadence_value, shownTempo),
+                        style = if (shownTempo.isBlank()) MaterialTheme.typography.labelLarge
                         else MaterialTheme.typography.titleMedium,
-                        fontWeight = if (exTempo.isBlank()) null else FontWeight.Bold,
+                        fontWeight = if (shownTempo.isBlank()) null else FontWeight.Bold,
                     )
                 }
             }
@@ -1103,12 +1162,26 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             IconButton(onClick = vm::toggleTimerPanel) {
                 Icon(Icons.Default.Timer, contentDescription = stringResource(R.string.timer))
             }
+            // A running/paused set countdown pins the button to ITS exercise, whatever page an
+            // accidental swipe landed on; the label says whose set it logs (Allan, 29/08: B1).
+            val timedIdx = state.setCountdownTemplateId?.let { tid ->
+                state.exercises.indexOfFirst { e -> e.sets.any { it.templateId == tid } }
+            }?.takeIf { it >= 0 && it != page }
+            val target = timedIdx ?: page
+            val targetEx = state.exercises.getOrNull(target) ?: ex
+            val targetSet = timedIdx?.let { targetEx.sets.firstOrNull { it.templateId == state.setCountdownTemplateId && !it.done } }
+                ?: targetEx.sets.firstOrNull { !it.done }
             Button(
-                onClick = {
-                    ex.sets.firstOrNull { !it.done }?.let { vm.logSet(page, it) }
-                },
-                enabled = ex.sets.any { !it.done },
-            ) { Text(stringResource(R.string.log_set)) }
+                onClick = { targetSet?.let { vm.logSet(target, it) } },
+                enabled = targetSet != null,
+            ) {
+                Text(
+                    if (timedIdx != null) stringResource(R.string.log_set) + " · " + targetEx.name
+                    else stringResource(R.string.log_set),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 
@@ -1193,15 +1266,10 @@ private object RowWeights {
 /** Medium green for completed states — visible on the current-set highlight in both themes. */
 internal val DoneGreen = androidx.compose.ui.graphics.Color(0xFF43A047)
 
-/** Color code per set type so the single letters scan at a glance. */
+/** Set-type colour lives in ui/common now, shared with the workout editor (D1). */
 @Composable
-private fun setTypeColor(type: SetType): androidx.compose.ui.graphics.Color = when (type) {
-    SetType.WARMUP -> androidx.compose.ui.graphics.Color(0xFFEF6C00)   // deep orange
-    SetType.NORMAL -> MaterialTheme.colorScheme.onSurface
-    SetType.FAILURE -> MaterialTheme.colorScheme.error
-    SetType.DROP -> androidx.compose.ui.graphics.Color(0xFF8E24AA)     // deep purple
-    SetType.SUPERSET -> MaterialTheme.colorScheme.tertiary
-}
+private fun setTypeColor(type: SetType): androidx.compose.ui.graphics.Color =
+    dev.allan.workoutapp.ui.common.setTypeColor(type)
 
 /**
  * One-line Spotify strip above the timer: what's playing, transport, and the heart that
@@ -1209,7 +1277,7 @@ private fun setTypeColor(type: SetType): androidx.compose.ui.graphics.Color = wh
  * items Spotify says can't be saved (most podcast episodes).
  */
 @Composable
-private fun SpotifyBar(spotify: dev.allan.workoutapp.session.SpotifyRemote.State) {
+fun SpotifyBar(spotify: dev.allan.workoutapp.session.SpotifyRemote.State) {
     val remote = dev.allan.workoutapp.session.SpotifyRemote
     Surface(tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -1314,7 +1382,18 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
     // start, instead of the stopwatch (Allan, 02/08).
     val pendingTimed = if (!restRunning && !setCountdownRunning && !setCountdownPaused)
         state.pendingTimedSet() else null
-    Surface(tonalElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
+    // Counting aid: while a set with a cadence is running, the panel alternates between two
+    // shades once a second (Allan, 29/08: B3). Off without a tempo, off while resting.
+    val runningTempo = state.setCountdownTemplateId?.let { tid ->
+        state.exercises.firstNotNullOfOrNull { e -> e.sets.firstOrNull { it.templateId == tid } }?.tempo
+    }
+    val blink = setCountdownRunning && !runningTempo.isNullOrBlank() &&
+        (state.setCountdownRemainingSecs ?: 0) % 2 == 1
+    Surface(
+        tonalElevation = 4.dp,
+        color = if (blink) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()

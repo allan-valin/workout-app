@@ -176,6 +176,8 @@
     <string name="wger_refresh_failed">Aktualisierung fehlgeschlagen, vorhandene Daten behalten: %1$s</string>
     <string name="session_settings">Trainings-Session</string>
     <string name="prev_next_setting">Tasten für vorherige/nächste Übung</string>
+    <string name="keep_screen_on_setting">Bildschirm während des Trainings anlassen</string>
+    <string name="set_unlogged">Satz zurückgesetzt</string>
     <string name="show_estimate_setting">Geschätzte Zeit im Training anzeigen</string>
     <string name="spotify_setting">Spotify-Steuerung</string>
     <string name="spotify_setting_hint">Titel, Play/Skip und Herz für Lieblingssongs während des Trainings.</string>
@@ -328,4 +330,9 @@
     <string name="translate_description">Beschreibung übersetzen</string>
     <string name="translating">Wird übersetzt…</string>
     <string name="exercise_exists">Übung existiert bereits — vorhandene wird verwendet: %1$s</string>
+    <string name="mirror_mode">Spiegel</string>
+    <string name="record">Aufnehmen</string>
+    <string name="stop_recording">Aufnahme beenden</string>
+    <string name="camera_permission_needed">Für den Spiegel wird die Kameraberechtigung benötigt</string>
+    <string name="recording_saved">Aufnahme gespeichert unter Movies/WorkoutApp</string>
 </resources>

@@ -36,6 +36,17 @@ object Settings {
     private val PREV_NEXT_BUTTONS =
         androidx.datastore.preferences.core.booleanPreferencesKey("prev_next_buttons")
 
+    private val KEEP_SCREEN_ON =
+        androidx.datastore.preferences.core.booleanPreferencesKey("keep_screen_on")
+
+    /** Keep the screen on while a session is open (default on — Allan, 29/08: C4). */
+    fun keepScreenOn(context: Context): Flow<Boolean> =
+        context.dataStore.data.map { it[KEEP_SCREEN_ON] ?: true }
+
+    suspend fun setKeepScreenOn(context: Context, value: Boolean) {
+        context.dataStore.edit { it[KEEP_SCREEN_ON] = value }
+    }
+
     fun prevNextButtons(context: Context): Flow<Boolean> =
         context.dataStore.data.map { it[PREV_NEXT_BUTTONS] ?: false }
 
