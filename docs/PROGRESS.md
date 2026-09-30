@@ -1397,8 +1397,12 @@ MediaStore row; note field lifted above the keyboard; Plank timer + swipe → "L
 D1 warm-up letter orange in the CARDIO 1 editor; B3 panel alternating secondaryContainer /
 surface once a second while a cadenced Plank countdown ran (pixel-sampled six frames); A6
 Russian Twist page showing "Cadence: 1-0-0-0" from its superset partner Plank.
-Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), E2 CSV content
-(WeightPivotTest), F2, custom-exercise dialog keyboard lift.
+Custom-exercise dialog: its Description field sits at y≈1159 with the keyboard top at 1517
+(Compose's Dialog window does resize; only the Material3 sheet needed the manual lift).
+Found and fixed on the way: with 14 custom exercises the customs sheet pushed "New custom
+exercise" off the bottom with no scroll — the sheet scrolls now and the actions sit under
+the title. Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), E2 CSV
+content (WeightPivotTest), F2.
 
 Follow-up same session: `sets[].tempo` added to the transfer JSON (`PlanTransfer.SetDto`, import
 + export, generator doc row + example; `PlanTransferTempoTest`). Cadences from the next cycle PDF

@@ -3,6 +3,7 @@ package dev.allan.workoutapp.ui.library
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -212,8 +213,29 @@ fun ExerciseLibraryScreen(
         var confirmDeleteCustom by remember { mutableStateOf<ExerciseHit?>(null) }
         val inUseTemplate = stringResource(R.string.custom_in_use)
         ModalBottomSheet(onDismissRequest = { showCustomsSheet = false; selectedCustoms = emptySet() }) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Scrollable, with the actions right under the title: fourteen imported customs
+            // pushed "New custom exercise" off the bottom of the sheet with no way to reach it
+            // (emulator, 2026-09-30).
+            Column(
+                Modifier
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                    .padding(16.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Text(stringResource(R.string.custom_exercises), style = MaterialTheme.typography.headlineSmall)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    OutlinedButton(onClick = { showCustomDialog = true }) {
+                        Text(stringResource(R.string.new_custom_exercise))
+                    }
+                    if (onAdd != null && selectedCustoms.isNotEmpty()) {
+                        Button(onClick = {
+                            selectedCustoms.forEach { onAdd(it) }
+                            selectedCustoms = emptySet()
+                            showCustomsSheet = false
+                        }) { Text(stringResource(R.string.add_selected, selectedCustoms.size)) }
+                    }
+                }
                 if (customs.isEmpty()) Text(stringResource(R.string.no_custom_exercises))
                 customs.forEach { hit ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -234,18 +256,6 @@ fun ExerciseLibraryScreen(
                         IconButton(onClick = { confirmDeleteCustom = hit }) {
                             Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
                         }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    OutlinedButton(onClick = { showCustomDialog = true }) {
-                        Text(stringResource(R.string.new_custom_exercise))
-                    }
-                    if (onAdd != null && selectedCustoms.isNotEmpty()) {
-                        Button(onClick = {
-                            selectedCustoms.forEach { onAdd(it) }
-                            selectedCustoms = emptySet()
-                            showCustomsSheet = false
-                        }) { Text(stringResource(R.string.add_selected, selectedCustoms.size)) }
                     }
                 }
             }
