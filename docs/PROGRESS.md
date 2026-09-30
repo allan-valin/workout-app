@@ -1404,6 +1404,10 @@ exercise" off the bottom with no scroll — the sheet scrolls now and the action
 the title. Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), E2 CSV
 content (WeightPivotTest), F2.
 
+Instrumented suite (`connectedDebugAndroidTest`, AVD, 2026-09-30 14:45): 5/5 green —
+AppDatabaseMigrationTest ×2 and TimerReadoutTest ×3 (the timer panel now blinks on a cadenced
+set; readouts unchanged).
+
 DEMO DEBT (MAINTENANCE rule): `docs/demo.html` was NOT touched for Phase 34 — it has not been
 synced since Phase 12, so the demo lags 20+ phases. Decision for Allan: rewrite the demo from the
 current app, or drop the "mirrors the app" claim from README/MAINTENANCE.
