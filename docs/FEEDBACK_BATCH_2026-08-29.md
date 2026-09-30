@@ -1,8 +1,9 @@
 # Feedback batch — 07/08 → 29/08 2026 (Allan, gym sessions on the Redmi)
 
 **Status 2026-09-30 (Phase 34, v0.8.0):** DONE — A1 A2 A3 A4 A5 A6 B1 B3 C1 C2 C3 C4 D1 E1 E2
-F1 F2, plus the 16/09 archive/swap weight bug (see the last section). **Open:** B2 (needs the
-"cardio workout" rule), F3 (needs the watch model). The [ask] answers assumed are listed in
+F1 F2 B2, plus the 16/09 archive/swap weight bug (see the last section). B2 was built per
+cardio EXERCISE (wger category / custom flag), not per workout — say if a workout-level flag
+is wanted instead. **Open:** F3 (needs the watch model). The [ask] answers assumed are listed in
 `PROGRESS.md` Phase 34.
 
 19 items from WhatsApp, grouped into batches A–F in implementation order. Line references are

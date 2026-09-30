@@ -1347,7 +1347,8 @@ versionCode 7 / versionName 0.7.0. TDD throughout: every task started from a fai
 Spec: `docs/FEEDBACK_BATCH_2026-08-29.md` (status per item at the top of that file). Versions:
 DB unchanged (v9), versionCode 8 / versionName 0.8.0. Unit tests 154 → all green.
 
-Shipped, in commit order (all on main):
+Shipped, in commit order (all on main; B2 and the transfer `tempo` field followed the same
+session, see below):
 - **16/09 archive/swap weights** — `TemplateCarry`: a workout copy (archive "use as base") and a
   swap's "use this exercise's last config" now carry the LAST LOGGED weight/type per slot instead
   of the day-one template target; the swap picks the most recently *trained* use of the exercise,
@@ -1380,8 +1381,14 @@ Decisions taken on the six [ask] questions without Allan (cheap to flip):
 - C4 keep-screen-on: session only, not whole app.
 - E2 export: pivot table (exercise × day), max working weight — the "table" reading.
 - F2 Spotify: one strip above the global bottom nav, same widget as the session's.
-- B2 cardio auto-chain and F3 watch notifications: NOT built — B2 needs the "workout is cardio"
-  rule decided (flag vs every-exercise-is-cardio), F3 needs the watch model.
+- B2 cardio auto-chain: built per EXERCISE, not per workout — an exercise flagged cardio (wger
+  "Cardio" category or the custom-exercise switch) chains its timed sets: a finished countdown
+  logs the set, then the next timed set starts right away (rest 0) or the moment the rest ends
+  (natural end or "Stop rest"). Strength exercises are untouched. No new plan field needed.
+  EMULATOR-VERIFIED on CARDIO 1 (Elliptical): 5 s warm-up → logged → 60 s set started at once
+  → logged → 60 s rest → next set's countdown running by itself. `CardioChainTest`.
+- F3 watch notifications: NOT built — needs the watch model (Wear OS app vs mirrored
+  notification).
 
 Emulator pass (AVD testphone, release APK, plan `plan_fortalecimento_fase2.json` imported via
 SAF): FULLBODY B map + top-3 line; CORE session: log RT1 with Plank untouched → marker on RT2,

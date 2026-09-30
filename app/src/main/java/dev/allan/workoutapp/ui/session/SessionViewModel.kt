@@ -56,6 +56,8 @@ data class SessionExercise(
     val suggestion: dev.allan.workoutapp.data.ProgressionEngine.Suggestion? = null,
     /** Pinned note text, shown as a line under the image; null = nothing pinned. */
     val pinnedNote: String? = null,
+    /** Cardio exercise (wger category / custom flag): its timed sets chain hands-free (B2). */
+    val isCardio: Boolean = false,
 )
 
 /** How the just-logged set compared to its cadence estimate (only "too fast" warns). */
@@ -77,6 +79,8 @@ data class SessionUiState(
     val currentStep: Pair<Int, Long>? = null,
     /** exerciseIndex to templateId of the set logged most recently — what [currentStep] follows. */
     val lastLogged: Pair<Int, Long>? = null,
+    /** Cardio auto-chain: templateId of the timed set to start as soon as the rest ends (B2). */
+    val autoStartTemplateId: Long? = null,
     /** The log row an accidental un-log just removed; offers UNDO until it is consumed. */
     val undoableUnlog: dev.allan.workoutapp.data.db.SetLog? = null,
     val elapsedSecs: Int = 0,
@@ -286,6 +290,21 @@ object SupersetOrder {
 }
 
 /**
+ * B2 (Allan, 29/08): on a CARDIO exercise, the timed set whose countdown just finished is
+ * followed by the exercise's next undone timed set — (exerciseIndex, set), or null when the
+ * exercise is not cardio, the template is unknown, or nothing timed is left. Rep sets in
+ * between are skipped (they cannot be timed).
+ */
+fun cardioChainNext(exercises: List<SessionExercise>, finishedTemplateId: Long): Pair<Int, SessionSet>? {
+    val idx = exercises.indexOfFirst { e -> e.sets.any { it.templateId == finishedTemplateId } }
+    if (idx < 0) return null
+    val ex = exercises[idx]
+    if (!ex.isCardio) return null
+    val pos = ex.sets.indexOfFirst { it.templateId == finishedTemplateId }
+    return ex.sets.drop(pos + 1).firstOrNull { !it.done && it.valueUnit == ValueUnit.SECS }?.let { idx to it }
+}
+
+/**
  * Rough workout time budget: per exercise a 60 s setup buffer, plus per set the work time
  * and its rest. Timed sets count their duration; rep sets use the same cadence rule the
  * booking uses (SetTiming.defaultActiveSecs) so plan and reality agree. Reference only.
@@ -408,6 +427,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 sets = sets,
                 supersetWithPrev = we.supersetWithPrev,
                 pinnedNote = db.sessionDao().pinnedNote(we.exerciseId)?.takeIf { it.isNotBlank() },
+                isCardio = exercise?.isCardio == true,
                 suggestion = if (we.id in handledSuggestions) null
                 else dev.allan.workoutapp.data.ProgressionEngine.suggest(
                     templates = weTemplates,
@@ -458,11 +478,16 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             val startedAt = timers.sessionStartedAt
             if (startedAt != null && !_state.value.finished) {
                 val restRemaining = timers.restEndAt?.let { ((it - now) / 1000L).toInt() }
-                if (restRemaining != null && restRemaining <= 0) SessionManager.stopRest()
+                if (restRemaining != null && restRemaining <= 0) {
+                    SessionManager.stopRest()
+                    onRestEnded()
+                }
                 val countdownRemaining = timers.setCountdownEndAt?.let { ((it - now) / 1000L).toInt() }
                 // A run that reached zero books its seconds; only runs stopped by hand are lost.
                 if (countdownRemaining != null && countdownRemaining <= 0) {
+                    val finished = timers.setCountdownTemplateId
                     SessionManager.completeSetCountdown()
+                    if (finished != null) onCountdownFinished(finished)
                 }
                 val stopwatch = SessionManager.stopwatchSecs(now)
                 _state.value = _state.value.copy(
@@ -478,6 +503,31 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             }
             delay(250)
         }
+    }
+
+    /**
+     * B2 cardio auto-chain: a finished countdown on a cardio exercise logs its set by itself
+     * and lines up the next timed set — started right away when the set has no rest, else the
+     * moment the rest ends ([onRestEnded]). Strength exercises are untouched.
+     */
+    private fun onCountdownFinished(templateId: Long) {
+        val exercises = _state.value.exercises
+        val idx = exercises.indexOfFirst { e -> e.sets.any { it.templateId == templateId } }
+        val set = exercises.getOrNull(idx)?.sets?.firstOrNull { it.templateId == templateId } ?: return
+        if (!exercises[idx].isCardio || set.done) return
+        val next = cardioChainNext(exercises, templateId)
+        logSet(idx, set)
+        if (next == null) return
+        val restStarted = SessionManager.state.value.restEndAt != null
+        if (restStarted) _state.value = _state.value.copy(autoStartTemplateId = next.second.templateId)
+        else startSetCountdown(next.second)
+    }
+
+    private fun onRestEnded() {
+        val pending = _state.value.autoStartTemplateId ?: return
+        _state.value = _state.value.copy(autoStartTemplateId = null)
+        val set = _state.value.exercises.firstNotNullOfOrNull { e -> e.sets.firstOrNull { it.templateId == pending } }
+        if (set != null && !set.done) startSetCountdown(set)
     }
 
     fun openExercise(index: Int) {
@@ -669,7 +719,12 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 )
             )
         }
-        _state.value = _state.value.copy(lastLogged = exerciseIndex to set.templateId, undoableUnlog = null)
+        _state.value = _state.value.copy(
+            lastLogged = exerciseIndex to set.templateId,
+            undoableUnlog = null,
+            // Logging the queued set by hand retires the auto-start.
+            autoStartTemplateId = _state.value.autoStartTemplateId?.takeIf { it != set.templateId },
+        )
         updateSet(exerciseIndex, set.copy(done = true))
 
         // Superset pairs alternate without rest: A1, B1 (no pause after A1), rest after B1.
@@ -859,6 +914,9 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     }
 
     fun startSetCountdown(set: SessionSet) {
+        if (_state.value.autoStartTemplateId == set.templateId) {
+            _state.value = _state.value.copy(autoStartTemplateId = null)
+        }
         SessionManager.startSetCountdown(set.value, set.templateId)
         TimerService.showCountdown(
             getApplication(),
@@ -907,6 +965,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     fun stopRest() {
         SessionManager.stopRest()
         TimerService.showDefault(getApplication())
+        onRestEnded()
     }
 
     /** @param pinned null keeps the note's current pin state. */
