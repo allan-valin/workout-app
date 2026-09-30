@@ -1404,7 +1404,7 @@ exercise" off the bottom with no scroll — the sheet scrolls now and the action
 the title. Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), E2 CSV
 content (WeightPivotTest), F2.
 
-16/09 fix verified end to end on the AVD (2026-09-30 14:50): logged Russian Twist set 1 at
+16/09 fix verified end to end on the AVD (2026-09-30 14:47): logged Russian Twist set 1 at
 20 kg, saved the session, Archive → Workouts → Add → Use as base → CORE; the copy "CORE 09/26"
 shows 20 kg on set 1 and the template 10 kg on sets 2–3 (editor). Before the fix every set of a
 copy restarted at the template weight. Helper script kept as `tools/emu_ui.py`.
