@@ -1404,7 +1404,7 @@ exercise" off the bottom with no scroll — the sheet scrolls now and the action
 the title. Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), E2 CSV
 content (WeightPivotTest), F2.
 
-Instrumented suite (`connectedDebugAndroidTest`, AVD, 2026-09-30 14:45): 5/5 green —
+Instrumented suite (`connectedDebugAndroidTest`, AVD, 2026-09-30 14:39): 5/5 green —
 AppDatabaseMigrationTest ×2 and TimerReadoutTest ×3 (the timer panel now blinks on a cadenced
 set; readouts unchanged).
 
