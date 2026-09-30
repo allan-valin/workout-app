@@ -1393,9 +1393,12 @@ Decisions taken on the six [ask] questions without Allan (cheap to flip):
 Emulator pass (AVD testphone, release APK, plan `plan_fortalecimento_fase2.json` imported via
 SAF): FULLBODY B map + top-3 line; CORE session: log RT1 with Plank untouched → marker on RT2,
 pager stayed; un-log → snackbar → UNDO → set_log row back (pulled DB); mirror record/stop →
-MediaStore row; note field lifted above the keyboard; Plank timer + swipe → "Log set · Plank".
-Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), A6, B3, D1 (editor
-letter colours), E2 CSV content (WeightPivotTest), F2, custom-exercise dialog keyboard lift.
+MediaStore row; note field lifted above the keyboard; Plank timer + swipe → "Log set · Plank";
+D1 warm-up letter orange in the CARDIO 1 editor; B3 panel alternating secondaryContainer /
+surface once a second while a cadenced Plank countdown ran (pixel-sampled six frames); A6
+Russian Twist page showing "Cadence: 1-0-0-0" from its superset partner Plank.
+Still only unit-tested / compile-green, NOT eyeballed: A3 (drag guard), E2 CSV content
+(WeightPivotTest), F2, custom-exercise dialog keyboard lift.
 
 Follow-up same session: `sets[].tempo` added to the transfer JSON (`PlanTransfer.SetDto`, import
 + export, generator doc row + example; `PlanTransferTempoTest`). Cadences from the next cycle PDF
