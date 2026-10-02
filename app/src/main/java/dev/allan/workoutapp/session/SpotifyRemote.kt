@@ -29,6 +29,16 @@ import kotlinx.coroutines.flow.StateFlow
  * ("like button stopped working"). Now: [connect] is a no-op while connected or connecting,
  * the automatic attempt (app launch, setting switched on) never shows Spotify's auth sheet,
  * and a lost connection is only re-tried when the user taps the placeholder strip.
+ *
+ * OWNS: the one SpotifyAppRemote connection and the [State] the strip renders.
+ * MUST NEVER:
+ *  - open a second connection ([connect] returns while connected or connecting);
+ *  - disconnect on ON_STOP or reconnect on ON_START (30/09 S2a — AppRoot owns the lifetime,
+ *    the session screen only reads [state]);
+ *  - show Spotify's auth sheet from an automatic call (only a user tap passes showAuth=true);
+ *  - clear [State.canSave] on a transient failure (30/09 S2c — the heart stays usable until
+ *    Spotify's library call says the item cannot be saved).
+ * Shaped by: Phase 34 F2 (the heart), 30/09 S2a/S2b/S2c.
  */
 object SpotifyRemote {
 
@@ -69,7 +79,7 @@ object SpotifyRemote {
      * pass false so nothing ever jumps in front of the workout.
      */
     fun connect(context: Context, showAuth: Boolean = false) {
-        if (isUp() || !available(context)) return
+        if (isUp() || !available(context)) return   // the no-op that keeps it to one connection
         connecting = true
         val params = ConnectionParams.Builder(BuildConfig.SPOTIFY_CLIENT_ID)
             .setRedirectUri(BuildConfig.SPOTIFY_REDIRECT_URI)
@@ -108,6 +118,7 @@ object SpotifyRemote {
 
     /** Closes the connection (setting switched off, or the activity is gone for good). */
     fun disconnect() {
+        // Called by AppRoot only: setting switched off, or the activity is finishing for good.
         remote?.let(SpotifyAppRemote::disconnect)
         remote = null
         connecting = false

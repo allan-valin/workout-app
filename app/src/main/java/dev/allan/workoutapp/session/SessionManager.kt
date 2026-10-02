@@ -7,6 +7,22 @@ import kotlinx.coroutines.flow.StateFlow
  * Process-wide session timer state. All instants are epoch millis so every value
  * can be recomputed from the wall clock — a killed process loses nothing critical
  * (Session.startedAt is persisted in Room; rest timers are ephemeral by design).
+ *
+ * OWNS: the rest countdown, the timed-set countdown, the stopwatch, and the running
+ * session's active/rest second totals. Nothing here touches Room or the UI; the
+ * ViewModel reads [state] and calls the verbs below, TimerService mirrors the
+ * countdowns into the notification.
+ *
+ * MUST NEVER:
+ *  - book the same seconds twice: a finished countdown is booked once per run
+ *    ([completeSetCountdown]), a stopwatch reading is consumed once
+ *    ([consumeStopwatch]), and a gap anchor is single-use ([gapActiveSecs]);
+ *  - book a countdown that was stopped early ([cancelSetCountdown] books nothing);
+ *  - book a gap longer than [MAX_GAP_SECS] as active time (30/09 T1: the old 3-minute
+ *    cutoff with a flat 40 s turned Allan's 3-minute sets into "40 minutes idle").
+ *
+ * Shaped by: 02/08 (double-booking of left/right runs), 02/08 (superset coverage
+ * window), 30/09 T1 (gap cutoff 180 s → 300 s, null instead of a literal 40).
  */
 object SessionManager {
 
@@ -51,6 +67,8 @@ object SessionManager {
         _state.value = TimerState()
     }
 
+    /** Start (or restart) the rest countdown. A rest already running is booked first,
+     *  so tapping "rest" twice never loses the seconds of the first one. */
     fun startRest(durationSecs: Int) {
         finishRestAccounting()
         _state.value = _state.value.copy(
@@ -69,6 +87,8 @@ object SessionManager {
         val endAt = s.restEndAt ?: return
         val now = System.currentTimeMillis()
         val startAt = endAt - s.restDurationSecs * 1000L
+        // A rest stopped after it ended (user came back late) counts only up to its end;
+        // the time after that is the next set's gap, not rest.
         val elapsed = ((minOf(now, endAt) - startAt) / 1000L).toInt()
         _state.value = s.copy(
             restEndAt = null,
@@ -92,13 +112,17 @@ object SessionManager {
      */
     fun gapActiveSecs(now: Long = System.currentTimeMillis()): Int? {
         val s = _state.value
+        // Anchor: when the last rest ended; or, if the countdown ran out unattended and was
+        // never stopped, the instant it would have ended.
         val anchor = s.lastRestEndedAt ?: s.restEndAt?.takeIf { it <= now }
         anchor ?: return null
-        _state.value = s.copy(lastRestEndedAt = null)
+        _state.value = s.copy(lastRestEndedAt = null)   // single-use: the next set needs a new anchor
         val gap = ((now - anchor) / 1000L).toInt().coerceAtLeast(0)
         return gap.takeIf { it in 1..MAX_GAP_SECS }
     }
 
+    /** Start a timed set's countdown. [templateId] is what [completeSetCountdown] books the
+     *  run against; a countdown without one (free timer) books nothing on completion. */
     fun startSetCountdown(durationSecs: Int, templateId: Long? = null) {
         _state.value = _state.value.copy(
             setCountdownEndAt = System.currentTimeMillis() + durationSecs * 1000L,
@@ -125,6 +149,7 @@ object SessionManager {
         return endAt
     }
 
+    /** Stop a countdown early. Books NOTHING on purpose: the set was not done as timed. */
     fun cancelSetCountdown() {
         _state.value = _state.value.copy(
             setCountdownEndAt = null,
@@ -215,11 +240,15 @@ object SessionManager {
     /** Stops + resets the stopwatch and returns its reading without double-booking. */
     fun consumeStopwatch(): Int? {
         val total = stopwatchSecs()
+        // Never started and never ran: nothing to consume (null lets the caller fall back to
+        // the gap or the cadence default).
         if (total == 0 && _state.value.stopwatchStartedAt == null) return null
         _state.value = _state.value.copy(stopwatchStartedAt = null, stopwatchAccumSecs = 0)
         return total.takeIf { it > 0 }
     }
 
+    /** The one place active seconds are added; every booking path above ends here or in
+     *  [completeSetCountdown]. */
     fun addActiveSecs(secs: Int) {
         _state.value = _state.value.copy(activeSecs = _state.value.activeSecs + secs)
     }

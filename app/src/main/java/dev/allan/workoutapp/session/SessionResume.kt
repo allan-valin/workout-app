@@ -10,6 +10,12 @@ import dev.allan.workoutapp.data.db.Session
  * unordered `LIMIT 1` then bound an EMPTY duplicate — Allan's logged sets looked gone. The
  * choice is pure logic, so it lives here and is unit-tested instead of only being reachable
  * through Room.
+ *
+ * OWNS: the decision only — which RUNNING session to bind, which strays to delete, which to
+ * close. The caller (SessionViewModel.startOrResume) applies it.
+ * MUST NEVER: put a session that has logged sets into [Decision.delete]; cleanup may close
+ * such a session but never destroy a logged set.
+ * Shaped by: 25/07 (progress-loss bug).
  */
 object SessionResume {
 
@@ -31,6 +37,7 @@ object SessionResume {
      */
     fun decide(candidates: List<Session>, logCounts: Map<Long, Int>): Decision {
         if (candidates.isEmpty()) return Decision(keep = null)
+        // Most logged sets wins; among equals the newest start; among equals the highest id.
         val keep = candidates.maxWithOrNull(
             compareBy({ logCounts[it.id] ?: 0 }, { it.startedAt }, { it.id })
         )!!

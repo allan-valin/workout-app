@@ -28,7 +28,17 @@ import kotlinx.coroutines.launch
  * alert (vibration + beep) even with the screen off or the app minimized.
  *
  * Countdowns render natively via setChronometerCountDown — the OS ticks the
- * notification, no per-second updates needed from us.
+ * notification, no per-second updates needed from us (in theory; see buildNotification).
+ *
+ * OWNS: the foreground notification and the countdown-end alert. It reads
+ * SessionManager for the session start instant but books no time itself.
+ * MUST NEVER:
+ *  - run on a LOW-importance channel (the rest countdown vanished from the lock screen,
+ *    24/07) or let the channel play its own sound (the beep is ours, volume-controlled);
+ *  - beep on the notification stream (muted on HyperOS, 24/07) — STREAM_MUSIC only;
+ *  - leave a countdown notification ticking after its end (scheduleAlert swaps back).
+ * Shaped by: 24/07 (lock screen, beep stream, vibrate-when-silent), 02/08 (HyperOS does
+ * not tick the chronometer → re-posted every second with the remaining time spelled out).
  */
 class TimerService : Service() {
 
@@ -60,6 +70,8 @@ class TimerService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Every action arrives as a new start of the same service; state lives in the handler
+        // runnables and in SessionManager, never in the intent beyond its own payload.
         when (intent?.action) {
             ACTION_START -> startForegroundWithNotification()
             ACTION_SHOW_COUNTDOWN -> {
@@ -81,6 +93,8 @@ class TimerService : Service() {
                 stopSelf()
             }
         }
+        // STICKY: if HyperOS kills us anyway the system restarts the service (with a null
+        // intent → no branch above runs, the notification is rebuilt by the next command).
         return START_STICKY
     }
 
@@ -145,6 +159,8 @@ class TimerService : Service() {
         ensureChannel().notify(NOTIFICATION_ID, notification)
     }
 
+    /** Promote to foreground. SPECIAL_USE is the only type that fits a workout timer on
+     *  API 34+; the manifest declares the matching foregroundServiceType. */
     private fun startForegroundWithNotification() {
         ensureChannel()
         val notification = defaultNotification()
