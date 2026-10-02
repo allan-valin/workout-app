@@ -7,6 +7,11 @@ package dev.allan.workoutapp.data
  * estimate when a cadence is defined (1-1-1-1 × 10 reps = 40 s, 1-0-1-0 × 10 = 20 s) and
  * a flat 40 s otherwise. Measured durations lose 5 s for getting into position. Moving
  * faster than the cadence is worth a warning; slower is not a problem.
+ *
+ * OWNS: the pure timing rules (defaults, measured correction, pace). Unit-tested; nothing
+ * here reads a clock or the database. MUST NEVER: be bypassed by a literal number in the
+ * view model — every booked second comes from one of these functions (30/09 T1 was a
+ * literal 40 in SessionManager).
  */
 object SetTiming {
 

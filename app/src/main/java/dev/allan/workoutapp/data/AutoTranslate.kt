@@ -18,6 +18,10 @@ import kotlin.coroutines.resumeWithException
  * caches the result as a `machine = true` translation row, and never touches exercises
  * that already have a human translation. The ~30MB language model downloads once, on
  * Wi-Fi only; until then exercises simply stay English.
+ *
+ * MUST NEVER: overwrite or replace a translation row with `machine = false` — a name or
+ * description a person wrote (snapshot, plan import, the user) always wins; a machine row
+ * is replaced in place by a human one later (30/09 N1), never the other way round.
  */
 object AutoTranslate {
 

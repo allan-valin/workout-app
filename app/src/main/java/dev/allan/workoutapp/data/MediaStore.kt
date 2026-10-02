@@ -14,6 +14,8 @@ import java.net.URL
  * Exercise image pipeline: download once when an exercise is added to a workout,
  * downscale to screen width, store in app-internal files for offline use.
  * wger hosts only — refuses other URLs.
+ * MUST NEVER: fetch from a host that is not wger.de or the free-exercise-db GitHub raw
+ * path; keep a file over MAX_BYTES; delete a user-chosen image (ExerciseUserImage).
  */
 object MediaStore {
 

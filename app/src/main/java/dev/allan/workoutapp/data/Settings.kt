@@ -9,6 +9,14 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
+/**
+ * User preferences in DataStore: body height, injured muscles, beep volume/mute, Spotify
+ * opt-in, prev/next buttons, keep-screen-on, language, onboarding flags.
+ *
+ * OWNS: every preference key and its Flow; nothing else reads the DataStore directly.
+ * MUST NEVER: be read synchronously on the main thread (TimerService caches the beep prefs
+ * for that reason); hold anything the user would expect in a backup (those go to Room).
+ */
 object Settings {
     private val HEIGHT_CM = doublePreferencesKey("height_cm")
     private val BATTERY_ONBOARDING_SHOWN =

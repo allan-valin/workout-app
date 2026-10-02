@@ -25,8 +25,9 @@ import kotlinx.serialization.json.Json
  * MUST NEVER: drop a table on restore (an absent list in an older backup leaves the table
  * alone — pre-v4 files have no planWorkouts, pre-v6 no favorites); be written with a BOM
  * (it is JSON); be used as a merge tool — it is a migration tool.
- * Shaped by: Phase 34 upgrade on the Redmi (0.8.0 installed over 0.7 with data kept; the
- * schema has not changed since v9, backup is the belt to that braces).
+ * Shaped by: the Redmi upgrades (0.8.0 and 0.8.1 installed over the previous build with
+ * data kept — Room migrations carry the schema, now at version 11; this file is the belt to
+ * those braces).
  */
 object Backup {
 

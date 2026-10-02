@@ -10,6 +10,9 @@ import kotlin.math.roundToInt
 
 /**
  * Double-progression suggestions, never auto-applied (docs/PROGRESSION.md for sources).
+ * MUST NEVER: change a template or a draft itself — it only proposes; the session applies
+ * a suggestion when the user taps it, and a dismissed or answered chip stays answered for
+ * the rest of the session (02/08).
  *
  * Grounded in the ACSM progression position stand ("increase load 2–10% when the current
  * workload can be performed 1–2 reps over target") and the NSCA 2-for-2 rule; load- and

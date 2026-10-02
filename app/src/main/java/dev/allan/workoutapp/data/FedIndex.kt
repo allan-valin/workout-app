@@ -15,6 +15,10 @@ import kotlinx.serialization.Serializable
  * Fed exercises stay OUT of the Room DB until the user actually engages with one
  * (opens its detail sheet or adds it to a workout) — then it's imported once as a regular
  * Exercise row with id "fed:<slug>", so notes/links/favorites/sessions all work unchanged.
+ *
+ * MUST NEVER: bulk-import the index into Room (it would double the exercise table and
+ * every search), or import an entry twice (ensureImported is idempotent by id). Plan import
+ * must search here too (24/07: a DB-only lookup missed the whole second database).
  */
 object FedIndex {
 

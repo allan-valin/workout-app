@@ -7,7 +7,16 @@ import dev.allan.workoutapp.data.db.SetTemplate
 import dev.allan.workoutapp.data.db.WorkoutExercise
 import java.util.UUID
 
-/** Shared plan-editing operations used by the workout editor and the exercise picker. */
+/**
+ * Shared plan-editing operations used by the workout editor and the exercise picker.
+ *
+ * OWNS: name uniqueness for cycles/workouts, display names in the app language, custom
+ * exercise creation, notes, and the copy operations that carry trained numbers along.
+ * MUST NEVER: create two cycles or two workouts with the same name (the Archive lists by
+ * name); copy a template without TemplateCarry (16/09: copies restarted at 0 kg); return a
+ * machine translation when a human one exists for the language.
+ * Shaped by: 25/07 (names), 16/09 (archive copy weights), 30/09 N1 (local names).
+ */
 object PlanRepo {
 
     /**

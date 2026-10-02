@@ -9,6 +9,13 @@ import dev.allan.workoutapp.data.db.Muscle
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
+/*
+ * First-run import of the bundled wger snapshot (assets) into Room: exercises, muscles,
+ * equipment and the human translations (en/pt/de) with their aliases. Runs once; WgerSync
+ * refreshes later. MUST NEVER: overwrite a user's custom exercise or a translation the
+ * user or a plan import wrote — the snapshot rows are keyed "wger:<id>" and only those.
+ */
+
 @Serializable
 private data class SnapshotTranslation(
     val name: String,

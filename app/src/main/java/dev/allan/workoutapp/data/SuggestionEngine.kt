@@ -11,6 +11,8 @@ enum class SuggestionFocus {
  * Auto workout suggestions: picks exercises from the local library per focus recipe.
  * Injured muscles are respected (primary or secondary hit excluded). Suggestions only
  * append — existing exercises in the workout stay and are never duplicated.
+ * MUST NEVER: pick an exercise that hits an injured muscle, even as secondary; remove or
+ * reorder what the user already put in the workout.
  */
 object SuggestionEngine {
 

@@ -15,6 +15,14 @@ import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.URL
 
+/*
+ * Optional online refresh from the wger API (settings → sync). Pages through languages,
+ * muscles, equipment, exercises, images and aliases. MUST NEVER: delete a local exercise
+ * that wger dropped (sessions reference it); replace a `machine = false` translation that
+ * is not wger's own (the user's and the plan import's names stay); run without the user
+ * asking (no background sync — the app is offline-first).
+ */
+
 @Serializable
 private data class WPage<T>(val next: String? = null, val results: List<T> = emptyList())
 

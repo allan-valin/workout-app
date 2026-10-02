@@ -8,6 +8,15 @@ import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
+/*
+ * The three DAOs (exercise, plan, session). Rules that live in queries, not in code:
+ *  - runningSessionsFor(workoutId) is the resume query — never "the newest RUNNING session"
+ *    globally (25/07: it bound another workout's session);
+ *  - Flows are for screens, suspend one-shots for the import/export paths;
+ *  - deletes cascade through foreign keys; no DAO deletes a SetLog except the un-log and
+ *    the reorder remap in SessionViewModel.
+ */
+
 /** Row for [PlanDao.exerciseCounts]. */
 data class WorkoutExerciseCount(val workoutId: Long, val count: Int)
 

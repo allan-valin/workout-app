@@ -8,6 +8,17 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+/*
+ * The Room database and its migrations. Version 11.
+ *
+ * MUST NEVER:
+ *  - bump `version` without a Migration for the step — the Redmi carries months of logs and
+ *    is updated in place; fallbackToDestructiveMigration is not an option here;
+ *  - edit an existing Migration — write the next one; AppDatabaseMigrationTest replays them;
+ *  - change an entity without a schema bump (exportSchema = true keeps the JSON history).
+ * Shaped by: every release since 0.4.0 (v4 many-to-many plan↔workout, v5 notes/tempo,
+ * v6 favourites, …, v9–v11 session drafts, suggestion states, user images).
+ */
 @Database(
     entities = [
         Exercise::class, ExerciseTranslation::class, Muscle::class, Equipment::class,

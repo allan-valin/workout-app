@@ -5,6 +5,13 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
+/*
+ * Room entities. A change here is a schema change: bump AppDatabase.version and add a
+ * Migration. Row ids are kept verbatim by Backup, so never renumber. SetLog keys sets by
+ * (session, workoutExercise, setIndex) — reordering sets mid-session has to remap logs
+ * (SessionViewModel.moveSessionSet); drafts key by templateId and need no remap.
+ */
+
 /** Weight entry modes for an exercise inside a workout. */
 enum class WeightMode { TOTAL, PER_DUMBBELL, PER_SIDE }
 
