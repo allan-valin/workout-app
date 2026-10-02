@@ -41,6 +41,10 @@ each is written down here so the same mistake is not made twice.
   instead of a literal 40. `gapActiveSecs(now)` takes a clock for tests. `SessionManagerTimerTest`: 200 s
   booked as 200, 300 s still counts, 301 s disregarded.
 
+### T2. Follow-up (02/10): make the estimate dynamic, add "forgot?"
+Superseded T1's flat default: see `PROGRESS.md` Phase 37 (4 s/rep, realistic cadence, cap =
+max(5 min, 2× estimate), stopwatch as-is unless the "forgot?" box is ticked).
+
 ## X — Export
 
 ### X1. CSV loses ç à á ã

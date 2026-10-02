@@ -99,6 +99,12 @@ import dev.allan.workoutapp.R
 import dev.allan.workoutapp.data.db.SetType
 import dev.allan.workoutapp.data.db.ValueUnit
 import dev.allan.workoutapp.data.db.WeightMode
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 /*
  * The in-progress workout screen: exercise list ↔ pager of exercise pages, the top bar with
@@ -1481,7 +1487,23 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            TimerReadout(state, pendingTimed)
+            // Readout centred; the "forgot?" box sits on the right of its number line while
+            // the panel is the set-duration stopwatch (Allan, 02/10): ticked = the reading
+            // is wrong (timer left running), book the estimate instead.
+            val stopwatchRole = !restRunning && !setCountdownRunning && !setCountdownPaused &&
+                pendingTimed == null
+            Box(Modifier.fillMaxWidth()) {
+                Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                    TimerReadout(state, pendingTimed)
+                }
+                if (stopwatchRole) {
+                    ForgotTimerBox(
+                        checked = state.forgotTimer,
+                        onCheckedChange = vm::setForgotTimer,
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    )
+                }
+            }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1532,6 +1554,45 @@ private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * "forgot?" + checkbox for the timer panel. In dark mode the box sits on a white rounded
+ * plate so it stands out against the panel (Allan, 02/10); in light mode the Material
+ * outline is enough. Minimum-touch-size enforcement is off so the plate hugs the box.
+ */
+@Composable
+private fun ForgotTimerBox(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            stringResource(R.string.forgot_timer),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(
+            Modifier
+                .padding(top = 2.dp)
+                .background(
+                    if (dark) Color.White else Color.Transparent,
+                    androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                )
+                .padding(2.dp),
+        ) {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                Checkbox(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = MaterialTheme.colorScheme.primary,
+                        uncheckedColor = if (dark) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+                        checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                    modifier = Modifier.size(28.dp),
+                )
             }
         }
     }

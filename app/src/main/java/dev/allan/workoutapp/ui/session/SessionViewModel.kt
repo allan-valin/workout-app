@@ -113,6 +113,12 @@ data class SessionUiState(
     val setCountdownTemplateId: Long? = null,
     val stopwatchSecs: Int = 0,
     val stopwatchRunning: Boolean = false,
+    /**
+     * "forgot?" in the timer panel (Allan, 02/10): the user says the stopwatch/gap reading is
+     * wrong (left running), so the next logged rep set books the estimate instead. Cleared
+     * after every log.
+     */
+    val forgotTimer: Boolean = false,
     /** Live active-time total: booked seconds + the current stopwatch reading. */
     val activeSecs: Int = 0,
     val timerPanelVisible: Boolean = true,
@@ -710,19 +716,29 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         // nothing; a timed set never run still books its nominal duration. Rep sets: the
         // stopwatch, else nothing when a measurement moments ago already spanned this set
         // (superset partner), else the gap since rest ended, else the cadence estimate.
+        // Decision tree documented on SetTiming (02/10).
+        val forgot = _state.value.forgotTimer
         val active: Int = when (set.valueUnit) {
             ValueUnit.SECS -> if (SessionManager.bookedRunSecs(set.templateId) != null) 0 else set.value
             ValueUnit.REPS -> {
+                // Consumed even when ignored: a forgotten stopwatch must not leak into the
+                // next set either.
                 val stopwatch = SessionManager.consumeStopwatch()
                 when {
+                    // The user says the reading is wrong → the estimate, nothing recorded as
+                    // measured (a bogus measurement must not "cover" the superset partner).
+                    forgot -> dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
+                    // Stopwatch ran: its reading is the truth, however long ("timer = 6 min
+                    // means I was active 6 min").
                     stopwatch != null ->
                         dev.allan.workoutapp.data.SetTiming.measuredActiveSecs(stopwatch)
                             .also { SessionManager.recordMeasured(stopwatch) }
                     // The previous set's timer covered this one too — book nothing.
                     SessionManager.coveredByPreviousMeasure() -> 0
+                    // Untimed: the gap since the rest ended, capped by reps/cadence.
                     else -> SessionManager.gapActiveSecs()
                         ?.let { gap ->
-                            dev.allan.workoutapp.data.SetTiming.measuredActiveSecs(gap)
+                            dev.allan.workoutapp.data.SetTiming.bookFromGap(gap, set.value, set.tempo)
                                 .also { SessionManager.recordMeasured(gap) }
                         }
                         ?: dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
@@ -774,6 +790,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         _state.value = _state.value.copy(
             lastLogged = exerciseIndex to set.templateId,
             undoableUnlog = null,
+            forgotTimer = false,
             // Logging the queued set by hand retires the auto-start.
             autoStartTemplateId = _state.value.autoStartTemplateId?.takeIf { it != set.templateId },
         )
@@ -1003,6 +1020,11 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
     fun stopSetCountdown() {
         SessionManager.cancelSetCountdown()
         TimerService.showDefault(getApplication())
+    }
+
+    /** The "forgot?" box in the timer panel; see SessionUiState.forgotTimer. */
+    fun setForgotTimer(value: Boolean) {
+        _state.value = _state.value.copy(forgotTimer = value)
     }
 
     fun toggleStopwatch() {

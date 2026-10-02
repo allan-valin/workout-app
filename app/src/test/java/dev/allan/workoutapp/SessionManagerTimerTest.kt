@@ -187,18 +187,20 @@ class SessionManagerTimerTest {
     }
 
     @Test
-    fun `a gap over five minutes is disregarded so the cadence default applies`() {
+    fun `the gap is reported raw, the cap is SetTiming's business`() {
+        // 02/10: the cap depends on the set's reps and cadence, so the manager only measures.
         SessionManager.startRest(1)
         SessionManager.stopRest()
         val endedAt = SessionManager.state.value.lastRestEndedAt!!
-        assertNull(SessionManager.gapActiveSecs(now = endedAt + 301_000L))
+        assertEquals(721, SessionManager.gapActiveSecs(now = endedAt + 721_000L))
     }
 
     @Test
-    fun `a gap of exactly five minutes still counts`() {
+    fun `the gap anchor is single-use`() {
         SessionManager.startRest(1)
         SessionManager.stopRest()
         val endedAt = SessionManager.state.value.lastRestEndedAt!!
-        assertEquals(300, SessionManager.gapActiveSecs(now = endedAt + 300_000L))
+        assertEquals(30, SessionManager.gapActiveSecs(now = endedAt + 30_000L))
+        assertNull(SessionManager.gapActiveSecs(now = endedAt + 60_000L))
     }
 }

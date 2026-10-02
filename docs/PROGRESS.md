@@ -1452,7 +1452,7 @@ versionCode 9 / versionName 0.8.1. Unit tests 161 → 174, all green.
   content-desc) and un-logs it — tap the bottom button by coordinates.
 - [ ] Redmi pass: Spotify strip (no pop-up on app switch, placeholder, heart), CSV in Sheets/Excel.
 
-## Phase 36 — inline documentation pass (DONE 2026-10-02, 09:35–09:50; compile check pending)
+## Phase 36 — inline documentation pass (DONE 2026-10-02, 09:35–09:50; compile check green 14:35 with Phase 37: unit suite 177/177, assembleRelease OK)
 
 Allan: "add as a task to comment the code and add inline comments for everything, this way maybe you
 can avoid messing up in the future." Done file by file, no behaviour changes, one commit per package
@@ -1477,3 +1477,28 @@ can avoid messing up in the future." Done file by file, no behaviour changes, on
 beside it is the pattern that froze it before), so `./gradlew compileDebugKotlin` was not run. Every
 edit is a `/** … */` or `//` comment with balanced delimiters; the next build will say so. Nothing
 else changed: versionCode 9 / 0.8.1 stands.
+
+## Phase 37 — dynamic active-time estimate + "forgot?" box (2026-10-02, Allan's spec after Phase 35)
+
+Spec (Allan, 02/10, verbatim gist): "40 seconds is based on 10 reps, if I log 20 reps it should
+double"; cadence zeros are really 1–2 s pauses; 5 min is right for "forgot", but then log the
+calculated cap; the trainer's "one set" is sometimes 8 movements and takes 3–5 min; a checkbox
+"forgot?" on the timer block (right side, middle line, white plate in dark mode): unticked, a
+6-min timer means 6 min active; ticked, use the calculation; no timer started → the calculation.
+
+- [x] `SetTiming`: `PER_REP_SECS = 4` × reps without cadence; `realisticTempoSecs` (0/X phase =
+  1 s) × reps with one; nominal `expectedSecs` kept for the too-fast warning; `capSecs` =
+  max(5 min, 2 × estimate); `bookFromGap` = measured (−5 s) within the cap, the cap beyond.
+- [x] `SessionManager.gapActiveSecs` reports the raw gap (cap moved to SetTiming).
+- [x] `SessionUiState.forgotTimer` + `setForgotTimer`; `logSet` tree: forgot → estimate (nothing
+  recorded as measured) · stopwatch → as-is · covered by partner → 0 · gap → `bookFromGap` ·
+  else estimate. Flag cleared after each log.
+- [x] `ForgotTimerBox` in the timer panel, stopwatch role only: "forgot?" label + 28 dp checkbox on
+  a white 6 dp plate in dark mode (black outline), transparent in light mode. Strings en/pt/de.
+- [x] Unit tests: `SetTimingTest` (+4, incl. the 8-movements case), `SessionManagerTimerTest`
+  rewritten for the raw gap. Suite green.
+
+Worked numbers (so the rules can be re-derived): 10 reps no cadence → 40 s, cap 5:00 · 20 reps →
+80 s · 20 × 1-1-3-0 → 120 s (nominal 100), cap 5:00 · 20 × 2-0-4-0 → 160 s, cap 5:20 · 80 reps
+→ 320 s, cap 10:40 · gap 2:30 on 10 reps → 2:25 · gap 9:00 → 5:00 · stopwatch 6:00 unticked → 5:55
+· ticked → estimate.
