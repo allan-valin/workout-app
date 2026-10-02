@@ -1452,17 +1452,28 @@ versionCode 9 / versionName 0.8.1. Unit tests 161 → 174, all green.
   content-desc) and un-logs it — tap the bottom button by coordinates.
 - [ ] Redmi pass: Spotify strip (no pop-up on app switch, placeholder, heart), CSV in Sheets/Excel.
 
-## Phase 36 — inline documentation pass (OPEN; Allan, 02/10/2026)
+## Phase 36 — inline documentation pass (DONE 2026-10-02, 09:35–09:50; compile check pending)
 
 Allan: "add as a task to comment the code and add inline comments for everything, this way maybe you
-can avoid messing up in the future." Do this file by file, no behaviour changes, commit per package:
-- [ ] `session/` (SessionManager, TimerService, SpotifyRemote) — invariants: one Spotify connection per
-  process; gap cutoff 5 min; countdown runs book time, cut-short ones do not.
-- [ ] `ui/session/` (SessionViewModel incl. SupersetOrder, SessionScreen) — the marker rule and the
-  "passed over" definition; rest-skip rule; auto-advance; active-time decision tree in `logSet`.
-- [ ] `data/transfer/` (PlanTransfer, CsvExport, Backup, PdfExport) — resolver order; BOM only on CSV;
-  local-name rule.
-- [ ] `data/` (PlanRepo, SetTiming, AutoTranslate, FedIndex, Settings), `data/db/`.
-- [ ] `ui/plans/`, `ui/library/`, `ui/common/`, `ui/settings/`, `ui/stats/`, `ui/workout/`, `MainActivity`.
-- [ ] Each file starts with a header comment: what it owns, what it must never do, which feedback batch
+can avoid messing up in the future." Done file by file, no behaviour changes, one commit per package
+(`62e471f` session, `626f375` ui/session, `e0ef365` data/transfer, `3c271a9` data + db, `3093c20` ui + app):
+- [x] `session/` (SessionManager, TimerService, SpotifyRemote, SessionResume, MirrorClip) — one Spotify
+  connection per process; gap cutoff 5 min; countdown runs book time, cut-short ones do not; the one
+  place active seconds are added.
+- [x] `ui/session/` (SessionViewModel incl. SupersetOrder, SessionScreen, Summary, Mirror, WeightFill) —
+  the marker rule and the "passed over" definition; the rest-skip rule spelled out on `restSkipped`;
+  auto-advance; the `logSet` order of business; a misplaced doc comment moved back onto `ticker()`.
+- [x] `data/transfer/` (PlanTransfer, CsvExport, Backup, PdfExport) — resolver order; never activate on
+  import; BOM only on CSV; the human-translation rule; backup is migration, not merge.
+- [x] `data/` (PlanRepo, SetTiming, AutoTranslate, FedIndex, Settings, engines, MediaStore) and
+  `data/db/` (AppDatabase: version 11, a Migration per step, never edit an old one; Entities; Daos;
+  snapshot importer; wger sync).
+- [x] `ui/plans/`, `ui/library/`, `ui/settings/`, `ui/stats/`, `ui/workout/`, `MainActivity`, `WorkoutApp`.
+  `ui/common/` files already carried doc headers and were left as they are.
+- [x] Each touched file starts with a header: what it owns, what it must never do, which feedback batch
   shaped it.
+
+**Not compile-checked:** the pass ran while the Desembarque corpus re-read held the machine (one JVM
+beside it is the pattern that froze it before), so `./gradlew compileDebugKotlin` was not run. Every
+edit is a `/** … */` or `//` comment with balanced delimiters; the next build will say so. Nothing
+else changed: versionCode 9 / 0.8.1 stands.
