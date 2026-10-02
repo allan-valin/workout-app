@@ -1509,5 +1509,7 @@ Worked numbers (so the rules can be re-derived): 10 reps no cadence → 40 s, ca
   RT1 no timer → 40 · RT2 stopwatch 18 s + box ticked → 40 · RT3 stopwatch 13 s unticked → 8.
   Session discarded afterwards. Workout estimate in the top bar grew 18:30 → 20:30 (Reverse
   crunch 3 × 20 reps now 80 s each).
-- [ ] Redmi pass (0.8.1 APK, built 14:35): Spotify strip, CSV in a spreadsheet, the box in a real
-  set, idle time at the end of a session.
+- [x] 0.8.1 installed on the Redmi 2026-10-02 (`adb install -r`, 0.8.0 → 0.8.1, data kept; mDNS
+  auto-connected once Wireless debugging was re-enabled after a Wi-Fi change).
+- [ ] Redmi pass by Allan: Spotify strip (no pop-up on app switch, placeholder, heart), CSV in a
+  spreadsheet, the "forgot?" box in a real set, idle time at the end of a session.
