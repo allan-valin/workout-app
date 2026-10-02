@@ -1502,3 +1502,12 @@ Worked numbers (so the rules can be re-derived): 10 reps no cadence → 40 s, ca
 80 s · 20 × 1-1-3-0 → 120 s (nominal 100), cap 5:00 · 20 × 2-0-4-0 → 160 s, cap 5:20 · 80 reps
 → 320 s, cap 10:40 · gap 2:30 on 10 reps → 2:25 · gap 9:00 → 5:00 · stopwatch 6:00 unticked → 5:55
 · ticked → estimate.
+- [x] Emulator pass (AVD, release, dark theme, pt-BR, 2026-10-02 14:37–14:40): the panel in the
+  stopwatch role shows "esqueceu?" above a 28 dp box on a white plate, right of the number line
+  (screenshot checked); hidden in the rest / set-timer roles. `set_log` of the running session
+  (after `adb root` — a fresh boot needs it again or the pull silently returns the old copy):
+  RT1 no timer → 40 · RT2 stopwatch 18 s + box ticked → 40 · RT3 stopwatch 13 s unticked → 8.
+  Session discarded afterwards. Workout estimate in the top bar grew 18:30 → 20:30 (Reverse
+  crunch 3 × 20 reps now 80 s each).
+- [ ] Redmi pass (0.8.1 APK, built 14:35): Spotify strip, CSV in a spreadsheet, the box in a real
+  set, idle time at the end of a session.
