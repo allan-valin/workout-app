@@ -21,7 +21,9 @@ Decisions locked 2026-07-06:
    regressions): a header comment per file and inline comments on every non-trivial block, stating the
    invariants and which feedback batch shaped them. No behaviour changes. Tracked as Phase 36 in
    `PROGRESS.md`; do it before or alongside the next feature batch, never skip it for "more features".
-2. Redmi pass for the Spotify strip (0.8.1): no pop-up on app switch, placeholder strip, heart works.
+2. **CSV export still shows wrong characters on the Redmi** (02/10, after the BOM). Evidence first:
+   pull the file, hex-dump, which app, which export — procedure in `PROGRESS.md` Phase 37.
+3. "forgot?" box and idle time: Allan verifies in a real training session.
 
 ---
 

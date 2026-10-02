@@ -1511,5 +1511,14 @@ Worked numbers (so the rules can be re-derived): 10 reps no cadence → 40 s, ca
   crunch 3 × 20 reps now 80 s each).
 - [x] 0.8.1 installed on the Redmi 2026-10-02 (`adb install -r`, 0.8.0 → 0.8.1, data kept; mDNS
   auto-connected once Wireless debugging was re-enabled after a Wi-Fi change).
-- [ ] Redmi pass by Allan: Spotify strip (no pop-up on app switch, placeholder, heart), CSV in a
-  spreadsheet, the "forgot?" box in a real set, idle time at the end of a session.
+- [x] Redmi pass by Allan (2026-10-02 evening): Spotify strip OK (tap connects, no pop-up on app
+  switch, heart works); superset hand-over OK.
+- [ ] **CSV still shows wrong characters on the Redmi** (X1 NOT fixed by the BOM alone) — next
+  session, not today. Start with evidence, not a guess: `adb pull` the exported file from
+  `/sdcard/Download`, `xxd | head` (is `ef bb bf` there? are the names UTF-8 or already
+  mojibake in the DB?), and ask which app opened it (Sheets / Excel / WPS / the file-manager
+  preview) and which of the four exports. Hypotheses in order: (1) the viewer ignores the BOM
+  (Google Sheets on Android does honour it; the HyperOS file preview may not); (2) the file he
+  opened was an older export; (3) the names are double-encoded upstream (`CsvExport` /
+  `displayName`). A fix without that evidence is another guess.
+- [ ] "forgot?" box + idle time: Allan checks during a real training (too slow to test cold).

@@ -1,6 +1,6 @@
 # Feedback batch — 30/09 2026 (Allan, first gym session on 0.8.0)
 
-**Status 2026-10-02 (Phase 35, v0.8.1):** DONE — S1 S2 S3 T1 X1 N1 (unit-tested; S1/S3/T1/N1 emulator-verified 2026-10-02, see PROGRESS Phase 35);
+**Status 2026-10-02 (Phase 35, v0.8.1):** DONE — S1 S2 S3 T1 N1; **X1 OPEN** (BOM did not fix it on the Redmi) (unit-tested; S1/S3/T1/N1 emulator-verified 2026-10-02, see PROGRESS Phase 35);
 S2 Spotify lifecycle rebuilt, needs the Redmi (no Spotify on the AVD). **Added as a standing task:** inline
 documentation pass over the whole code base (Allan's request; `IMPLEMENTATION_PLAN.md` §0).
 
@@ -52,6 +52,8 @@ max(5 min, 2× estimate), stopwatch as-is unless the "forgot?" box is ticked).
   spreadsheet apps decode that as the system code page.
 - Fix: `CsvExport.fileBytes` prefixes the UTF-8 BOM; only CSV, never JSON (our own import would choke).
   `CsvFileBytesTest`.
+- **Redmi 02/10: still wrong characters.** OPEN — see PROGRESS Phase 37 for the evidence-first
+  procedure (pull the file, hex-dump, which app, which export).
 
 ## N — Exercise names
 
