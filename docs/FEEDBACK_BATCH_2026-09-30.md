@@ -1,6 +1,6 @@
 # Feedback batch — 30/09 2026 (Allan, first gym session on 0.8.0)
 
-**Status 2026-10-02 (Phase 35, v0.8.1):** DONE — S1 S2 S3 T1 X1 N1 (unit-tested + emulator pass for S1/S3/T1/N1);
+**Status 2026-10-02 (Phase 35, v0.8.1):** DONE — S1 S2 S3 T1 X1 N1 (unit-tested; S1/S3/T1/N1 emulator-verified 2026-10-02, see PROGRESS Phase 35);
 S2 Spotify lifecycle rebuilt, needs the Redmi (no Spotify on the AVD). **Added as a standing task:** inline
 documentation pass over the whole code base (Allan's request; `IMPLEMENTATION_PLAN.md` §0).
 

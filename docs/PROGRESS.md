@@ -1439,7 +1439,18 @@ versionCode 9 / versionName 0.8.1. Unit tests 161 → 174, all green.
 - [x] **S2 Spotify** — one persistent connection owned by AppRoot, no reconnect on foreground return,
   `SpotifyStrip` placeholder of the same height with tap-to-connect, heart usable as soon as a track is
   known. Regression from Phase 34 F2. NOT emulator-verifiable (no Spotify on the AVD) — Redmi pass needed.
-- [x] Emulator pass: see the end of this section.
+- [x] Emulator pass (AVD testphone, release 0.8.1, 2026-10-02 08:00–08:10, `tools/emu_ui.py`):
+  CORE session, superset Plank ↔ Russian Twist, logged with the bottom button —
+  P1 → pager on Russian Twist, stopwatch panel (no rest) · RT1 → back on Plank, "Rest 0:53" ·
+  P2 → Russian Twist · RT2 → Plank, Rest · P3 → Russian Twist · RT3 → Copenhagen (next chain,
+  nothing left behind) · Copenhagen 1 → Reverse crunch (its own superset). `set_log` pulled after
+  each tap: rows in that order, RT2 active=7 (gap measured, not 40). Summary: 5:46 total, 4:17
+  active, 1:38 rest. N1: plan with `names: ["Blackroll","Rolo de espuma","Faszienrolle"]`
+  imported in English → no change (human en name); switched to pt-BR, imported again → row
+  `pt | Rolo de espuma | machine=0` in `exercise_translation`. Two "N1 teste nomes" plans left
+  inactive on the AVD. Trap: `emu_ui.py tap "Log set"` hits a done row's checkmark (same
+  content-desc) and un-logs it — tap the bottom button by coordinates.
+- [ ] Redmi pass: Spotify strip (no pop-up on app switch, placeholder, heart), CSV in Sheets/Excel.
 
 ## Phase 36 — inline documentation pass (OPEN; Allan, 02/10/2026)
 
