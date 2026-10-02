@@ -207,29 +207,22 @@ fun AppRoot() {
     // Global bottom nav on every screen EXCEPT an in-progress workout (session).
     val showBottomBar = currentRoute?.startsWith("session/") != true
     // Spotify strip above the bottom nav on every screen (Allan, 22/08: "shown all over the
-    // app"). Connected while the app is in the foreground, released when it leaves it.
+    // app"). AppRoot owns the single connection: opened once when the setting is on (app
+    // launch / switch flipped), closed when the setting goes off or this root leaves the
+    // composition (activity finishing). NOT re-opened on every return to the foreground —
+    // that woke Spotify in front of the workout each time (Allan, 30/09); a lost connection
+    // is re-tried only from a tap on the placeholder strip.
     val context = LocalContext.current
     val spotifyEnabled by dev.allan.workoutapp.data.Settings.spotifyEnabled(context)
         .collectAsState(initial = false)
     val spotify by dev.allan.workoutapp.session.SpotifyRemote.state.collectAsState()
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
-    androidx.compose.runtime.DisposableEffect(spotifyEnabled, lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_START ->
-                    if (spotifyEnabled) dev.allan.workoutapp.session.SpotifyRemote.connect(context)
-                androidx.lifecycle.Lifecycle.Event.ON_STOP ->
-                    dev.allan.workoutapp.session.SpotifyRemote.disconnect()
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        if (spotifyEnabled && lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
-            dev.allan.workoutapp.session.SpotifyRemote.connect(context)
-        } else if (!spotifyEnabled) {
-            dev.allan.workoutapp.session.SpotifyRemote.disconnect()
-        }
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    androidx.compose.runtime.DisposableEffect(spotifyEnabled) {
+        if (spotifyEnabled) dev.allan.workoutapp.session.SpotifyRemote.connect(context, showAuth = false)
+        else dev.allan.workoutapp.session.SpotifyRemote.disconnect()
+        onDispose { if (!spotifyEnabled) dev.allan.workoutapp.session.SpotifyRemote.disconnect() }
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { dev.allan.workoutapp.session.SpotifyRemote.disconnect() }
     }
 
     Scaffold(
@@ -237,8 +230,8 @@ fun AppRoot() {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBottomBar) Column {
-                if (spotifyEnabled && spotify.connected) {
-                    dev.allan.workoutapp.ui.session.SpotifyBar(spotify)
+                if (spotifyEnabled) {
+                    dev.allan.workoutapp.ui.session.SpotifyStrip(spotify)
                 }
                 AppBottomBar(selected = selectedTab) { idx ->
                     val proceed = {

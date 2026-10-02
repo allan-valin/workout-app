@@ -215,4 +215,43 @@ class SupersetOrderTest {
         val a = exercise("A", done(sets(2), 0, 1))
         assertNull(SupersetOrder.nextStepAfter(listOf(a), 0 to a.sets[1].templateId))
     }
+
+    // ---- 30/09 regression: the FIRST set of a superset must hand over to the partner ----
+
+    @Test
+    fun `after the first set of a pair the partner's first set is next, not the own second`() {
+        // A1 logged, B untouched -> B1 (the partner has simply not had its turn yet).
+        val a = exercise("A", done(sets(3), 0))
+        val b = exercise("B", sets(3), superset = true)
+        val exs = listOf(a, b)
+        assertEquals(1 to b.sets[0].templateId, SupersetOrder.nextStepAfter(exs, 0 to a.sets[0].templateId))
+    }
+
+    @Test
+    fun `a partner is only skipped once its turn was passed over`() {
+        // A1 and A2 logged with B still untouched -> B was skipped, stay on A3.
+        val a = exercise("A", done(sets(3), 0, 1))
+        val b = exercise("B", sets(3), superset = true)
+        val exs = listOf(a, b)
+        assertEquals(0 to a.sets[2].templateId, SupersetOrder.nextStepAfter(exs, 0 to a.sets[1].templateId))
+    }
+
+    @Test
+    fun `a full superset round trip alternates and ends on the partner's last set`() {
+        var a = exercise("A", sets(2))
+        var b = exercise("B", sets(2), superset = true)
+        fun exs() = listOf(a, b)
+        // A1 -> B1
+        a = exercise("A", done(sets(2).let { a.sets }, 0))
+        assertEquals(1 to b.sets[0].templateId, SupersetOrder.nextStepAfter(exs(), 0 to a.sets[0].templateId))
+        // B1 -> A2
+        b = b.copy(sets = done(b.sets, 0))
+        assertEquals(0 to a.sets[1].templateId, SupersetOrder.nextStepAfter(exs(), 1 to b.sets[0].templateId))
+        // A2 -> B2 (the partner's second set must not be skipped at the end)
+        a = a.copy(sets = done(a.sets, 0, 1))
+        assertEquals(1 to b.sets[1].templateId, SupersetOrder.nextStepAfter(exs(), 0 to a.sets[1].templateId))
+        // B2 -> nothing left
+        b = b.copy(sets = done(b.sets, 0, 1))
+        assertNull(SupersetOrder.nextStepAfter(exs(), 1 to b.sets[1].templateId))
+    }
 }

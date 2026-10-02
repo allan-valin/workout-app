@@ -236,13 +236,28 @@ object SupersetOrder {
     }
 
     /**
-     * Chain members that are actually being trained: once any member has a logged set, the
-     * members with none are being skipped and drop out of the interleaving (a superset with
-     * one exercise skipped used to park the marker on the skipped one — Allan, 29/08).
+     * Chain members that are actually being trained. A member with no logged set is being
+     * SKIPPED — and drops out of the interleaving — only once its turn was passed over: some
+     * other member has a logged set that comes AFTER the member's first set in the
+     * interleaved order. (A superset with one exercise skipped used to park the marker on
+     * the skipped one — Allan, 29/08.)
+     *
+     * Why "passed over" and not "has no log yet" (the 30/09 bug): right after A1 the partner
+     * B has no log either, but B1 is exactly what comes next. Treating B as skipped there kept
+     * the marker on A2, so the pager never swapped, A2 then went without rest (restSkipped
+     * saw B1 still open) and B was only reached after everything else (Allan, 30/09).
      */
     private fun activeMembers(exercises: List<SessionExercise>, chain: List<Int>): List<Int> {
-        val trained = chain.filter { i -> exercises[i].sets.any { it.done } }
-        return if (trained.isEmpty()) chain else trained
+        if (chain.size < 2) return chain
+        val order = interleaved(exercises, chain)
+        val lastDonePos = order.indexOfLast { it.second.done }
+        if (lastDonePos < 0) return chain // nothing logged in this chain yet: everyone is in
+        return chain.filter { i ->
+            val trained = exercises[i].sets.any { it.done }
+            // First appearance of this member in the interleaving = its first turn.
+            val firstTurn = order.indexOfFirst { it.first == i }
+            trained || firstTurn > lastDonePos
+        }
     }
 
     private fun firstUndone(steps: List<Pair<Int, SessionSet>>): Pair<Int, Long>? =

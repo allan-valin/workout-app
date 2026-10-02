@@ -13,6 +13,17 @@ import java.time.format.DateTimeFormatter
  */
 object CsvExport {
 
+    /** UTF-8 byte-order mark: tells Excel / phone spreadsheet apps the file is UTF-8. */
+    const val BOM = "\uFEFF"
+
+    /**
+     * Bytes to write for a CSV file. Allan, 30/09: "Export does not recognize pt-br
+     * characters like ç àáã" — bare UTF-8 is read as the system code page by most spreadsheet
+     * apps; the BOM makes them decode it as UTF-8. Only CSV gets it (a BOM breaks JSON
+     * parsers, and our own backup/plan import is one).
+     */
+    fun fileBytes(csv: String): ByteArray = (BOM + csv).toByteArray(Charsets.UTF_8)
+
     private val dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     private val dayFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 

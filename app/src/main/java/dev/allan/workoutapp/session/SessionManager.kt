@@ -78,17 +78,25 @@ object SessionManager {
         )
     }
 
+    /** A gap longer than this since the rest ended is "forgot to log", not a set. */
+    const val MAX_GAP_SECS = 300
+
     /**
-     * Fallback active seconds when no stopwatch ran: gap since the last rest ended.
-     * Gaps over 3 min mean "forgot to log, was chatting" — book only 40 s. Single-use.
+     * Fallback active seconds when no stopwatch ran: the gap since the last rest ended, i.e.
+     * how long the set itself took. Single-use (the anchor is cleared).
+     *
+     * Returns null — "nothing measured, use the cadence default" — when there is no anchor
+     * or the gap is over [MAX_GAP_SECS]. Allan, 30/09: the cutoff was 3 min and anything
+     * longer was booked as a flat 40 s, so his regular 3-minute sets lost ~2.5 min each and a
+     * two-hour session showed 40 min idle. Only over 5 min is a gap disregarded.
      */
-    fun gapActiveSecs(): Int? {
+    fun gapActiveSecs(now: Long = System.currentTimeMillis()): Int? {
         val s = _state.value
-        val anchor = s.lastRestEndedAt ?: s.restEndAt?.takeIf { it <= System.currentTimeMillis() }
+        val anchor = s.lastRestEndedAt ?: s.restEndAt?.takeIf { it <= now }
         anchor ?: return null
         _state.value = s.copy(lastRestEndedAt = null)
-        val gap = ((System.currentTimeMillis() - anchor) / 1000L).toInt().coerceAtLeast(0)
-        return if (gap > 180) 40 else gap.takeIf { it > 0 }
+        val gap = ((now - anchor) / 1000L).toInt().coerceAtLeast(0)
+        return gap.takeIf { it in 1..MAX_GAP_SECS }
     }
 
     fun startSetCountdown(durationSecs: Int, templateId: Long? = null) {

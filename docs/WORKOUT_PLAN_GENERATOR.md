@@ -179,7 +179,7 @@ If no base exercise is even close, use `custom_fallback` with a full `descriptio
 
 - Ask Allan for: goal (strength/hypertrophy/endurance/rehab), days per week, session length, available equipment, exercises to avoid (injuries).
 - Cardio-only workouts are fine (`is_cardio: true`, `unit: "SECS"` or reps for intervals).
-- Prefer well-known wger exercises; always include the three-language `names` array so matching works regardless of Allan's app language.
+- Prefer well-known wger exercises; always include the three-language `names` array so matching works regardless of Allan's app language. Order: English first, then Allan's app language (pt-BR), then German. The app installs the first name it does not already know as the display name in the app language when it only has a machine translation (or none) — so the pt-BR name you write is the one Allan sees (0.8.1).
 - Keep one JSON file = one plan. Multiple workouts (days) inside it.
 - Don't invent wger IDs. Omit `wger_id` if unsure — name matching + `custom_fallback` is safe; a wrong ID silently attaches the wrong exercise.
 - Validate before delivering: valid JSON, every exercise has `match.names`, every set has `type/weight_kg/value/unit`, and the superset flags pass the sanity check above.

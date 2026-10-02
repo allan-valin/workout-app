@@ -254,7 +254,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                 "weights" -> CsvExport.weightEvolution(db, lang)
                 else -> CsvExport.body(db)
             }
-            write(uri, content)
+            // BOM-prefixed so accented names open correctly in spreadsheets (30/09).
+            writeBytes(uri, CsvExport.fileBytes(content))
             _message.value = context.getString(R.string.export_done)
         }
     }

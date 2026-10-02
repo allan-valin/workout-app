@@ -1423,3 +1423,35 @@ current app, or drop the "mirrors the app" claim from README/MAINTENANCE.
 Follow-up same session: `sets[].tempo` added to the transfer JSON (`PlanTransfer.SetDto`, import
 + export, generator doc row + example; `PlanTransferTempoTest`). Cadences from the next cycle PDF
 go straight into the sets instead of the exercise note.
+
+## Phase 35 — 30/09 feedback batch: regressions from 0.8.0 (DONE 2026-10-02)
+
+Spec: `docs/FEEDBACK_BATCH_2026-09-30.md` (root cause per item). Versions: DB unchanged (v9),
+versionCode 9 / versionName 0.8.1. Unit tests 161 → 174, all green.
+
+- [x] **S1/S3 superset hand-over** — `SupersetOrder.activeMembers`: a partner counts as skipped only
+  once its turn was passed over, not merely because it has no log yet. Regression from Phase 34 A4/A5.
+- [x] **T1 active time** — gap cutoff 180 s → 300 s; over the cutoff falls back to the cadence default
+  instead of a literal 40 s; `gapActiveSecs(now)` testable.
+- [x] **X1 CSV** — UTF-8 BOM on every CSV export (`CsvExport.fileBytes`).
+- [x] **N1 names** — plan-file name in the app language replaces a machine translation on import
+  (`PlanTransfer.localNameFor`, kept as alias).
+- [x] **S2 Spotify** — one persistent connection owned by AppRoot, no reconnect on foreground return,
+  `SpotifyStrip` placeholder of the same height with tap-to-connect, heart usable as soon as a track is
+  known. Regression from Phase 34 F2. NOT emulator-verifiable (no Spotify on the AVD) — Redmi pass needed.
+- [x] Emulator pass: see the end of this section.
+
+## Phase 36 — inline documentation pass (OPEN; Allan, 02/10/2026)
+
+Allan: "add as a task to comment the code and add inline comments for everything, this way maybe you
+can avoid messing up in the future." Do this file by file, no behaviour changes, commit per package:
+- [ ] `session/` (SessionManager, TimerService, SpotifyRemote) — invariants: one Spotify connection per
+  process; gap cutoff 5 min; countdown runs book time, cut-short ones do not.
+- [ ] `ui/session/` (SessionViewModel incl. SupersetOrder, SessionScreen) — the marker rule and the
+  "passed over" definition; rest-skip rule; auto-advance; active-time decision tree in `logSet`.
+- [ ] `data/transfer/` (PlanTransfer, CsvExport, Backup, PdfExport) — resolver order; BOM only on CSV;
+  local-name rule.
+- [ ] `data/` (PlanRepo, SetTiming, AutoTranslate, FedIndex, Settings), `data/db/`.
+- [ ] `ui/plans/`, `ui/library/`, `ui/common/`, `ui/settings/`, `ui/stats/`, `ui/workout/`, `MainActivity`.
+- [ ] Each file starts with a header comment: what it owns, what it must never do, which feedback batch
+  shaped it.

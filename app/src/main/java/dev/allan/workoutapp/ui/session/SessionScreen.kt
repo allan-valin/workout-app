@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -161,16 +163,13 @@ fun SessionScreen(
             showBatteryOnboarding = true
         }
     }
-    // Spotify mini-player: connect while a session is open (opt-in in Settings, and only
-    // when a client id is compiled in and Spotify is installed), disconnect on the way out.
+    // Spotify mini-player (opt-in in Settings). AppRoot owns the one connection (F2, and
+    // 30/09: a second connect from here raced the first and reset the heart's state); the
+    // session only renders the strip — commands when connected, a tap-to-connect
+    // placeholder of the same height otherwise, so the layout never jumps.
     val spotifyEnabled by dev.allan.workoutapp.data.Settings.spotifyEnabled(context)
         .collectAsState(initial = false)
     val spotify by dev.allan.workoutapp.session.SpotifyRemote.state.collectAsState()
-    // AppRoot owns the connection's lifetime now (the strip shows all over the app, F2); the
-    // session only makes sure it is up.
-    LaunchedEffect(spotifyEnabled) {
-        if (spotifyEnabled) dev.allan.workoutapp.session.SpotifyRemote.connect(context)
-    }
 
     // Templates can change while we're away (per-exercise edit mid-session) — reload
     // when this nav entry comes back to the foreground.
@@ -405,8 +404,8 @@ fun SessionScreen(
                         }
                     }
                 }
-                if (spotifyEnabled && spotify.connected) {
-                    SpotifyBar(spotify)
+                if (spotifyEnabled) {
+                    SpotifyStrip(spotify)
                 }
                 if (state.timerPanelVisible) {
                     TimerPanel(vm, state)
@@ -1270,6 +1269,51 @@ internal val DoneGreen = androidx.compose.ui.graphics.Color(0xFF43A047)
 @Composable
 private fun setTypeColor(type: SetType): androidx.compose.ui.graphics.Color =
     dev.allan.workoutapp.ui.common.setTypeColor(type)
+
+/**
+ * The Spotify strip as every screen shows it: the controls when connected, otherwise a
+ * placeholder of the SAME height that says so and reconnects on tap (Allan, 30/09: "make it
+ * so the bar where it would appear is visible and occupies the space"). The placeholder is
+ * the only place a reconnect — and Spotify's auth sheet — can be triggered by hand.
+ */
+@Composable
+fun SpotifyStrip(spotify: dev.allan.workoutapp.session.SpotifyRemote.State) {
+    if (spotify.connected) {
+        SpotifyBar(spotify)
+        return
+    }
+    val context = LocalContext.current
+    Surface(
+        tonalElevation = 2.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { dev.allan.workoutapp.session.SpotifyRemote.connect(context, showAuth = true) },
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+                // Same row height as the controls (36 dp icon buttons) so nothing shifts.
+                .heightIn(min = 36.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.spotify_tap_to_connect),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            Icon(
+                Icons.Default.Refresh,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
 
 /**
  * One-line Spotify strip above the timer: what's playing, transport, and the heart that

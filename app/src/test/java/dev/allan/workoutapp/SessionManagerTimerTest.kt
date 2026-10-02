@@ -174,4 +174,31 @@ class SessionManagerTimerTest {
         SessionManager.startSession(1, System.currentTimeMillis())
         assertFalse(SessionManager.coveredByPreviousMeasure())
     }
+
+    // ---- 30/09: "I barely stop between sets, but in two hours I'm shown 40 minutes idle" ----
+
+    @Test
+    fun `a three-minute gap since the rest ended is booked as measured, not as 40 s`() {
+        SessionManager.startRest(1)
+        SessionManager.stopRest()
+        val endedAt = SessionManager.state.value.lastRestEndedAt!!
+        // 200 s later the set is logged: that is a long set, not a forgotten log.
+        assertEquals(200, SessionManager.gapActiveSecs(now = endedAt + 200_000L))
+    }
+
+    @Test
+    fun `a gap over five minutes is disregarded so the cadence default applies`() {
+        SessionManager.startRest(1)
+        SessionManager.stopRest()
+        val endedAt = SessionManager.state.value.lastRestEndedAt!!
+        assertNull(SessionManager.gapActiveSecs(now = endedAt + 301_000L))
+    }
+
+    @Test
+    fun `a gap of exactly five minutes still counts`() {
+        SessionManager.startRest(1)
+        SessionManager.stopRest()
+        val endedAt = SessionManager.state.value.lastRestEndedAt!!
+        assertEquals(300, SessionManager.gapActiveSecs(now = endedAt + 300_000L))
+    }
 }

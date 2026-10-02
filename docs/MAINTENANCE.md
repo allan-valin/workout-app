@@ -134,6 +134,14 @@ gson, already declared.
 off means no strip, no connection attempt, and no Settings row — the session screen is
 byte-identical to before. Do not "fix" that by hard-coding an id.
 
+**Connection lifetime (0.8.1, after the 30/09 regression):** exactly one connection per process,
+owned by `AppRoot`. It is opened when the setting is on (app launch / switch flipped) with
+`showAuthView(false)`, kept while the app is in the background, and closed only when the switch
+goes off or the activity is destroyed. NEVER reconnect on ON_START/ON_STOP: each reconnect wakes
+Spotify to the foreground on HyperOS and resets the heart's state. A lost connection is retried
+only from a tap on the placeholder strip (`SpotifyStrip`), the one place `showAuthView(true)` is
+allowed. No other screen may call `SpotifyRemote.connect`.
+
 **Cannot be emulator-verified**: the AVD has neither Spotify nor Play services, so only the
 disabled path is testable here (verified: switch hidden, no crash). The strip, the transport
 buttons and the heart need a real-device pass on the Redmi with the client id in place.
@@ -165,3 +173,9 @@ where possible: pull the DB (`adb root`; `adb pull /data/data/dev.allan.workouta
 all three files, then `sqlite3`), `content query --uri content://media/external/video/media`
 for recordings, `dumpsys window windows` for window flags, pixel sampling of screenshots for
 colours. The release build has no `sqlite3` on the device and no `run-as`.
+
+## CSV encoding (2026-10-02)
+
+Every CSV export goes through `CsvExport.fileBytes`, which prefixes the UTF-8 BOM — without it
+Excel and the phone's spreadsheet apps read ç/ã/é as mojibake (Allan, 30/09). JSON (backup, plan
+transfer) must NOT get a BOM: kotlinx.serialization rejects it and the app's own import would break.

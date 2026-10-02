@@ -2,6 +2,7 @@ package dev.allan.workoutapp.data.transfer
 
 import dev.allan.workoutapp.data.PlanRepo
 import dev.allan.workoutapp.data.db.AppDatabase
+import dev.allan.workoutapp.data.db.ExerciseTranslation
 import dev.allan.workoutapp.data.db.Plan
 import dev.allan.workoutapp.data.db.SetTemplate
 import dev.allan.workoutapp.data.db.SetType
@@ -283,6 +284,7 @@ object PlanTransfer {
                 skipped += e.match.names.firstOrNull() ?: "exercise ${eIndex + 1}"
                 return@forEachIndexed
             }
+            installLocalName(db, exerciseId, e.match.names, lang)
             val weId = db.planDao().insertWorkoutExercise(
                 WorkoutExercise(
                     workoutId = workoutId,
@@ -313,6 +315,51 @@ object PlanTransfer {
             exerciseCount++
         }
         return exerciseCount
+    }
+
+    /**
+     * The name the plan file gives in the app's language, when the database has none or only
+     * a machine translation for that language — or null when nothing should change.
+     *
+     * Allan, 30/09: the generator writes the Portuguese name into `match.names`, the import
+     * matched the wger row by id / English name, and the app then showed the on-device
+     * machine translation of the English name ("literally translating names instead of
+     * correct names"). Rule: a human translation for [lang] is never touched; otherwise the
+     * first name in [names] that is not already a name or alias of a human translation (and
+     * not the machine name itself) is taken as the [lang] name. The generator doc asks for the
+     * names in the app's language right after the English one, so "first unknown" is it.
+     */
+    fun localNameFor(names: List<String>, existing: List<ExerciseTranslation>, lang: String): String? {
+        val own = existing.filter { it.lang == lang }
+        if (own.any { !it.machine }) return null
+        val known = existing.flatMap { tr -> listOf(tr.name) + tr.aliases }
+            .map { it.trim().lowercase() }.toSet()
+        return names.map { it.trim() }.firstOrNull { it.isNotEmpty() && it.lowercase() !in known }
+    }
+
+    /** Writes the [lang] translation chosen by [localNameFor]; keeps the description it had. */
+    private suspend fun installLocalName(db: AppDatabase, exerciseId: String, names: List<String>, lang: String) {
+        val existing = db.exerciseDao().translations(exerciseId)
+        val name = localNameFor(names, existing, lang) ?: return
+        val machineRow = existing.firstOrNull { it.lang == lang }
+        db.exerciseDao().insertTranslations(
+            listOf(
+                // Same rowId → REPLACE overwrites in place; the machine name stays findable
+                // as an alias for anyone searching the old wording.
+                machineRow?.copy(
+                    name = name,
+                    aliases = (machineRow.aliases + machineRow.name).distinct(),
+                    machine = false,
+                ) ?: ExerciseTranslation(
+                    exerciseId = exerciseId,
+                    lang = lang,
+                    name = name,
+                    description = "",
+                    aliases = emptyList(),
+                    machine = false,
+                )
+            )
+        )
     }
 
     /**

@@ -15,6 +15,16 @@ Decisions locked 2026-07-06:
 
 ---
 
+## 0. Open tasks (read first)
+
+1. **Inline documentation pass over the whole code base** (Allan, 02/10/2026, after 0.8.0 shipped four
+   regressions): a header comment per file and inline comments on every non-trivial block, stating the
+   invariants and which feedback batch shaped them. No behaviour changes. Tracked as Phase 36 in
+   `PROGRESS.md`; do it before or alongside the next feature batch, never skip it for "more features".
+2. Redmi pass for the Spotify strip (0.8.1): no pop-up on app switch, placeholder strip, heart works.
+
+---
+
 ## 1. Tech stack & project setup
 
 - **Language/UI:** Kotlin 2.x, Jetpack Compose, Material 3, dark + light theme.
