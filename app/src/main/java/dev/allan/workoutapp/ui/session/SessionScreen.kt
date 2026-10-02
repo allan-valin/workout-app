@@ -100,6 +100,24 @@ import dev.allan.workoutapp.data.db.SetType
 import dev.allan.workoutapp.data.db.ValueUnit
 import dev.allan.workoutapp.data.db.WeightMode
 
+/*
+ * The in-progress workout screen: exercise list ↔ pager of exercise pages, the top bar with
+ * the clock, the timer panel, the Spotify strip, the mirror overlay and the dialogs.
+ *
+ * OWNS: rendering and gestures only. Every decision (marker, rest, booking, auto-advance)
+ * is the SessionViewModel's; this file reads SessionUiState and calls vm.* — it holds no
+ * session state of its own beyond dialog open/closed flags.
+ * MUST NEVER:
+ *  - decide what the next set is or whether to rest — it shows [SessionUiState.currentStep];
+ *  - swallow an auto-advance: the pager's LaunchedEffect keys on swipeToken, not the index
+ *    (25/07 bug B); an explicit tap always wins over a queued advance (bug D);
+ *  - open the Spotify connection — AppRoot owns it; the strip only reads its state and the
+ *    placeholder's tap is the one path to a reconnect (30/09 S2);
+ *  - leave a text field under the keyboard (the note field is lifted, Phase 34).
+ * Shaped by: 24/07 (clock, cadence per exercise, weight modes), 25/07 (pager bugs), 02/08
+ * (timer panel roles, chips), 29/08 (marker, undo snackbar, cardio), 30/09 (Spotify strip).
+ */
+
 /**
  * Session clock. Rolls over to h:mm:ss at one hour: the TopAppBar title slot only gets the
  * width the actions leave behind, and unbounded minutes ("100:23") clipped out of view
@@ -109,6 +127,11 @@ internal fun fmt(secs: Int): String =
     if (secs < 3600) "%d:%02d".format(secs / 60, secs % 60)
     else "%d:%02d:%02d".format(secs / 3600, secs % 3600 / 60, secs % 60)
 
+/**
+ * Root of the screen. Binds the view model for [workoutId], shows the list or the pager per
+ * [SessionUiState.showList], hosts the timer panel and the end-of-workout flow
+ * ([onFinished] gets the session id; [onExit] leaves the session running — it resumes).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionScreen(
@@ -508,6 +531,11 @@ fun SessionScreen(
     }
 }
 
+/**
+ * Top bar: the session clock (elapsed / rough estimate), the story bar of exercises, and the
+ * actions (end, volume, mirror). [onEnd] carries save=true/false; the keep-vs-one-time
+ * prompt for mid-session plan edits is asked before the view model ends the session.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SessionTopBar(
@@ -625,6 +653,11 @@ private fun SessionTopBar(
     }
 }
 
+/**
+ * One exercise page of the pager: image, pinned note, cadence line, the suggestion chip, and
+ * the set rows (tap a number to edit, tap the circle to log, long-press to reorder). The
+ * marker (which set is next) comes from [SessionUiState.currentStep] and is only drawn here.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState) {
@@ -1414,6 +1447,10 @@ internal fun TimerReadout(state: SessionUiState, pendingTimed: SessionSet?) {
     )
 }
 
+/**
+ * The timer panel under the pager. Its buttons call the view model; it never books time
+ * itself. Blinks once a second while a cadenced countdown runs (Phase 34 B3).
+ */
 @Composable
 private fun TimerPanel(vm: SessionViewModel, state: SessionUiState) {
     // One centered timer wearing three hats: rest countdown → timed-set countdown →

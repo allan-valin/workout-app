@@ -23,6 +23,25 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/*
+ * The in-progress workout: state, the marker ("which set is next"), logging, timers, drafts,
+ * mid-session plan edits and the end flow.
+ *
+ * OWNS: SessionUiState and every transition of it; the only writer of SetLog rows during a
+ * session; the SupersetOrder rules (marker, "passed over", rest skip).
+ * MUST NEVER:
+ *  - move the marker because a number was edited — it follows LOGS only (29/08 A5);
+ *  - recompute the marker from the start of the workout — it is relative to the set logged
+ *    last (29/08, SupersetOrder.nextStepAfter);
+ *  - treat a superset partner with no log yet as skipped — only a member whose turn was
+ *    PASSED OVER drops out (30/09 S1/S3, SupersetOrder.activeMembers);
+ *  - run startOrResume unserialized (25/07: duplicate RUNNING rows, logged sets "lost");
+ *  - book active time twice or book a cut-short countdown (see SessionManager);
+ *  - repaint a set's type from the last log instead of the plan (29/08 A2).
+ * Shaped by: 25/07 (bugs B, D, progress loss), 02/08 (A2–A5 active time, chips), 29/08
+ * (marker A4/A5, C1 undo, B2 cardio), 30/09 (S1/S3 hand-over, T1 gap).
+ */
+
 /** Auto-end threshold: a RUNNING session older than this is flagged as ended. */
 const val SESSION_AUTO_END_MS = 5L * 3600 * 1000
 
@@ -294,7 +313,13 @@ object SupersetOrder {
         return firstUndone(deferred)
     }
 
-    /** True when another chain member still has an undone set in this round → skip rest. */
+    /**
+     * THE rest-skip rule: no rest after a set when a LATER chain member still has an undone
+     * set in the same round (A1 → straight to B1; rest after B1). Only members after this one
+     * in the chain count, so B1 with A2 open does rest. Reads the chain, not activeMembers:
+     * a skipped partner has its round's set undone forever and would otherwise skip every
+     * rest — the marker rule, not this one, decides who is skipped.
+     */
     fun restSkipped(exercises: List<SessionExercise>, exerciseIndex: Int, set: SessionSet): Boolean {
         val chain = chain(exercises, exerciseIndex)
         if (chain.size < 2) return false
@@ -476,7 +501,6 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         }
     }
 
-    /** 1 Hz UI clock: recompute all countdowns from wall-clock instants. */
     /** (exerciseIndex, templateId) of the newest row in [logs], or null when nothing is logged. */
     private fun lastLoggedStep(logs: List<SetLog>, exercises: List<SessionExercise>): Pair<Int, Long>? {
         val newest = logs.maxByOrNull { it.completedAt } ?: return null
@@ -486,6 +510,12 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         return idx to templateId
     }
 
+    /**
+     * 4 Hz UI clock: every countdown is recomputed from its wall-clock end instant, so a
+     * backgrounded or slow process never drifts. It is also where a rest or a set countdown
+     * that reached zero is acted on (stopRest / completeSetCountdown) — the notification's
+     * alert fires independently in TimerService.
+     */
     private suspend fun ticker() {
         while (true) {
             val timers = SessionManager.state.value
@@ -538,6 +568,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         else startSetCountdown(next.second)
     }
 
+    /** The rest is over (naturally or by "Stop rest"): start a queued cardio set, if any (B2). */
     private fun onRestEnded() {
         val pending = _state.value.autoStartTemplateId ?: return
         _state.value = _state.value.copy(autoStartTemplateId = null)
@@ -667,6 +698,12 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             unlogSet(exerciseIndex, set)
             return
         }
+        // Order of business below, each step shaped by a reported bug:
+        //  1. decide the active seconds (decision tree, 02/08 + 30/09 T1);
+        //  2. cadence note, only from a real measurement;
+        //  3. write the SetLog row and move the marker (lastLogged);
+        //  4. retire this set's countdown; 5. rest or no rest (superset rule);
+        //  6. auto-advance the pager relative to THIS set (29/08).
 
         // Active time (docs/FEEDBACK_BATCH_2026-08-02.md A2–A5). Timed sets: whatever their
         // countdown runs already booked — one run per leg counts twice, so the set itself adds
@@ -1132,7 +1169,11 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         db.planDao().restoreSetTemplates(templateSnapshot)
     }
 
-    /** End the session. save=false discards logged sets. Returns via onDone(sessionId). */
+    /**
+     * End the session. save=false discards logged sets (status DISCARDED, rows kept).
+     * The stopwatch reading is booked first so nothing measured is lost; drafts and
+     * suggestion states are per-session scratch and go; the template snapshot is spent.
+     */
     fun endSession(save: Boolean, keepPlanChanges: Boolean = true, onDone: (Long) -> Unit) {
         val sessionId = _state.value.sessionId ?: return
         SessionManager.stopRest()

@@ -69,6 +69,11 @@ import java.time.LocalDateTime
  * with an optional recording. The recording is VIDEO ONLY on purpose — no audio source means
  * no audio focus request, so Spotify keeps playing (the stock camera app pauses it). Clips
  * go to the gallery under Movies/WorkoutApp and are never touched again by the app.
+ *
+ * OWNS: the camera preview, the permission ask and the recording lifecycle (CameraX).
+ * MUST NEVER: record audio (it would take audio focus and pause Spotify); delete or
+ * rename a clip; stay open without camera permission (closes with a toast instead).
+ * Shaped by: 19/08 (mirror mode), Phase 34 (CameraX; AVD front camera emulated).
  */
 @Composable
 fun MirrorOverlay(onClose: () -> Unit) {

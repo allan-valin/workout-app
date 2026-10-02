@@ -39,6 +39,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+/*
+ * The end-of-workout summary: totals (time split, volume, sets), volume per muscle, and a
+ * MET-based kcal estimate.
+ *
+ * OWNS: reading a FINISHED session back into SummaryState; display only.
+ * MUST NEVER: write to the session or its logs — everything shown is derived from rows the
+ * session wrote; a timed set shows the seconds its runs really took (SetLog.activeSecs),
+ * never its nominal duration (02/08).
+ * Shaped by: 02/08 (active/rest/idle split), 24/07 (muscle names in the app language).
+ */
+
 data class SummaryState(
     val workoutId: Long = 0,
     val totalSecs: Int = 0,
