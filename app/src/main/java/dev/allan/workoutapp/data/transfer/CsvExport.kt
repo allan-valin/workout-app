@@ -10,6 +10,14 @@ import java.time.format.DateTimeFormatter
 /**
  * History CSV exports. Column contract documented in docs/WORKOUT_PLAN_GENERATOR.md
  * ("History CSV" section) so browser Claude can analyze the files — keep in sync.
+ *
+ * OWNS: the four CSV shapes (sets, sessions, body, weight evolution) and the bytes written.
+ * MUST NEVER:
+ *  - write a CSV without the UTF-8 BOM (30/09 X1: ç à á ã came out mangled in Excel);
+ *  - put the BOM on anything but CSV (our own JSON import would choke on it);
+ *  - change a column name without updating the generator doc — browser Claude reads these.
+ * Shaped by: 30/09 X1 (BOM), 30/09 (weight evolution per SET, not per exercise:
+ * bodyweight work progresses in reps and sets differ in weight).
  */
 object CsvExport {
 
@@ -30,10 +38,12 @@ object CsvExport {
     private fun ts(millis: Long): String =
         dateFmt.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
 
+    /** RFC 4180 quoting: only when the value needs it, doubling inner quotes. */
     private fun esc(value: String): String =
         if (value.any { it == ',' || it == '"' || it == '\n' }) '"' + value.replace("\"", "\"\"") + '"'
         else value
 
+    /** One row per logged set, all sessions, with the plan/workout names at export time. */
     suspend fun sets(db: AppDatabase, lang: String): String {
         val sessions = db.sessionDao().allSessions().associateBy { it.id }
         val workoutNames = mutableMapOf<Long, Pair<String, String>>() // workoutId -> (plan, workout)
@@ -141,6 +151,7 @@ object CsvExport {
         }
     }
 
+    /** One row per session; idle = total − active − rest, never negative. */
     suspend fun sessions(db: AppDatabase): String {
         val workoutNames = mutableMapOf<Long, String>()
         db.planDao().allPlans().forEach { plan ->

@@ -18,6 +18,19 @@ import kotlinx.serialization.json.Json
  * Plan JSON import/export. The schema contract lives in docs/WORKOUT_PLAN_GENERATOR.md —
  * browser Claude generates these files; never change field names without bumping
  * schema_version and keeping this importer backward-compatible.
+ *
+ * OWNS: the schema-v1 DTOs, parsing, the exercise resolver, workout naming on import, the
+ * app-language name rule, and the round-trip export.
+ * MUST NEVER:
+ *  - activate an imported plan (25/07: two active plans hid one from both views);
+ *  - create a custom exercise before every other match has been tried — resolver order is
+ *    wger id → wger name → fed (DB and asset index) → the user's customs → alias →
+ *    custom_fallback (24/07);
+ *  - overwrite a HUMAN translation of an exercise name (30/09 N1: only a missing or machine
+ *    name for the app language is replaced, and the machine name stays as an alias);
+ *  - import two workouts under one name (25/07: names are global in the Archive).
+ * Shaped by: 24/07 (resolver), 25/07 (active flag, name collisions), 30/09 N1 (local names),
+ * Phase 34 (sets[].tempo in the transfer JSON).
  */
 object PlanTransfer {
 
@@ -166,6 +179,8 @@ object PlanTransfer {
         data class Error(val message: String) : Parsed()
     }
 
+    /** Parse only — nothing is written. Routing (plan vs workout file) and collision checks
+     *  happen in the UI before any of the import* calls below. */
     fun parse(text: String): Parsed {
         val file = try {
             json.decodeFromString<File>(text)
@@ -296,6 +311,8 @@ object PlanTransfer {
                     supersetWithPrev = e.supersetWithPrevious && eIndex > 0,
                 )
             )
+            // Every value from the file is clamped: a generator slip must not put a negative
+            // weight or a 10-hour rest into the plan.
             val sets = e.sets.ifEmpty { listOf(SetDto(), SetDto(), SetDto()) }
             sets.forEachIndexed { sIndex, s ->
                 db.planDao().insertSetTemplate(
@@ -415,7 +432,8 @@ object PlanTransfer {
         return id
     }
 
-    /** Exports a plan back to schema-v1 JSON (round-trips with import). */
+    /** Exports a plan back to schema-v1 JSON (round-trips with import). The exported
+     *  `active` flag is informational: import ignores it (see newPlanRow). */
     suspend fun export(db: AppDatabase, planId: Long): String? {
         val plan = db.planDao().plan(planId) ?: return null
         val workouts = db.planDao().workoutsList(planId).map { workoutToDto(db, it) }

@@ -19,6 +19,14 @@ import kotlinx.serialization.json.Json
 /**
  * Full app backup for phone migration. Restore assumes a FRESH install (row ids are
  * kept verbatim; restoring on top of existing user data may collide and REPLACE rows).
+ *
+ * OWNS: the one JSON file that holds everything the user made (customs, plans, sessions,
+ * logs, body metrics, links, favourites, image choices) — never the bundled exercise DB.
+ * MUST NEVER: drop a table on restore (an absent list in an older backup leaves the table
+ * alone — pre-v4 files have no planWorkouts, pre-v6 no favorites); be written with a BOM
+ * (it is JSON); be used as a merge tool — it is a migration tool.
+ * Shaped by: Phase 34 upgrade on the Redmi (0.8.0 installed over 0.7 with data kept; the
+ * schema has not changed since v9, backup is the belt to that braces).
  */
 object Backup {
 

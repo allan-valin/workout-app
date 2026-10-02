@@ -17,6 +17,10 @@ import java.util.Locale
 /**
  * Printable plan sheet: one section per workout, exercises with their set tables.
  * A4 portrait (595×842 pt @72dpi), plain Paint text — no extra dependencies.
+ *
+ * OWNS: layout of the sheet only; it reads the plan and writes nothing back.
+ * MUST NEVER: add a PDF library for this (the open-source, no-extra-deps rule) or clip a
+ * line off the page — a section that does not fit starts a new page.
  */
 object PdfExport {
 
