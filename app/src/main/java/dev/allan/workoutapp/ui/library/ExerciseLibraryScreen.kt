@@ -64,6 +64,21 @@ import dev.allan.workoutapp.data.MuscleNames
 import dev.allan.workoutapp.data.db.ExerciseHit
 import dev.allan.workoutapp.ui.library.SearchSource
 
+/*
+ * The exercise library: search across wger + free-exercise-db + customs, the muscle/name
+ * filters, favourites, the custom-exercise dialog and sheet, and the picker / swap modes
+ * that add a result to a workout or substitute an exercise in one.
+ *
+ * OWNS: rendering and the three modes (browse / pick / swap). Search, pools and custom
+ * creation are the ExerciseLibraryViewModel's; names come from PlanRepo.displayName.
+ * MUST NEVER:
+ *  - add the same exercise to a workout twice from a double tap (the view model dedupes);
+ *  - lay out a sheet whose action button can scroll out of reach (Phase 34 F2: with 14
+ *    customs "New custom exercise" sat below the fold — actions sit under the title and
+ *    the list scrolls);
+ *  - show a tappable control without a container or icon (UI affordance rule).
+ * Shaped by: 24/07 (name filters), 26/07 (swap mode), Phase 34 F2 (custom exercises).
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ExerciseLibraryScreen(

@@ -51,6 +51,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/*
+ * Settings: body height and weight log, injured muscles, beep, theme, language, Spotify
+ * opt-in, keep-screen-on, prev/next buttons, exports (CSV, PDF, plan JSON), backup and
+ * restore, the wger refresh.
+ *
+ * OWNS: the preference writes (through Settings) and the export/import entry points.
+ * MUST NEVER:
+ *  - open the Spotify connection itself — flipping the switch is read by AppRoot, which owns
+ *    the one connection (30/09 S2);
+ *  - write a CSV without CsvExport.fileBytes (the BOM lives there, 30/09 X1);
+ *  - restore a backup over existing data without the warning (Backup is a migration tool);
+ *  - run the wger refresh without re-merging the generated pt aliases afterwards.
+ * Shaped by: 24/07 (beep volume), 30/09 (Spotify lifetime, CSV BOM, per-set evolution).
+ */
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val db = (app as WorkoutApp).db

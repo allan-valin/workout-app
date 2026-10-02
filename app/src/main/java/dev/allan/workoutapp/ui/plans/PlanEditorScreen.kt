@@ -73,6 +73,15 @@ import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
 
+/*
+ * A cycle (plan) and its workouts: rename, reorder, add/remove workouts, cycle length.
+ *
+ * OWNS: the cycle row and the plan↔workout membership (many-to-many since DB v4: one
+ * workout can belong to several cycles). MUST NEVER: delete a workout when it is removed
+ * from a cycle (it may belong to another, and sessions reference it); leave the editor with
+ * a cycle name already in use (finalizeName dedupes on exit).
+ * Shaped by: v4 many-to-many, 25/07 (names unique per kind).
+ */
 class PlanEditorViewModel(app: Application, private val planId: Long) : AndroidViewModel(app) {
     private val db = (app as WorkoutApp).db
 

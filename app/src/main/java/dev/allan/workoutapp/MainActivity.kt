@@ -95,6 +95,20 @@ import dev.allan.workoutapp.ui.workout.WorkoutViewScreen
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+/*
+ * The single activity, the theme, the language switch, the NavHost and the global bottom
+ * navigation (Home / Active / Stats / Settings), and the Spotify strip above it.
+ *
+ * OWNS: navigation and app-wide chrome. AppRoot owns the ONE Spotify connection for the
+ * process: opened when the setting is on, never reopened on foreground return, closed only
+ * when the setting is switched off or the activity is finishing (30/09 S2a).
+ * MUST NEVER:
+ *  - connect or disconnect Spotify from a lifecycle event (ON_START / ON_STOP) — 0.8.0 did
+ *    and woke Spotify in front of the workout on every app switch;
+ *  - show the bottom nav on the in-progress workout screen (the session has its own bar);
+ *  - route a tab switch through the NavHost (tabs are state; they get their own transition).
+ * Shaped by: 22/08 (strip everywhere), 25/07 (shared-axis transitions), 30/09 S2.
+ */
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -66,6 +66,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/*
+ * Read-only view of a workout before starting it: exercise list with compact summaries,
+ * the detail sheet, and the start / resume button.
+ *
+ * OWNS: display only; the start button hands over to SessionScreen. MUST NEVER: start a
+ * second session for a workout that already has a RUNNING one — the button says "resume"
+ * and SessionViewModel.startOrResume binds the existing row (25/07 progress-loss bug).
+ */
 data class ViewExercise(
     val workoutExerciseId: Long,
     val exerciseId: String,

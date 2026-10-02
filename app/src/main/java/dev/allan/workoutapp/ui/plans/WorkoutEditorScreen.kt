@@ -101,6 +101,20 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 
+/*
+ * The workout editor: exercises, their set tables (type, weight, reps/secs, range, rest,
+ * cadence), weight mode, supersets, notes, the suggest wizard, undo/redo/discard.
+ *
+ * OWNS: set templates and workout_exercise rows of ONE workout, edited live in Room with an
+ * EditorSnapshot stack for undo/redo and discard.
+ * MUST NEVER:
+ *  - write a template's targetWeightKg back from a session (templates are day-one targets;
+ *    sessions prefill from the last log — see TemplateCarry, 16/09);
+ *  - lose a mid-session edit's keep-vs-one-time choice (the session keeps its own snapshot);
+ *  - set the cadence per set — it is per exercise (24/07), one edit writes every set;
+ *  - mark supersetWithPrev on the first exercise (there is no previous one).
+ * Shaped by: 24/07 (cadence, weight modes), 26/07 (swap), 02/08 (ranges), 16/09 (carry).
+ */
 data class EditorExercise(
     val we: WorkoutExercise,
     val name: String,

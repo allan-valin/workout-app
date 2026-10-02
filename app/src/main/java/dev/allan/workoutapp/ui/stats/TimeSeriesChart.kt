@@ -24,6 +24,12 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.ceil
 
+/*
+ * The one line chart used by the stats pages: bucketing by day/week/month, mean or sum,
+ * and a Canvas renderer. Pure functions are `internal` so TimeSeriesChartTest can assert
+ * the bucketing instead of eyeballing a screenshot. MUST NEVER: snap the newest point to a
+ * bucket boundary (it sits at the latest sample so "now" stays at the right edge).
+ */
 internal const val DAY_MS = 86_400_000L
 
 /** How the raw series is thinned to one point per bucket (Allan: pick your own smoothness). */

@@ -52,6 +52,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
+/*
+ * The Stats tab: averages over finished sessions, the volume series, body weight, and the
+ * per-muscle progression series.
+ *
+ * OWNS: reading finished sessions into series; display only. MUST NEVER: count a RUNNING,
+ * DISCARDED or AUTO_ENDED session as training; show active time from the live counter when
+ * the logged seconds are larger (StatsCalc.effectiveActiveSecs, 25/07).
+ */
 data class StatsAverages(
     val sessions: Int = 0,
     val avgDurationSecs: Int = 0,

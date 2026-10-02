@@ -8,6 +8,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+/*
+ * Process entry: the Room database, the first-run snapshot import, the generated pt alias
+ * merge, crash recovery of a stale RUNNING session, and the image sweep.
+ * MUST NEVER: delete a stale session — it is flagged AUTO_ENDED with its stats kept; block
+ * the main thread (everything runs on appScope).
+ */
 class WorkoutApp : Application() {
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
