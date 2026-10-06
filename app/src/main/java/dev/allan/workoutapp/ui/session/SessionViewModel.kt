@@ -71,6 +71,8 @@ data class SessionExercise(
     val sets: List<SessionSet>,
     /** Alternates with the previous exercise (A1, B1, rest, A2, B2, …). */
     val supersetWithPrev: Boolean = false,
+    /** One side at a time: rep estimates count twice (06/10). */
+    val unilateral: Boolean = false,
     /** Science-based progression hint; applied only when the user taps it. */
     val suggestion: dev.allan.workoutapp.data.ProgressionEngine.Suggestion? = null,
     /** Pinned note text, shown as a line under the image; null = nothing pinned. */
@@ -359,7 +361,7 @@ fun estimateWorkoutSecs(exercises: List<SessionExercise>): Int =
     exercises.sumOf { ex ->
         60 + ex.sets.sumOf { set ->
             val work = if (set.valueUnit == ValueUnit.SECS) set.value
-            else dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
+            else dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo, ex.unilateral)
             work + set.restSecs
         }
     }
@@ -472,6 +474,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 imagePath = exercise?.imagePath,
                 sets = sets,
                 supersetWithPrev = we.supersetWithPrev,
+                unilateral = we.unilateral,
                 pinnedNote = db.sessionDao().pinnedNote(we.exerciseId)?.takeIf { it.isNotBlank() },
                 isCardio = exercise?.isCardio == true,
                 suggestion = if (we.id in handledSuggestions) null
@@ -727,7 +730,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 when {
                     // The user says the reading is wrong → the estimate, nothing recorded as
                     // measured (a bogus measurement must not "cover" the superset partner).
-                    forgot -> dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
+                    forgot -> dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo, ex.unilateral)
                     // Stopwatch ran: its reading is the truth, however long ("timer = 6 min
                     // means I was active 6 min").
                     stopwatch != null ->
@@ -738,10 +741,10 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     // Untimed: the gap since the rest ended, capped by reps/cadence.
                     else -> SessionManager.gapActiveSecs()
                         ?.let { gap ->
-                            dev.allan.workoutapp.data.SetTiming.bookFromGap(gap, set.value, set.tempo)
+                            dev.allan.workoutapp.data.SetTiming.bookFromGap(gap, set.value, set.tempo, ex.unilateral)
                                 .also { SessionManager.recordMeasured(gap) }
                         }
-                        ?: dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
+                        ?: dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo, ex.unilateral)
                 }
             }
         }
@@ -750,9 +753,9 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         // Cadence check: only a real measurement says anything about pace (a booked default
         // would just compare the estimate with itself), and only being faster than the
         // cadence is a problem — going slower is fine (Allan, 02/08).
-        val expectedSecs = dev.allan.workoutapp.data.SetTiming.expectedSecs(set.value, set.tempo)
+        val expectedSecs = dev.allan.workoutapp.data.SetTiming.expectedSecs(set.value, set.tempo, ex.unilateral)
         val paceNote = if (expectedSecs != null && set.valueUnit == ValueUnit.REPS && active > 0 &&
-            active != dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo)
+            active != dev.allan.workoutapp.data.SetTiming.defaultActiveSecs(set.value, set.tempo, ex.unilateral)
         ) {
             PaceNote(
                 exerciseIndex = exerciseIndex,

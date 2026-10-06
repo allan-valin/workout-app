@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SessionSetDraft::class, ExerciseLink::class, ExerciseFavorite::class,
         ExerciseUserImage::class, ExerciseImagePref::class, SessionSuggestionState::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -198,13 +198,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v12: a workout exercise can be flagged unilateral (doubles the time estimate). */
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workout_exercise ADD COLUMN unilateral INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /**
          * Every migration, in one place so the instrumented migration test exercises exactly
          * what the app ships (AppDatabaseMigrationTest). Keep new migrations appended here.
          */
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-            MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+            MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
         )
 
         fun get(context: Context): AppDatabase =

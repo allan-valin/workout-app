@@ -126,6 +126,11 @@ data class WorkoutExercise(
      * set 2 of the previous, set 2 of this one, …
      */
     val supersetWithPrev: Boolean = false,
+    /**
+     * Done one side at a time ("cada lado"): the active-time estimate doubles because the
+     * same reps at the same cadence happen twice (Allan, 2026-10-06). v12.
+     */
+    val unilateral: Boolean = false,
 )
 
 @Serializable

@@ -464,6 +464,11 @@ class WorkoutEditorViewModel(app: Application, private val workoutId: Long, priv
         }
     }
 
+    /** One side at a time → the time estimate doubles (06/10). */
+    fun toggleUnilateral(item: EditorExercise) {
+        edit { db.planDao().updateWorkoutExercise(item.we.copy(unilateral = !item.we.unilateral)) }
+    }
+
     fun updateSet(set: SetTemplate) {
         edit { db.planDao().updateSetTemplate(set) }
     }
@@ -1183,6 +1188,12 @@ private fun ExerciseEditorCard(
                     leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
                 )
             }
+            // Unilateral: same reps per side, so every rep-based time estimate counts twice.
+            FilterChip(
+                selected = item.we.unilateral,
+                onClick = { vm.toggleUnilateral(item) },
+                label = { Text(stringResource(R.string.unilateral_toggle)) },
+            )
 
             // Weight interpretation: total / per dumbbell / per side of the bar.
             // Trailing full arrows = move the exercise (arrowheads now mean collapse/expand).

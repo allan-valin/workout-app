@@ -1546,3 +1546,30 @@ exercise; linking them through the gallery picker is one pick each. Plan JSON no
 - Not done: export side does not write `images` back (a re-export of a plan is image-less);
   a backup still carries user images by path as before.
 
+## Phase 39 — unilateral flag, set timestamps in the exports, all-cycles pivot (2026-10-06, Allan's three asks after the fase 3 import)
+
+1. **Unilateral toggle** (workout editor, chip next to the superset chip): `WorkoutExercise.unilateral`,
+   DB v12 (`MIGRATION_11_12`), plan JSON `unilateral`, `SessionExercise.unilateral`. Every
+   rep-based estimate in `SetTiming` takes the flag and doubles (`UNILATERAL_SIDES = 2`):
+   `expectedSecs`, `defaultActiveSecs`, `capSecs`, `bookFromGap`; measured stopwatch readings
+   are untouched. `estimateWorkoutSecs` follows. `UnilateralTimingTest`.
+2. **Sets CSV**: `started_at` (completion − booked active secs) and `gap_before_secs`
+   (start − previous set's completion − its rest, floored at 0; first set measured from the
+   session start). Allan: 30 min idle per session with no stops between exercises, "probably
+   taking too long setting up" — this column says where. Pure helpers `CsvExport.startedAt`
+   / `gapBeforeSecs`, `SetGapTest`.
+3. **Weight-evolution pivot**: cell gains `[HH:mm:ss-HH:mm:ss]` (start "?" when never booked),
+   and a second button exports ALL cycles (`weightEvolution(allCycles = true)`,
+   `weight_evolution_all.csv`). The default button stays active-cycle only — Allan assumed it
+   showed everything; it never did.
+- [x] Unit suite 187/187, assembleRelease green (2026-10-06 15:47); `AppDatabaseMigrationTest`
+  bumped to 12 but NOT run (instrumented; needs an emulator).
+- [x] versionCode 11 / 0.8.3, installed on the Redmi over 0.8.2 (data kept; v12 migration runs
+  on first launch — not yet eyeballed, the phone locked itself before the app came up).
+- [ ] Flag the 14 unilateral exercises of fase 3 in the editor (Abdução decúbito lateral, Leg
+  press unilateral, Panturrilha parede, Elev. lateral polia, Abdução máquina, Prancha lateral,
+  Stiff unilateral, Gorila row, Bíceps polia alta, Canoa, Copenhagen, Alongamento dinâmico
+  posterior, Catavento, Abdutor I). `~/Downloads/plan_fortalecimento_fase3.json` already
+  carries `unilateral: true` on them; re-importing would duplicate the plan, so: editor chip.
+- [ ] Emulator pass for the editor chip + both export buttons (rule: every batch).
+

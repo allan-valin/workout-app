@@ -267,6 +267,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                 "sets" -> CsvExport.sets(db, lang)
                 "sessions" -> CsvExport.sessions(db)
                 "weights" -> CsvExport.weightEvolution(db, lang)
+                "weights_all" -> CsvExport.weightEvolution(db, lang, allCycles = true)
                 else -> CsvExport.body(db)
             }
             // BOM-prefixed so accented names open correctly in spreadsheets (30/09).
@@ -404,6 +405,10 @@ fun SettingsScreen(appLang: String, onBack: () -> Unit, vm: SettingsViewModel = 
                         onClick = { csvKind = "weights"; exportCsvLauncher.launch("weight_evolution.csv") },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.export_weights_csv)) }
+                    OutlinedButton(
+                        onClick = { csvKind = "weights_all"; exportCsvLauncher.launch("weight_evolution_all.csv") },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.export_weights_all_csv)) }
                     OutlinedButton(
                         onClick = { csvKind = "body"; exportCsvLauncher.launch("body_weight.csv") },
                         modifier = Modifier.fillMaxWidth(),

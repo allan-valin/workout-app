@@ -34,6 +34,7 @@ object CsvExport {
 
     private val dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     private val dayFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    private val clockFmt = DateTimeFormatter.ofPattern("HH:mm:ss")
 
     private fun ts(millis: Long): String =
         dateFmt.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
@@ -51,12 +52,23 @@ object CsvExport {
             db.planDao().workoutsList(plan.id).forEach { w -> workoutNames[w.id] = plan.name to w.name }
         }
         val sb = StringBuilder(
-            "session_id,date,plan,workout,exercise_id,exercise_name,set_index,set_type,weight_kg,weight_mode,value,unit,active_secs,rest_secs\n"
+            "session_id,date,plan,workout,exercise_id,exercise_name,set_index,set_type,weight_kg,weight_mode,value,unit,active_secs,rest_secs,started_at,gap_before_secs\n"
         )
-        db.sessionDao().allSetLogs().forEach { log ->
+        // Per session, the previous logged set (by completion) — the gap column measures the
+        // unexplained time between its rest ending and this set starting (Allan, 06/10).
+        val prevBySession = mutableMapOf<Long, SetLogRef>()
+        db.sessionDao().allSetLogs().sortedWith(compareBy({ it.sessionId }, { it.completedAt })).forEach { log ->
             val session = sessions[log.sessionId]
             val (planName, workoutName) = session?.let { workoutNames[it.workoutId] } ?: ("" to "")
             val exerciseName = PlanRepo.displayName(db, log.exerciseId, lang)
+            val started = startedAt(log.completedAt, log.activeSecs)
+            val prev = prevBySession[log.sessionId]
+            val gap = when {
+                prev != null -> gapBeforeSecs(started, prev.completedAt, prev.restSecs)
+                session != null -> gapBeforeSecs(started, session.startedAt, null)
+                else -> null
+            }
+            prevBySession[log.sessionId] = SetLogRef(log.completedAt, log.restSecs)
             sb.append(log.sessionId).append(',')
                 .append(ts(log.completedAt)).append(',')
                 .append(esc(planName)).append(',')
@@ -70,10 +82,25 @@ object CsvExport {
                 .append(log.value).append(',')
                 .append(log.valueUnit.name).append(',')
                 .append(log.activeSecs ?: "").append(',')
-                .append(log.restSecs ?: "").append('\n')
+                .append(log.restSecs ?: "").append(',')
+                .append(ts(started)).append(',')
+                .append(gap ?: "").append('\n')
         }
         return sb.toString()
     }
+
+    private data class SetLogRef(val completedAt: Long, val restSecs: Int?)
+
+    /** When the set started: completion minus the booked active time (completion when none). */
+    fun startedAt(completedAt: Long, activeSecs: Int?): Long =
+        completedAt - (activeSecs ?: 0) * 1000L
+
+    /**
+     * Unexplained seconds before a set: from the previous set's rest ending (its completion
+     * plus its booked rest) to this set's start. Never negative.
+     */
+    fun gapBeforeSecs(startedAt: Long, prevCompletedAt: Long, prevRestSecs: Int?): Int =
+        (((startedAt - prevCompletedAt) / 1000L).toInt() - (prevRestSecs ?: 0)).coerceAtLeast(0)
 
     /** One logged set: which exercise, which day, which slot, and what was done. */
     data class SetPoint(
@@ -85,6 +112,10 @@ object CsvExport {
         val value: Int,
         val unit: ValueUnit,
         val completedAt: Long,
+        /** Clock time the set started ("HH:mm:ss"), blank when unknown. */
+        val startTime: String = "",
+        /** Clock time the set was logged ("HH:mm:ss"), blank = leave the cell bare. */
+        val endTime: String = "",
     )
 
     /**
@@ -95,13 +126,17 @@ object CsvExport {
      * exercises progress in reps only (Allan, 30/09). Sessions count when they belong to one
      * of the active plan's workouts and started after the plan did.
      */
-    suspend fun weightEvolution(db: AppDatabase, lang: String): String {
-        val plan = db.planDao().activePlanNow() ?: return setPivot(emptyList())
-        val workoutIds = db.planDao().workoutsList(plan.id).map { it.id }.toSet()
-        val since = plan.startedAt ?: 0L
-        val sessions = db.sessionDao().finishedSessions()
-            .filter { it.workoutId in workoutIds && it.startedAt >= since }
-            .associateBy { it.id }
+    suspend fun weightEvolution(db: AppDatabase, lang: String, allCycles: Boolean = false): String {
+        val sessions = if (allCycles) {
+            db.sessionDao().finishedSessions().associateBy { it.id }
+        } else {
+            val plan = db.planDao().activePlanNow() ?: return setPivot(emptyList())
+            val workoutIds = db.planDao().workoutsList(plan.id).map { it.id }.toSet()
+            val since = plan.startedAt ?: 0L
+            db.sessionDao().finishedSessions()
+                .filter { it.workoutId in workoutIds && it.startedAt >= since }
+                .associateBy { it.id }
+        }
         val names = mutableMapOf<String, String>()
         val points = db.sessionDao().allSetLogs()
             .filter { it.sessionId in sessions }
@@ -115,6 +150,8 @@ object CsvExport {
                     value = log.value,
                     unit = log.valueUnit,
                     completedAt = log.completedAt,
+                    startTime = log.activeSecs?.let { clock(startedAt(log.completedAt, it)) } ?: "",
+                    endTime = clock(log.completedAt),
                 )
             }
         return setPivot(points)
@@ -144,12 +181,18 @@ object CsvExport {
 
     private fun cell(p: SetPoint): String {
         val work = if (p.unit == ValueUnit.SECS) p.value.toString() + "s" else p.value.toString()
-        return when {
+        val base = when {
             p.unit == ValueUnit.SECS && p.weightKg <= 0.0 -> work
             p.weightKg <= 0.0 -> "BW x " + work
             else -> num(p.weightKg) + " x " + work
         }
+        // Start/completion clock times, "?" when the start was never booked (06/10).
+        return if (p.endTime.isBlank()) base
+        else "$base [${p.startTime.ifBlank { "?" }}-${p.endTime}]"
     }
+
+    private fun clock(millis: Long): String =
+        clockFmt.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
 
     /** One row per session; idle = total − active − rest, never negative. */
     suspend fun sessions(db: AppDatabase): String {

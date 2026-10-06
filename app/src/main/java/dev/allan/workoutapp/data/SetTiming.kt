@@ -39,6 +39,10 @@ object SetTiming {
     const val SHARE_WINDOW_MS = 20_000L
     /** Under the estimate by more than this fraction = rushed. */
     const val FAST_TOLERANCE = 0.15
+    /** A unilateral exercise does its reps once per side at the same cadence (06/10). */
+    const val UNILATERAL_SIDES = 2
+
+    private fun sides(unilateral: Boolean) = if (unilateral) UNILATERAL_SIDES else 1
 
     enum class Pace { FAST, ON_TEMPO }
 
@@ -67,24 +71,24 @@ object SetTiming {
     }
 
     /** NOMINAL duration of the whole set from its cadence (pace warning), null without one. */
-    fun expectedSecs(reps: Int, tempo: String): Int? =
-        tempoSecs(tempo)?.let { it * reps }?.takeIf { it > 0 }
+    fun expectedSecs(reps: Int, tempo: String, unilateral: Boolean = false): Int? =
+        tempoSecs(tempo)?.let { it * reps * sides(unilateral) }?.takeIf { it > 0 }
 
     /** Active seconds to book when nothing was measured: realistic cadence, else 4 s a rep. */
-    fun defaultActiveSecs(reps: Int, tempo: String): Int =
-        (realisticTempoSecs(tempo) ?: PER_REP_SECS) * reps.coerceAtLeast(0)
+    fun defaultActiveSecs(reps: Int, tempo: String, unilateral: Boolean = false): Int =
+        (realisticTempoSecs(tempo) ?: PER_REP_SECS) * reps.coerceAtLeast(0) * sides(unilateral)
 
     /** Longest untimed gap still believed to be the set itself. */
-    fun capSecs(reps: Int, tempo: String): Int =
-        maxOf(MIN_CAP_SECS, CAP_FACTOR * defaultActiveSecs(reps, tempo))
+    fun capSecs(reps: Int, tempo: String, unilateral: Boolean = false): Int =
+        maxOf(MIN_CAP_SECS, CAP_FACTOR * defaultActiveSecs(reps, tempo, unilateral))
 
     /**
      * Active seconds for a set nobody timed, from the gap since the rest ended: measured
      * (minus positioning) while within [capSecs], the cap itself beyond it — Allan, 02/10:
      * "5 minutes sound about right for when I forget, but then log the calculated cap".
      */
-    fun bookFromGap(gapSecs: Int, reps: Int, tempo: String): Int {
-        val cap = capSecs(reps, tempo)
+    fun bookFromGap(gapSecs: Int, reps: Int, tempo: String, unilateral: Boolean = false): Int {
+        val cap = capSecs(reps, tempo, unilateral)
         return if (gapSecs > cap) cap else measuredActiveSecs(gapSecs)
     }
 

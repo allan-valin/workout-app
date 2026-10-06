@@ -14,8 +14,26 @@ import org.junit.Test
 class SetPivotTest {
 
     private fun p(name: String, date: String, set: Int, kg: Double, reps: Int, at: Long = 0,
-                  type: SetType = SetType.NORMAL, unit: ValueUnit = ValueUnit.REPS) =
-        CsvExport.SetPoint(name, date, set, type, kg, reps, unit, at)
+                  type: SetType = SetType.NORMAL, unit: ValueUnit = ValueUnit.REPS,
+                  start: String = "", end: String = "") =
+        CsvExport.SetPoint(name, date, set, type, kg, reps, unit, at, start, end)
+
+    /** Allan, 2026-10-06: start/completion clock times per set, to see where the idle time goes. */
+    @Test
+    fun `a cell carries the set's start and completion time when known`() {
+        val csv = CsvExport.setPivot(
+            listOf(
+                p("Squat", "2026-09-01", 0, 80.0, 8, start = "21:06:12", end = "21:08:40"),
+                p("Squat", "2026-09-01", 1, 80.0, 8, start = "", end = "21:12:00"),
+            )
+        )
+        assertEquals(
+            "exercise,set,2026-09-01\n" +
+                "Squat,1,80 x 8 [21:06:12-21:08:40]\n" +
+                "Squat,2,80 x 8 [?-21:12:00]\n",
+            csv,
+        )
+    }
 
     @Test
     fun `row per set, column per day, weight x reps in the cell`() {

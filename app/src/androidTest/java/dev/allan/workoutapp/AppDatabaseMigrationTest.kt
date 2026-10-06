@@ -12,7 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Proves the 9 -> 10 -> 11 upgrade keeps a real user's rows, instead of installing the old
+ * Proves the 9 -> 10 -> 11 -> 12 upgrade keeps a real user's rows, instead of installing the old
  * APK and walking the UI by hand (which is how the 02/08 batch was checked, and which cost a
  * whole session). Seeds a v9 database with the rows the migrations touch, runs the shipped
  * migrations, and asserts the data survived and the new schema is there.
@@ -31,7 +31,7 @@ class AppDatabaseMigrationTest {
     )
 
     @Test
-    fun migrates9To11KeepingData() {
+    fun migrates9To12KeepingData() {
         helper.createDatabase(dbName, 9).use { db ->
             db.execSQL(
                 "INSERT INTO exercise_note (id, exerciseId, sessionId, text, updatedAt) " +
@@ -39,7 +39,7 @@ class AppDatabaseMigrationTest {
             )
         }
 
-        val db = helper.runMigrationsAndValidate(dbName, 11, true, *AppDatabase.ALL_MIGRATIONS)
+        val db = helper.runMigrationsAndValidate(dbName, 12, true, *AppDatabase.ALL_MIGRATIONS)
 
         db.query("SELECT text, pinned FROM exercise_note WHERE id = 1").use { c ->
             assertTrue("the note written on v9 must survive the upgrade", c.moveToFirst())
@@ -61,6 +61,6 @@ class AppDatabaseMigrationTest {
     @Test
     fun migratesFromTheOldestSchema() {
         helper.createDatabase(dbName, 1).close()
-        helper.runMigrationsAndValidate(dbName, 11, true, *AppDatabase.ALL_MIGRATIONS)
+        helper.runMigrationsAndValidate(dbName, 12, true, *AppDatabase.ALL_MIGRATIONS)
     }
 }

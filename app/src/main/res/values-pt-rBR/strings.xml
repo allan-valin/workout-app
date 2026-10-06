@@ -339,4 +339,6 @@
     <string name="recording_saved">Gravação salva em Movies/WorkoutApp</string>
     <string name="no_camera">Este aparelho não tem câmera</string>
     <string name="import_images">%1$d imagens de referência vinculadas.</string>
+    <string name="unilateral_toggle">Unilateral (cada lado, tempo ×2)</string>
+    <string name="export_weights_all_csv">Exportar evolução das cargas, todos os ciclos (CSV)</string>
 </resources>

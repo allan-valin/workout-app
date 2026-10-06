@@ -80,6 +80,7 @@ Output a single JSON code block (or downloadable `.json` file) named like
 | `exercises[].custom_fallback` | Optional. If no match is found, app offers to create this custom exercise. Without it, unmatched exercises are skipped and reported. Include it for anything unusual. |
 | `weight_mode` | `TOTAL` (default) \| `PER_DUMBBELL` \| `PER_SIDE`. |
 | `bar_weight_kg` | Only meaningful with `PER_SIDE`. Default 20. |
+| `unilateral` | Optional bool (0.8.3+). The exercise is done one side at a time ("cada lado"): every rep-based time estimate (active-time booking, forgot-to-log cap, workout duration) counts twice. Set it on "3x12 cada lado"-style prescriptions. |
 | `superset_with_previous` | Optional bool (default false). This exercise alternates with the one right before it: set 1 of the previous, set 1 of this (no rest between), rest, set 2 of the previous, … Never set it on the first exercise of a workout. **Only the SECOND (and later) members of a group carry the flag — never the first.** See the pitfall below. |
 | `sets[].type` | `WARMUP` \| `NORMAL` \| `FAILURE` \| `DROP`. (Legacy `SUPERSET` still accepted; prefer `superset_with_previous` on the exercise.) |
 | `sets[].weight_kg` | Number ≥ 0. Use 0 for bodyweight/cardio. Increments of 1.25 preferred. |
@@ -201,10 +202,14 @@ Allan may paste exported CSVs. Columns:
 
 ```
 sets:     session_id, date, plan, workout, exercise_id, exercise_name, set_index,
-          set_type, weight_kg, weight_mode, value, unit, active_secs, rest_secs
-weight_evolution: exercise, set, <one column per training day of the active cycle>; cell =
-          "weight x reps" ("BW x 46" bodyweight, "75s" timed, blank = not trained that day);
-          set = 1-based slot, "W" suffix = warm-up
+          set_type, weight_kg, weight_mode, value, unit, active_secs, rest_secs,
+          started_at, gap_before_secs   (0.8.3: date = completion; started_at = completion
+          minus booked active time; gap_before_secs = unexplained seconds between the
+          previous set's rest ending and this set starting — setup time, in practice)
+weight_evolution: exercise, set, <one column per training day of the active cycle, or of
+          every cycle with the "all cycles" button>; cell = "weight x reps [start-end]"
+          ("BW x 46" bodyweight, "75s" timed, clock times HH:mm:ss, "?" = start unknown,
+          blank = not trained that day); set = 1-based slot, "W" suffix = warm-up
 sessions: session_id, workout, started_at, ended_at, status, active_secs, rest_secs,
           idle_secs, total_volume_kg
 body:     date, weight_kg

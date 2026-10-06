@@ -76,6 +76,8 @@ object PlanTransfer {
         @SerialName("bar_weight_kg") val barWeightKg: Double = 20.0,
         /** Alternate with the previous exercise (A1, B1, rest, A2, B2, …). */
         @SerialName("superset_with_previous") val supersetWithPrevious: Boolean = false,
+        /** Done one side at a time: time estimates double (0.8.3). */
+        val unilateral: Boolean = false,
         val note: String = "",
         val sets: List<SetDto> = emptyList(),
         /**
@@ -333,6 +335,7 @@ object PlanTransfer {
                     weightMode = runCatching { WeightMode.valueOf(e.weightMode) }.getOrDefault(WeightMode.TOTAL),
                     barWeightKg = e.barWeightKg,
                     supersetWithPrev = e.supersetWithPrevious && eIndex > 0,
+                    unilateral = e.unilateral,
                 )
             )
             // Every value from the file is clamped: a generator slip must not put a negative
@@ -547,6 +550,7 @@ object PlanTransfer {
                 weightMode = we.weightMode.name,
                 barWeightKg = we.barWeightKg,
                 supersetWithPrevious = we.supersetWithPrev,
+                unilateral = we.unilateral,
                 note = we.note,
                 sets = db.planDao().setTemplatesList(we.id).map { s ->
                     SetDto(
