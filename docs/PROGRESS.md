@@ -1566,10 +1566,10 @@ exercise; linking them through the gallery picker is one pick each. Plan JSON no
   bumped to 12 but NOT run (instrumented; needs an emulator).
 - [x] versionCode 11 / 0.8.3, installed on the Redmi over 0.8.2 (data kept; v12 migration runs
   on first launch — not yet eyeballed, the phone locked itself before the app came up).
-- [ ] Flag the 14 unilateral exercises of fase 3 in the editor (Abdução decúbito lateral, Leg
-  press unilateral, Panturrilha parede, Elev. lateral polia, Abdução máquina, Prancha lateral,
-  Stiff unilateral, Gorila row, Bíceps polia alta, Canoa, Copenhagen, Alongamento dinâmico
-  posterior, Catavento, Abdutor I). `~/Downloads/plan_fortalecimento_fase3.json` already
-  carries `unilateral: true` on them; re-importing would duplicate the plan, so: editor chip.
-- [ ] Emulator pass for the editor chip + both export buttons (rule: every batch).
+- [x] 0.8.3 opened on the Redmi after the v12 migration (no crash in logcat); the 14 unilateral
+  exercises of fase 3 flagged through the editor chip over adb (uiautomator: the chip's
+  `checked` state sits on the PARENT of the label node) — 14/14 read back as checked.
+  `~/Downloads/plan_fortalecimento_fase3.json` carries `unilateral: true` on them for the record.
+- [ ] Device/emulator pass still owed for the two export buttons (sets CSV columns, all-cycles
+  pivot) — exercised only by unit tests so far.
 
