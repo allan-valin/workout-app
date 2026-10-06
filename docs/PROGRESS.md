@@ -1522,3 +1522,27 @@ Worked numbers (so the rules can be re-derived): 10 reps no cadence → 40 s, ca
   opened was an older export; (3) the names are double-encoded upstream (`CsvExport` /
   `displayName`). A fix without that evidence is another guess.
 - [ ] "forgot?" box + idle time: Allan checks during a real training (too slow to test cold).
+
+## Phase 38 — plan files carry reference images (2026-10-06, fase 3 import)
+
+Allan: "46 imgs to do by hand I'd rather automate". The trainer's PDF has one photo per
+exercise; linking them through the gallery picker is one pick each. Plan JSON now takes
+`exercises[].images[] = {name, base64}` (schema stays 1, field is additive).
+
+- [x] `PlanTransfer.ImageDto`, `ExerciseDto.images`, `ImportReport.images`.
+- [x] `installImages`: writes `files/exercise_media/import_<sha1>.jpg` (same folder as the
+  picker), links it as a user image unless that path is already linked to the exercise
+  (`ExerciseDao.userImagePaths`), first image becomes the `exercise_image_pref`.
+- [x] Report line "Linked N reference images." (en/pt/de).
+- [x] Unit tests: `PlanTransferImagesTest` (parse, decode, content-addressed name).
+- [x] Docs: generator contract + conversion step 0 (photo-based matching, Allan's weight rules).
+- [x] versionCode 10 / 0.8.2.
+- [x] Installed on the Redmi (0.8.1 → 0.8.2, data kept) and fase 3 imported over adb-driven UI
+  (Ativos → Novo ciclo → Importar plano → system picker in LIST view — the grid thumbnail
+  opens a preview, and the preview's X landed in WPS): report "9 treinos, 53 exercícios,
+  4 personalizados, 0 ignorados, 46 imagens vinculadas", plan activated, 90/90 sheet shows
+  the PDF photo. Allan afterwards: pick files through Google Drive / the file manager next time.
+- Unit suite 180/180, assembleRelease green (2026-10-06 15:29).
+- Not done: export side does not write `images` back (a re-export of a plan is image-less);
+  a backup still carries user images by path as before.
+

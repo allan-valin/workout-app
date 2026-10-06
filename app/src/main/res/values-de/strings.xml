@@ -338,4 +338,5 @@
     <string name="camera_permission_needed">Für den Spiegel wird die Kameraberechtigung benötigt</string>
     <string name="recording_saved">Aufnahme gespeichert unter Movies/WorkoutApp</string>
     <string name="no_camera">Dieses Gerät hat keine Kamera</string>
+    <string name="import_images">%1$d Referenzbilder verknüpft.</string>
 </resources>

@@ -78,6 +78,19 @@ object PlanTransfer {
         @SerialName("superset_with_previous") val supersetWithPrevious: Boolean = false,
         val note: String = "",
         val sets: List<SetDto> = emptyList(),
+        /**
+         * Reference photos carried inline (base64 JPEG/PNG). Stored as user images of the
+         * matched exercise on import; the first one becomes the representative image.
+         * Absent in files written before 0.8.2.
+         */
+        val images: List<ImageDto> = emptyList(),
+    )
+
+    /** One inline image: [name] is informational (the PDF crop's file name), [base64] the bytes. */
+    @Serializable
+    data class ImageDto(
+        val name: String = "",
+        val base64: String = "",
     )
 
     @Serializable
@@ -116,6 +129,8 @@ object PlanTransfer {
         val error: String? = null,
         /** Workouts auto-renamed on import because the name was already in use (old to new). */
         val renamed: List<Pair<String, String>> = emptyList(),
+        /** Inline images stored as user images (duplicates of already-linked files not counted). */
+        val images: Int = 0,
     )
 
     /**
@@ -230,14 +245,18 @@ object PlanTransfer {
         )
         val baseOrder = if (mergeIntoPlanId != null) db.planDao().workoutsList(planId).size else 0
         var exerciseCount = 0
+        val images = IntArray(1)
         plan.workouts.forEachIndexed { wIndex, w ->
             exerciseCount += importWorkoutInto(
                 db, planId, w, baseOrder + wIndex, lang, createdCustom, skipped,
                 fallbackName = "Workout ${wIndex + 1}", context = context,
-                planAbbrev = abbrev, renamed = renamed,
+                planAbbrev = abbrev, renamed = renamed, images = images,
             )
         }
-        return ImportReport(planId, plan.workouts.size, exerciseCount, createdCustom, skipped, renamed = renamed)
+        return ImportReport(
+            planId, plan.workouts.size, exerciseCount, createdCustom, skipped,
+            renamed = renamed, images = images[0],
+        )
     }
 
     /** Imports a single-workout file into [targetPlanId]. */
@@ -252,12 +271,14 @@ object PlanTransfer {
         val skipped = mutableListOf<String>()
         val renamed = mutableListOf<Pair<String, String>>()
         val order = db.planDao().workoutsList(targetPlanId).size
+        val images = IntArray(1)
         val count = importWorkoutInto(
             db, targetPlanId, workout, order, lang, createdCustom, skipped,
             fallbackName = "Workout", context = context,
             planAbbrev = abbreviate(db.planDao().plan(targetPlanId)?.name ?: ""), renamed = renamed,
+            images = images,
         )
-        return ImportReport(targetPlanId, 1, count, createdCustom, skipped, renamed = renamed)
+        return ImportReport(targetPlanId, 1, count, createdCustom, skipped, renamed = renamed, images = images[0])
     }
 
     private suspend fun importWorkoutInto(
@@ -272,6 +293,8 @@ object PlanTransfer {
         context: android.content.Context? = null,
         planAbbrev: String = "",
         renamed: MutableList<Pair<String, String>> = mutableListOf(),
+        /** Out-parameter: number of inline images stored (slot 0). */
+        images: IntArray = IntArray(1),
     ): Int {
         var exerciseCount = 0
         // Workout names are global (the Archive lists every workout by name), so an
@@ -300,6 +323,7 @@ object PlanTransfer {
                 return@forEachIndexed
             }
             installLocalName(db, exerciseId, e.match.names, lang)
+            if (context != null) images[0] += installImages(context, db, exerciseId, e.images)
             val weId = db.planDao().insertWorkoutExercise(
                 WorkoutExercise(
                     workoutId = workoutId,
@@ -332,6 +356,56 @@ object PlanTransfer {
             exerciseCount++
         }
         return exerciseCount
+    }
+
+    /** Base64 → bytes, or null when the text is not base64 or empty. */
+    fun decodeImage(base64: String): ByteArray? =
+        runCatching { java.util.Base64.getMimeDecoder().decode(base64.trim()) }
+            .getOrNull()?.takeIf { it.isNotEmpty() }
+
+    /**
+     * Content-addressed file name for an inline image, so importing the same plan twice
+     * (or two plans sharing a photo) maps to one file instead of a growing pile.
+     */
+    fun imageFileName(bytes: ByteArray): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-1").digest(bytes)
+        return "import_" + digest.joinToString("") { "%02x".format(it) } + ".jpg"
+    }
+
+    /**
+     * Stores the exercise's inline images under files/exercise_media (same place as the
+     * gallery picker) and links them as user images. A file already linked to this exercise
+     * is skipped, so a re-import is idempotent. The first image becomes the representative
+     * one — the plan's photo is the reference Allan wants in-session (2026-10-06).
+     * Returns how many images were newly linked.
+     */
+    private suspend fun installImages(
+        context: android.content.Context,
+        db: AppDatabase,
+        exerciseId: String,
+        images: List<ImageDto>,
+    ): Int {
+        if (images.isEmpty()) return 0
+        val dir = java.io.File(context.filesDir, "exercise_media").apply { mkdirs() }
+        val linked = db.exerciseDao().userImagePaths(exerciseId).toMutableSet()
+        var added = 0
+        var first: String? = null
+        for (img in images) {
+            val bytes = decodeImage(img.base64) ?: continue
+            val file = java.io.File(dir, imageFileName(bytes))
+            if (!file.exists() || file.length() != bytes.size.toLong()) {
+                runCatching { file.writeBytes(bytes) }.getOrElse { continue }
+            }
+            if (first == null) first = file.path
+            if (file.path in linked) continue
+            db.exerciseDao().insertUserImage(
+                dev.allan.workoutapp.data.db.ExerciseUserImage(exerciseId = exerciseId, path = file.path)
+            )
+            linked += file.path
+            added++
+        }
+        first?.let { db.exerciseDao().upsertImagePref(dev.allan.workoutapp.data.db.ExerciseImagePref(exerciseId, it)) }
+        return added
     }
 
     /**

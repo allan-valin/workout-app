@@ -338,4 +338,5 @@
     <string name="camera_permission_needed">Camera permission is needed for the mirror</string>
     <string name="recording_saved">Recording saved to Movies/WorkoutApp</string>
     <string name="no_camera">No camera on this device</string>
+    <string name="import_images">Linked %1$d reference images.</string>
 </resources>

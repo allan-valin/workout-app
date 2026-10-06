@@ -338,4 +338,5 @@
     <string name="camera_permission_needed">A permissão da câmera é necessária para o espelho</string>
     <string name="recording_saved">Gravação salva em Movies/WorkoutApp</string>
     <string name="no_camera">Este aparelho não tem câmera</string>
+    <string name="import_images">%1$d imagens de referência vinculadas.</string>
 </resources>

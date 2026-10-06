@@ -244,6 +244,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 )
                 if (report.skipped.isNotEmpty()) append("\n" + report.skipped.joinToString())
+                if (report.images > 0) append("\n" + context.getString(R.string.import_images, report.images))
                 if (report.renamed.isNotEmpty()) {
                     append("\n\n" + context.getString(R.string.import_renamed_header))
                     report.renamed.forEach { (old, new) -> append("\n$old → $new") }

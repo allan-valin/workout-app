@@ -133,6 +133,10 @@ interface ExerciseDao {
     @Insert
     suspend fun insertUserImage(img: ExerciseUserImage): Long
 
+    /** Paths already linked to the exercise — the plan importer's duplicate check (0.8.2). */
+    @Query("SELECT path FROM exercise_user_image WHERE exerciseId = :exerciseId")
+    suspend fun userImagePaths(exerciseId: String): List<String>
+
     @Query("DELETE FROM exercise_user_image WHERE id = :id")
     suspend fun deleteUserImage(id: Long)
 

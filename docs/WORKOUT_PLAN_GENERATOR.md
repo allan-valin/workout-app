@@ -88,6 +88,8 @@ Output a single JSON code block (or downloadable `.json` file) named like
 | `sets[].rest_secs` | Rest AFTER this set. Sensible defaults: 60 warmup, 90–120 hypertrophy, 180 strength. |
 | `sets[].tempo` | Optional cadence string shown big during the set, e.g. `"3-1-1-0"` = 3 s eccentric, 1 s pause, 1 s concentric, 0 s pause. Omit or `""` for none. The app treats cadence per exercise, so put the same value on every set of the exercise (added 2026-09-30; older files without it still import). |
 
+| `exercises[].images` | Optional (0.8.2+). Inline reference photos: `[{"name": "05_leg_press.jpg", "base64": "<JPEG/PNG as base64>"}]`. On import each one is stored as a user image of the matched exercise and the first becomes its representative image. Content-addressed: re-importing the same file links nothing twice. Keep each photo small (≈300×500 px, <50 KB) — the whole file is read into memory. |
+
 `primary_muscle` / `secondary_muscles` values (custom_fallback):
 `chest, lats, upper_back, lower_back, traps, front_delts, side_delts, rear_delts, biceps, triceps, forearms, abs, obliques, quads, hamstrings, glutes, calves, adductors, abductors, neck, full_body, cardio`
 
@@ -166,6 +168,15 @@ If no base exercise is even close, use `custom_fallback` with a full `descriptio
 - `is_cardio: true` only inside `custom_fallback` (it describes a NEW exercise).
 
 ## Conversion workflow (PDF/photo → JSON)
+
+0. If the source is a PDF with one photo per exercise (the trainer's app exports them as
+   270×480 JPEGs), extract them (`pdfimages -j`), map each to its exercise BY LOOKING AT
+   THE PHOTO (the fase 2 import put a wrong exercise under "Mobilidade de Quadril
+   Dinâmico" by name alone), and embed them in `exercises[].images`. Allan's rules
+   (2026-10-06): the warm-up block is its own workout, never merged into the training
+   days; a repeated exercise keeps the weight AND reps he last logged (he progresses by
+   reps and asks the trainer before adding weight); every "Instruções" line goes into
+   `note`; supersets ("Exercícios combinados") are flagged.
 
 1. Extract the raw exercise list per workout day first.
 2. Show Allan a **match table** before emitting any JSON: source name → proposed
