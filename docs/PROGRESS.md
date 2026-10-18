@@ -1589,6 +1589,8 @@ Spec and root causes: `docs/FEEDBACK_BATCH_2026-10-17.md`. Nothing in the app ch
   Stiff unilateral apoiado 09/10 logged 16/8/8/8 (set 0 = untouched template prefill); his
   corrections were typed on logged rows → W1. Backup copy in the session scratchpad only.
 - [x] W2b closed: Descartar reverting cadence is intended (Allan).
+- [x] G5: the 06/10 import used `workout_sets (1).csv` ending 29/09 → 23/28 exercises took session
+  n-1 numbers. Fresh export over adb is now the rule (memory + batch doc).
 - [x] Allan's design decisions recorded in the batch doc: exercise PROFILES named by set pattern
   (G3), import order = last weight+reps then PDF range (G4), variants are separate exercises (P1).
 - [ ] Fix order proposed: collapse the three sources (W1+G1), own-cadence display (C1), history by
