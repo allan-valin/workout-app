@@ -855,15 +855,13 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
         // Cadence/tempo — per EXERCISE (Allan, 24/07), same row as the editor (centered
         // outlined pill = visibly tappable, info (i) on the right); one edit covers all
         // sets, and the value floats here under the image whenever it's active.
-        val exTempo = ex.sets.firstOrNull { it.tempo.isNotBlank() }?.tempo ?: ""
-        // Shown: the cadence of the exercise whose set is next, when that is a superset
-        // partner of this page — the page flips between partners and a tempo defined on only
-        // one of them used to vanish (Allan, 29/08: A6). Editing still targets THIS exercise.
-        val shownTempo = state.currentStep?.first
-            ?.takeIf { it != page && it in SupersetOrder.chain(state.exercises, page) }
-            ?.let { state.exercises.getOrNull(it) }
-            ?.sets?.firstOrNull { it.tempo.isNotBlank() }?.tempo
-            ?: exTempo
+        // The page's OWN cadence only (Prefill.kt shownCadence). Phase 34 A6 showed the superset
+        // partner's cadence while the marker sat on the partner, which read as "both exercises
+        // share one cadence" (Allan, 10/10: C1). The partner is passed so the rule is explicit.
+        val partnerSets = SupersetOrder.chain(state.exercises, page)
+            .firstOrNull { it != page }?.let { state.exercises.getOrNull(it)?.sets }
+        val exTempo = shownCadence(ex.sets, partnerSets)
+        val shownTempo = exTempo
         var showTempoEdit by remember { mutableStateOf(false) }
         var showTempoInfo by remember { mutableStateOf(false) }
         Row(

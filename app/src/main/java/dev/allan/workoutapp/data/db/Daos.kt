@@ -523,6 +523,19 @@ interface SessionDao {
     )
     suspend fun deleteSetLog(sessionId: Long, workoutExerciseId: Long, setIndex: Int)
 
+    /**
+     * A number corrected on an already-logged row (Allan, 17/10): the log is the record the
+     * next session prefills from, so the correction goes there. Only the numbers change —
+     * what the set cost (activeSecs) and when it was done stay.
+     */
+    @Query(
+        """
+        UPDATE set_log SET weightKg = :weightKg, value = :value
+        WHERE sessionId = :sessionId AND workoutExerciseId = :workoutExerciseId AND setIndex = :setIndex
+        """
+    )
+    suspend fun updateSetLogNumbers(sessionId: Long, workoutExerciseId: Long, setIndex: Int, weightKg: Double, value: Int)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDraft(draft: SessionSetDraft)
 

@@ -439,14 +439,18 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         val handledSuggestions = db.sessionDao().suggestionStates(session.id)
             .filter { it.handled }.map { it.workoutExerciseId }.toSet()
 
+        // What is on screen right now survives a rebuild (goal/type/add/remove/move set), unless
+        // it is 0 — see Prefill.kt. Empty on the first paint and after a process death.
+        val onScreen = _state.value.exercises.flatMap { it.sets }.associateBy { it.templateId }
         val exercises = wes.map { we ->
             val previous = db.sessionDao().previousLogs(we.id)
             val weTemplates = templates.filter { it.workoutExerciseId == we.id }.sortedBy { it.setIndex }
             val sets = weTemplates.map { t ->
-                // Prefill order: this session's unlogged draft → most recent finished-session
-                // log for the same slot → template target.
+                // Prefill order: on screen (non-zero) → this session's unlogged draft → most
+                // recent finished-session log for the same slot → template target (Prefill.kt).
                 val prev = previous.firstOrNull { it.setIndex == t.setIndex }
                 val draft = drafts[t.id]
+                val screen = onScreen[t.id]
                 val already = loggedSets.any { it.workoutExerciseId == we.id && it.setIndex == t.setIndex }
                 SessionSet(
                     templateId = t.id,
@@ -454,8 +458,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                     // The plan's type, not the last log's: a type changed mid-session was
                     // repainted back to the old letter on every rebuild (Allan, 29/08: A2).
                     type = t.type,
-                    weightKg = draft?.weightKg ?: prev?.weightKg ?: t.targetWeightKg,
-                    value = draft?.value ?: prev?.value ?: t.targetValue,
+                    weightKg = prefillWeight(screen?.weightKg, draft?.weightKg, prev?.weightKg, t.targetWeightKg),
+                    value = prefillValue(screen?.value, draft?.value, prev?.value, t.targetValue),
                     valueUnit = prev?.valueUnit ?: t.valueUnit,
                     restSecs = t.restSecs,
                     targetMin = t.targetValue,
@@ -601,7 +605,14 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         _state.value = _state.value.copy(timerPanelVisible = !_state.value.timerPanelVisible)
     }
 
-    fun updateSet(exerciseIndex: Int, set: SessionSet) {
+    /**
+     * Write a row's numbers. The draft keeps them across a rebuild; a LOGGED row additionally
+     * rewrites its `set_log` row, because that is what the next session prefills from — a
+     * correction typed after logging used to vanish with the drafts at session end
+     * (Allan, 17/10, W1). [writeLog] is false only from [logSet]/[unlogSet], which handle the
+     * log row themselves.
+     */
+    fun updateSet(exerciseIndex: Int, set: SessionSet, writeLog: Boolean = true) {
         val exercises = _state.value.exercises.toMutableList()
         val ex = exercises[exerciseIndex]
         exercises[exerciseIndex] = ex.copy(sets = ex.sets.map { if (it.templateId == set.templateId) set else it })
@@ -611,6 +622,12 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             currentStep = SupersetOrder.nextStepAfter(exercises, _state.value.lastLogged),
         )
         saveDraft(set)
+        if (writeLog && set.done) {
+            val sessionId = _state.value.sessionId ?: return
+            viewModelScope.launch {
+                db.sessionDao().updateSetLogNumbers(sessionId, ex.workoutExerciseId, set.setIndex, set.weightKg, set.value)
+            }
+        }
     }
 
     /**
@@ -643,6 +660,15 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         )
         newSets.filterIndexed { i, s -> i == editedIndex || s.weightKg != ex.sets[i].weightKg }
             .forEach(::saveDraft)
+        // A logged row's correction goes to its log as well (W1) — forward-filled rows are undone.
+        val edited = newSets[editedIndex]
+        if (edited.done) {
+            _state.value.sessionId?.let { sessionId ->
+                viewModelScope.launch {
+                    db.sessionDao().updateSetLogNumbers(sessionId, ex.workoutExerciseId, edited.setIndex, edited.weightKg, edited.value)
+                }
+            }
+        }
         // Setting the weight yourself answers a weight suggestion (only ever called from the UI).
         if (_state.value.exercises.getOrNull(exerciseIndex)?.suggestion != null) {
             dismissSuggestion(exerciseIndex)
@@ -797,7 +823,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
             // Logging the queued set by hand retires the auto-start.
             autoStartTemplateId = _state.value.autoStartTemplateId?.takeIf { it != set.templateId },
         )
-        updateSet(exerciseIndex, set.copy(done = true))
+        updateSet(exerciseIndex, set.copy(done = true), writeLog = false)
 
         // Superset pairs alternate without rest: A1, B1 (no pause after A1), rest after B1.
         // Legacy SUPERSET set rows keep their no-rest behavior too.
@@ -861,7 +887,7 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 lastLogged = lastLoggedStep(remaining, _state.value.exercises),
                 undoableUnlog = removed,
             )
-            updateSet(exerciseIndex, set.copy(done = false))
+            updateSet(exerciseIndex, set.copy(done = false), writeLog = false)
         }
     }
 

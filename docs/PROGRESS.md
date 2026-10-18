@@ -1595,3 +1595,26 @@ Spec and root causes: `docs/FEEDBACK_BATCH_2026-10-17.md`. Nothing in the app ch
   (G3), import order = last weight+reps then PDF range (G4), variants are separate exercises (P1).
 - [ ] Fix order proposed: collapse the three sources (W1+G1), own-cadence display (C1), history by
   exerciseId (G2/G3), regenerate fase 3 JSON (P1/P2). Each behind a ViewModel-level test first.
+
+## Phase 41 — 0.8.4: done-row edits reach the log, rebuilds keep the screen, own cadence (2026-10-18)
+
+Spec: `docs/FEEDBACK_BATCH_2026-10-17.md` W1/W3, G1, C1. Three behaviour changes, nothing else
+(the batch rule from the jenga section). versionCode 12 / 0.8.4. Unit suite 187 → 195.
+
+- [x] **W1/W3** `SessionDao.updateSetLogNumbers`; `updateSet(writeLog = true)` rewrites the
+  `set_log` row of a done set (weight, value; activeSecs/completedAt untouched); `updateWeight`
+  does the same for the edited row after forward-fill. `logSet`/`unlogSet` pass `writeLog = false`
+  (they own the row). Instrumented `SetLogEditTest` (in-memory Room) green on the AVD.
+- [x] **G1** `ui/session/Prefill.kt`: `prefillValue` / `prefillWeight` = on screen (non-zero) →
+  draft → previous log → template; `startOrResume` passes the current rows in. `RebuildKeepsScreenTest`.
+- [x] **C1** `shownCadence(own, partner)` returns the page's own cadence; the A6 partner rule is
+  gone from `SessionScreen`. `CadenceDisplayTest`.
+- [x] AVD pass (release 0.8.4, CORE, session 5 discarded, templates restored, DB pulled at each
+  step): Meta 10→15 on set 3 → Reps stayed 10 · Plank 1 logged at 0 kg, + on the done row →
+  `set_log` 48/0 = 1.0 · Plank cadence 3-0-1-0 → Russian Twist page "Editar cadência".
+  AVD note: the instrumented run needed the debug build, so the release was reinstalled and the
+  DB restored by hand (new uid u0_a226; DataStore reset → the AVD is in English now).
+- [x] 0.8.4 installed on the Redmi over adb (data kept).
+- [ ] Allan's gym check: correct a logged weight → next session shows the correction; change a
+  goal mid-session → reps untouched; superset cadences independent.
+- [ ] Next: G2/G3/G4 spec (history by exercise, profiles named by set pattern) before any code.
