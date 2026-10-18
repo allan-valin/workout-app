@@ -1573,3 +1573,19 @@ exercise; linking them through the gallery picker is one pick each. Plan JSON no
 - [ ] Device/emulator pass still owed for the two export buttons (sets CSV columns, all-cycles
   pivot) — exercised only by unit tests so far.
 
+
+## Phase 40 — 09/10–17/10 feedback: diagnosis only (2026-10-18, Allan: "identify what broke, don't fix yet")
+
+Spec and root causes: `docs/FEEDBACK_BATCH_2026-10-17.md`. Nothing in the app changed.
+- [x] Traced all eight items; 0.8.2/0.8.3 broke none of them. Causes: done-row edits write the
+  draft, never the log (W1, since Phase 3); plan edits rebuild rows from template/draft/log so a
+  goal change overwrites an untyped reps input (G1, since Phase 3); the cadence pill borrows the
+  superset partner's cadence (C1, regression of Phase 34 A6); the fase 3 JSON collapsed variants
+  onto base exercises and carries 0 of the PDF's 13 supersets (P1, P2, my import).
+- [x] AVD repro (release 0.8.3, session 4 discarded, templates restored): G1 Meta 10→15 moved Reps
+  10→15; W1 + on a done row → screen 1 kg, `set_log` 0.0, drafts 1.0 on the two undone sets too;
+  C1 Plank 3-0-1-0 shown on the Russian Twist page with its own tempo "".
+- [ ] W3 (10 kg → 16/8) needs the Redmi DB or a backup JSON before any hypothesis.
+- [ ] W2b needs Allan: does he tap "Descartar" on the end-of-session plan dialog?
+- [ ] Fix order proposed: collapse the three sources (W1+G1), own-cadence display (C1), history by
+  exerciseId (G2/G3), regenerate fase 3 JSON (P1/P2). Each behind a ViewModel-level test first.
