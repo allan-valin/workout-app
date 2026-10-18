@@ -34,21 +34,22 @@ cadence display rule (30/09, `1723933`), and the fase 3 plan JSON I generated on
 ### W2. Cadence "keeps changing" (17/10 22:05) — two candidate causes, one confirmed
 - (a) CONFIRMED display conflation, see C1: the pill shows the PARTNER's cadence whenever the marker
   is on the partner, so the same exercise reads two different cadences on different visits.
-- (b) PLAUSIBLE revert at session end: a cadence edit mid-session marks the plan "changed"; the end
-  dialog says "Você mudou séries durante o treino. Manter no plano ou aplicar só desta vez?" with
-  buttons **Descartar / Manter**. Tapping Descartar restores the entry snapshot — cadence included —
-  though the text only talks about séries. Verified on the AVD: Plank tempo 3-0-1-0 and the goal
-  15 both reverted after Descartar. Needs Allan: which button does he press?
+- (b) CLOSED (Allan, 18/10): Descartar reverting everything incl. cadence is intended — "option is
+  there mostly to debug or if I made some mistake I don't want to keep". Not a cause.
 
 ### W3. "second exercise of the superset set to 10 kg, next time 16 on the first and 8 on the rest" (16/10)
-- NOT reproducible without his data. The prefill is `draft → newest finished log for that setIndex →
-  template`; nothing in it halves or doubles. Candidates, in order: W1 (he corrected a logged row —
-  the log kept the old value); the template weights from the fase 3 JSON (my extrapolation put
-  different numbers on set 1 and the rest for several exercises) showing through because the
-  previous session was discarded or the exercise was re-imported/swapped (new `workoutExerciseId`
-  → no history); a weight-mode change (per side ↔ total) reinterpreting stored numbers.
-- Evidence needed: `adb pull` the Redmi DB (or a backup JSON) and look at `set_log` for that
-  workoutExerciseId. Do not guess a fix before that.
+- RESOLVED 18/10 from the Redmi backup (`workout_backup.json` exported over adb, sessions 101 and
+  109): Inferiores 2, Stiff unilateral apoiado (we 301, second member of the Cadeira Flexora
+  superset, PER_DUMBBELL, template 16/16/16/16 from my JSON). `set_log` of 09/10:
+  set 0 = **16.0** kg (logged untouched at the template prefill, active 300 s = the 5-min cap, i.e.
+  a long first set while he was adjusting), sets 1–3 = **8.0**. On 16/10 the prefill showed exactly
+  those rows: 16 on the first, 8 on the rest. He then logged 10/10/10/10.
+- So the number he "set to 10" on 09/10 never reached `set_log`: it was typed on rows already
+  logged (W1). The app showed 10 on the drafts for the rest of that session, deleted them at the
+  end, and the next session prefilled from the untouched log rows. Same root cause as W1; no
+  separate fix.
+- Side note for the next plan file: 16 kg per dumbbell on a unilateral stiff was my extrapolation;
+  his working weight is 10.
 
 ## G — goal / rep ranges
 
@@ -75,6 +76,18 @@ cadence display rule (30/09, `1723933`), and the fase 3 plan JSON I generated on
 
 ### G3. "Sync identical exercises across workouts / show last reps and weight" (10/10 20:41)
 - Feature ask, same root as G2: history keyed per slot, not per exercise. One change serves both.
+- Allan 18/10: sync needs a **profile** per exercise, named by its set pattern (e.g. "3x10",
+  "1x14, 1x12, 2x10"), so the same exercise with a different set scheme keeps its own weights.
+  Most exercises have only the default profile; profiles visible in edit mode only (space).
+  Import picks the profile matching the file's set pattern, else the default; different scheme →
+  new profile made by hand (or by me piloting the phone) when he asks.
+
+### G4. Import order, stated 18/10 (supersedes my reading of G2)
+- Reusing the catalogue exercise was right. The mistake: I changed the ranges to match what he
+  had done before, instead of leaving his numbers alone and setting the RANGE from the PDF.
+- Order: import → repeated exercise gets the same weight AND reps done from its last session →
+  then change the range (min–max) to what the PDF says. With profiles: import the matching
+  profile, hand-edit only the few that differ.
 
 ## C — supersets
 
@@ -98,8 +111,12 @@ cadence display rule (30/09, `1723933`), and the fase 3 plan JSON I generated on
 - "Tríceps na Polia com Barra Reta" → `wger_id: 1185` (Triceps Pushdown); "Tríceps na Polia com
   Corda" → no id (custom). Whether the rope one landed on an existing custom/alias needs the Redmi
   DB; the file itself does not tie them together.
-- Rule for the next file (added to memory): a PDF variant word (alternado, unilateral, corda, barra
+- Allan 18/10: confirmed — wger 75 was wrong; "alternado" at the end makes it a different
+  exercise, as always; not in the DB → custom. No correction of the current workout needed.
+- Rule for the next file (in memory): a PDF variant word (alternado, unilateral, corda, barra
   reta, neutra, supinada…) is a DIFFERENT exercise; custom if the catalogue has no exact variant.
+- P1 (variants) and P2 (supersets) are two separate findings; P2 is about the
+  `superset_with_previous` flag only.
 
 ### P2. Zero supersets in the file; the PDF has thirteen
 - `pdftotext` of "Rotina: FORTALECIMENTO - fase 3.pdf": 13 × "Exercícios combinados". The JSON has

@@ -1585,7 +1585,11 @@ Spec and root causes: `docs/FEEDBACK_BATCH_2026-10-17.md`. Nothing in the app ch
 - [x] AVD repro (release 0.8.3, session 4 discarded, templates restored): G1 Meta 10→15 moved Reps
   10→15; W1 + on a done row → screen 1 kg, `set_log` 0.0, drafts 1.0 on the two undone sets too;
   C1 Plank 3-0-1-0 shown on the Russian Twist page with its own tempo "".
-- [ ] W3 (10 kg → 16/8) needs the Redmi DB or a backup JSON before any hypothesis.
-- [ ] W2b needs Allan: does he tap "Descartar" on the end-of-session plan dialog?
+- [x] W3 resolved from the Redmi backup (18/10, wireless adb, backup exported via Settings → Downloads):
+  Stiff unilateral apoiado 09/10 logged 16/8/8/8 (set 0 = untouched template prefill); his
+  corrections were typed on logged rows → W1. Backup copy in the session scratchpad only.
+- [x] W2b closed: Descartar reverting cadence is intended (Allan).
+- [x] Allan's design decisions recorded in the batch doc: exercise PROFILES named by set pattern
+  (G3), import order = last weight+reps then PDF range (G4), variants are separate exercises (P1).
 - [ ] Fix order proposed: collapse the three sources (W1+G1), own-cadence display (C1), history by
   exerciseId (G2/G3), regenerate fase 3 JSON (P1/P2). Each behind a ViewModel-level test first.
