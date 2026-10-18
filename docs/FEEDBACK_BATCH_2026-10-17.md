@@ -94,8 +94,8 @@ cadence display rule (30/09, `1723933`), and the fase 3 plan JSON I generated on
   CSV on the phone. That file ends at session 89, **29/09**. His sessions of 30/09 (FULLBODY B),
   03/10 (A) and 04/10 (B) were not in it, so every repeated exercise got the numbers of the session
   before the last one (e.g. Supino 17.5×20 / 20×17 from 29/09 instead of 17.5×21 / 21.5×12 from
-  03/10; Panturrilha na parede 45/37/33 instead of 46/38/34). Checked against the backup: 23 of the
-  28 fase 3 exercises with history had a newer session than the CSV knew.
+  03/10; Panturrilha na parede 45/37/33 instead of 46/38/34). Checked against the backup: 21 of the
+  25 fase 3 exercises with history had a newer session than the CSV knew.
 - Root cause: I reused an old export instead of making a fresh one. Rule (memory): before building
   a plan file, export a fresh backup/CSV over adb (Settings → Backup completo, as done today) and
   check its last session date against the phone's last training day; never trust a file already
