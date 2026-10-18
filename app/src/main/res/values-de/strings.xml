@@ -341,4 +341,6 @@
     <string name="import_images">%1$d Referenzbilder verknüpft.</string>
     <string name="unilateral_toggle">Unilateral (je Seite, Zeit ×2)</string>
     <string name="export_weights_all_csv">Gewichtsverlauf exportieren, alle Zyklen (CSV)</string>
+    <string name="last_time_hint">Zuletzt %1$s</string>
+    <string name="profile_label">Profil: %1$s</string>
 </resources>

@@ -1618,3 +1618,31 @@ Spec: `docs/FEEDBACK_BATCH_2026-10-17.md` W1/W3, G1, C1. Three behaviour changes
 - [ ] Allan's gym check: correct a logged weight → next session shows the correction; change a
   goal mid-session → reps untouched; superset cadences independent.
 - [ ] Next: G2/G3/G4 spec (history by exercise, profiles named by set pattern) before any code.
+
+## Phase 42 — 0.8.5: history by exercise + profile, "last time" hint, release check (2026-10-18)
+
+Spec: `docs/FEEDBACK_BATCH_2026-10-17.md` G2/G3/G4; decisions by Allan 18/10 afternoon: profile =
+sets × reps/range + cadence + weight mode + unilateral, DERIVED from the templates (no table, no
+migration); no cross-profile prefill, a hint line instead; safety net = scripted AVD check + pure
+rules. versionCode 13 / 0.8.5. Unit suite 195 → 201. Two behaviour changes.
+
+- [x] `data/ExerciseProfile.kt`: `pattern` ("3×10", "1×14 1×12 2×10", "W2×12 3×8–12", "3×60s"),
+  `key`, `members`, `lastTimeHint`. `ExerciseProfileTest` (6).
+- [x] DAO: `workoutExercisesForExercise`, `setTemplatesFor`, `previousLogsFor(weIds)`,
+  `previousLogsForExercise`. `previousLogs(weId)` kept (TemplateCarry, swap).
+- [x] `startOrResume`: history = logs of every use of the exercise with the same key (self first);
+  the progression chip gets the same history. No same-profile history but some under another →
+  `SessionExercise.lastTimeHint` ("3×12: 20 kg × 12, 20 kg × 11"), shown under the chips as
+  "Last time …" (en/pt/de). Known limit: a slot's own old logs stay its history after its pattern
+  is edited (logs carry no pattern).
+- [x] Editor: "Profile: 3×10 @3-1-1-0" line when an exercise is expanded (edit mode only).
+- [x] `tools/release_check.py` now also: RT 1 at 33 kg, SAVE + "just this time" (templates
+  restored), archived copy "CORE 09/26" (same profile) prefills 33 kg (G2), goal change on the
+  copy → "Last time 3×10: 33 kg × 10" (G3), test sessions deleted on the AVD afterwards.
+  ALL PASS on 0.8.5 (AVD in English since the 0.8.4 DB restore; labels en/pt in the script).
+- [x] `tools/plan-check/check_plan.py`: validator for the next plan file (see MAINTENANCE).
+- [x] 0.8.5 installed on the Redmi over adb (data kept).
+- [ ] Allan's gym check (0.8.4 + 0.8.5): corrections after logging stick; goal edit keeps reps;
+  superset cadences independent; same exercise in two workouts shares weights; profile line in
+  the editor; hint line when the pattern differs.
+- [ ] Next plan file: build with the validator; variants → custom; fresh backup first.

@@ -341,4 +341,6 @@
     <string name="import_images">%1$d imagens de referência vinculadas.</string>
     <string name="unilateral_toggle">Unilateral (cada lado, tempo ×2)</string>
     <string name="export_weights_all_csv">Exportar evolução das cargas, todos os ciclos (CSV)</string>
+    <string name="last_time_hint">Última vez %1$s</string>
+    <string name="profile_label">Perfil: %1$s</string>
 </resources>

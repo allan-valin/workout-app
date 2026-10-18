@@ -1179,6 +1179,16 @@ private fun ExerciseEditorCard(
             }
 
           if (expanded) {
+            // Profile = the set pattern this exercise's history is keyed by (Phase 42). Edit
+            // mode only, to save space (Allan, 18/10): same pattern elsewhere = shared weights.
+            Text(
+                stringResource(
+                    R.string.profile_label,
+                    dev.allan.workoutapp.data.ExerciseProfile.key(item.sets, item.we.weightMode, item.we.unilateral).label,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             // Superset pairing: alternate with the previous exercise, rest after the pair.
             if (index > 0 || item.we.supersetWithPrev) {
                 FilterChip(

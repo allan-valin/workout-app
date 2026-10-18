@@ -823,6 +823,27 @@ private fun ExercisePage(page: Int, vm: SessionViewModel, state: SessionUiState)
             )
         }
 
+        // "Last time 3×12: 20 kg × 12, …" — the exercise's newest log under ANOTHER profile, so
+
+        // the two can be compared without switching workouts (Allan, 10/10: G3). Only when this
+
+        // profile has no history of its own.
+
+        ex.lastTimeHint?.let { hint ->
+
+            Text(
+
+                stringResource(R.string.last_time_hint, hint),
+
+                style = MaterialTheme.typography.bodySmall,
+
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+            )
+
+        }
+
+
         // Progression hint (never auto-applied): tap to take it, ✕ to dismiss.
         ex.suggestion?.let { s ->
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -1,7 +1,8 @@
 # Feedback batch — 09/10–17/10 2026 (Allan, fase 3 on 0.8.2/0.8.3)
 
 **Status 2026-10-18 (0.8.4, Phase 41): W1 (+W3) G1 C1 FIXED** — unit + instrumented + AVD-verified, see PROGRESS Phase 41.
-**OPEN:** G2/G3/G4 (history by exercise + profiles — decided 18/10 afternoon, see Phase 42). P1 is a rule for the next plan file; P2 retracted.
+**0.8.5 (Phase 42): G2/G3/G4 FIXED** — history by exercise + derived profile, hint line, editor label; AVD-verified by `tools/release_check.py`.
+**OPEN:** nothing in the app. P1 is a rule for the next plan file (validator); P2 retracted.
 Diagnosis as written on the morning of 18/10 follows.
 Every item below was traced in the code and, where it is app behaviour, reproduced on the AVD
 (release 0.8.3, CORE workout, session 4, discarded afterwards; `set_log` / `session_set_draft` /

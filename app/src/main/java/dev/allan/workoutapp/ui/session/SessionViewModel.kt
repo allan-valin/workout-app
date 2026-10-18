@@ -69,6 +69,10 @@ data class SessionExercise(
     val barWeightKg: Double,
     val imagePath: String?,
     val sets: List<SessionSet>,
+    /** Profile label ("3×10 @3-1-1-0") — the set pattern this exercise's history is keyed by. */
+    val profileLabel: String = "",
+    /** "3×12: 20 kg × 12, …" when the exercise has history only under ANOTHER profile. */
+    val lastTimeHint: String? = null,
     /** Alternates with the previous exercise (A1, B1, rest, A2, B2, …). */
     val supersetWithPrev: Boolean = false,
     /** One side at a time: rep estimates count twice (06/10). */
@@ -443,8 +447,27 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
         // it is 0 — see Prefill.kt. Empty on the first paint and after a process death.
         val onScreen = _state.value.exercises.flatMap { it.sets }.associateBy { it.templateId }
         val exercises = wes.map { we ->
-            val previous = db.sessionDao().previousLogs(we.id)
             val weTemplates = templates.filter { it.workoutExerciseId == we.id }.sortedBy { it.setIndex }
+            // History by exercise + profile (Phase 42): every use of this catalogue exercise whose
+            // set pattern / cadence / weight mode / unilateral flag equal this one's shares logs.
+            val selfKey = dev.allan.workoutapp.data.ExerciseProfile.key(weTemplates, we.weightMode, we.unilateral)
+            val uses = db.planDao().workoutExercisesForExercise(we.exerciseId).filter { it.id != we.id }
+            val useTemplates = if (uses.isEmpty()) emptyList() else db.planDao().setTemplatesFor(uses.map { it.id })
+            val others = uses.map { u ->
+                u.id to dev.allan.workoutapp.data.ExerciseProfile.key(
+                    useTemplates.filter { it.workoutExerciseId == u.id }, u.weightMode, u.unilateral,
+                )
+            }
+            val members = dev.allan.workoutapp.data.ExerciseProfile.members(we.id, selfKey, others)
+            val previous = db.sessionDao().previousLogsFor(members)
+            // No history under this profile but some under another: say what it was (G3).
+            val lastTimeHint = if (previous.isNotEmpty()) null else {
+                val anyLogs = db.sessionDao().previousLogsForExercise(we.exerciseId)
+                anyLogs.maxByOrNull { it.completedAt }?.let { newest ->
+                    val label = (others + (we.id to selfKey)).firstOrNull { it.first == newest.workoutExerciseId }?.second?.label ?: "?"
+                    dev.allan.workoutapp.data.ExerciseProfile.lastTimeHint(label, anyLogs)
+                }
+            }
             val sets = weTemplates.map { t ->
                 // Prefill order: on screen (non-zero) → this session's unlogged draft → most
                 // recent finished-session log for the same slot → template target (Prefill.kt).
@@ -477,6 +500,8 @@ class SessionViewModel(app: Application, private val workoutId: Long, private va
                 barWeightKg = we.barWeightKg,
                 imagePath = exercise?.imagePath,
                 sets = sets,
+                profileLabel = selfKey.label,
+                lastTimeHint = lastTimeHint,
                 supersetWithPrev = we.supersetWithPrev,
                 unilateral = we.unilateral,
                 pinnedNote = db.sessionDao().pinnedNote(we.exerciseId)?.takeIf { it.isNotBlank() },

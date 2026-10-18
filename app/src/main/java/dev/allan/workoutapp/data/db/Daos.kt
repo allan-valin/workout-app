@@ -446,6 +446,13 @@ interface PlanDao {
     @Query("SELECT * FROM workout_exercise WHERE workoutId = :workoutId ORDER BY orderIndex")
     fun workoutExercises(workoutId: Long): Flow<List<WorkoutExercise>>
 
+    /** Every use of a catalogue exercise, in any workout (profiles, Phase 42). */
+    @Query("SELECT * FROM workout_exercise WHERE exerciseId = :exerciseId")
+    suspend fun workoutExercisesForExercise(exerciseId: String): List<WorkoutExercise>
+
+    @Query("SELECT * FROM set_template WHERE workoutExerciseId IN (:weIds) ORDER BY workoutExerciseId, setIndex")
+    suspend fun setTemplatesFor(weIds: List<Long>): List<SetTemplate>
+
     @Insert
     suspend fun insertSetTemplate(item: SetTemplate): Long
 
@@ -566,6 +573,28 @@ interface SessionDao {
         """
     )
     suspend fun previousLogs(workoutExerciseId: Long): List<SetLog>
+
+    /** [previousLogs] over several uses of the same exercise (the members of one profile). */
+    @Query(
+        """
+        SELECT sl.* FROM set_log sl
+        JOIN session s ON s.id = sl.sessionId
+        WHERE sl.workoutExerciseId IN (:weIds) AND s.status IN ('FINISHED','AUTO_ENDED')
+        ORDER BY sl.completedAt DESC
+        """
+    )
+    suspend fun previousLogsFor(weIds: List<Long>): List<SetLog>
+
+    /** Every finished log of a catalogue exercise, any profile — for the "last time" hint. */
+    @Query(
+        """
+        SELECT sl.* FROM set_log sl
+        JOIN session s ON s.id = sl.sessionId
+        WHERE sl.exerciseId = :exerciseId AND s.status IN ('FINISHED','AUTO_ENDED')
+        ORDER BY sl.completedAt DESC
+        """
+    )
+    suspend fun previousLogsForExercise(exerciseId: String): List<SetLog>
 
     @Query("SELECT * FROM session WHERE status IN ('FINISHED','AUTO_ENDED') ORDER BY startedAt")
     suspend fun finishedSessions(): List<Session>
