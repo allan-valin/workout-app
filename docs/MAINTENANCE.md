@@ -41,6 +41,15 @@ workout-app/
   runs headless under a tiny DOM stub (see Phase-10 session notes) or just open the file
   in a browser and click through create-plan → add exercise → start → log → end.
 
+## Release check (RULE since 0.8.4)
+
+Before every version Allan installs: `assembleRelease`, boot the AVD, then
+`ANDROID_SERIAL=emulator-5554 tools/release_check.py --apk app/build/outputs/apk/release/app-release.apk`.
+It drives the CORE session and asserts the DB (superset hand-over, goal edit keeps reps, done-row
+edit rewrites `set_log`, own cadence only, discard restores templates). Extend it with one
+assertion per behaviour change; a FAIL blocks the install. Plan files go through
+`tools/plan-check/check_plan.py` before import. ≤3 behaviour changes per version.
+
 ## Emulator (AVD `testphone`)
 
 - Launch with `-gpu swiftshader_indirect`. On this machine `-gpu host` segfaults the
