@@ -1,7 +1,7 @@
 # Feedback batch — 09/10–17/10 2026 (Allan, fase 3 on 0.8.2/0.8.3)
 
 **Status 2026-10-18 (0.8.4, Phase 41): W1 (+W3) G1 C1 FIXED** — unit + instrumented + AVD-verified, see PROGRESS Phase 41.
-**OPEN:** G2/G3/G4 (history by exercise + profiles, needs a spec), P1/P2 are rules for the next plan file.
+**OPEN:** G2/G3/G4 (history by exercise + profiles — decided 18/10 afternoon, see Phase 42). P1 is a rule for the next plan file; P2 retracted.
 Diagnosis as written on the morning of 18/10 follows.
 Every item below was traced in the code and, where it is app behaviour, reproduced on the AVD
 (release 0.8.3, CORE workout, session 4, discarded afterwards; `set_log` / `session_set_draft` /
@@ -132,11 +132,10 @@ cadence display rule (30/09, `1723933`), and the fase 3 plan JSON I generated on
 - P1 (variants) and P2 (supersets) are two separate findings; P2 is about the
   `superset_with_previous` flag only.
 
-### P2. Zero supersets in the file; the PDF has thirteen
-- `pdftotext` of "Rotina: FORTALECIMENTO - fase 3.pdf": 13 × "Exercícios combinados". The JSON has
-  no `superset_with_previous` at all. Whatever supersets exist on the phone, Allan set by hand.
-- Rule for the next file: `count("Exercícios combinados") == count(superset_with_previous: true)`,
-  checked by script before import.
+### P2. RETRACTED (18/10 afternoon) — the file DOES carry the supersets
+- My morning listing read the key `superset_with_prev`; the file uses `superset_with_previous` and
+  has 15 flags for the PDF's 13 "Exercícios combinados" groups. `tools/plan-check/check_plan.py`
+  (written this afternoon) counts both correctly. P1 stands.
 
 ---
 

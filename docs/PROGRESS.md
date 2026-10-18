@@ -1581,7 +1581,7 @@ Spec and root causes: `docs/FEEDBACK_BATCH_2026-10-17.md`. Nothing in the app ch
   draft, never the log (W1, since Phase 3); plan edits rebuild rows from template/draft/log so a
   goal change overwrites an untyped reps input (G1, since Phase 3); the cadence pill borrows the
   superset partner's cadence (C1, regression of Phase 34 A6); the fase 3 JSON collapsed variants
-  onto base exercises and carries 0 of the PDF's 13 supersets (P1, P2, my import).
+  onto base exercises (P1, my import; P2 'no supersets in the file' was my misread of the key, retracted).
 - [x] AVD repro (release 0.8.3, session 4 discarded, templates restored): G1 Meta 10→15 moved Reps
   10→15; W1 + on a done row → screen 1 kg, `set_log` 0.0, drafts 1.0 on the two undone sets too;
   C1 Plank 3-0-1-0 shown on the Russian Twist page with its own tempo "".
