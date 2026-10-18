@@ -1646,3 +1646,26 @@ rules. versionCode 13 / 0.8.5. Unit suite 195 → 201. Two behaviour changes.
   superset cadences independent; same exercise in two workouts shares weights; profile line in
   the editor; hint line when the pattern differs.
 - [ ] Next plan file: build with the validator; variants → custom; fresh backup first.
+
+## Phase 43 — 0.8.6: X1 quick fix (accents folded on CSV export) + 0.8.3 exports device-checked (2026-10-18)
+
+X1 evidence on the Redmi (phone unlocked by Allan, exports driven over adb, `weight_evolution_all.csv`
+opened by content URI in Google Sheets, screenshots): the file was correct (UTF-8, BOM `ef bb bf`,
+"Abdução" intact) — the VIEWER is the problem. Google Sheets on Android ignores the UTF-8 BOM
+and decodes Latin-1 ("ï»¿exercise", "AbduÃ§Ã£o"); Latin-1 input → CJK garbage; UTF-16LE → every
+accent right, with "ÿþ" in A1 when a BOM is present and clean without one. Desktop Excel wants
+the BOM and reads UTF-16 as tab-separated, so no encoding serves both. WPS not tested (multiple
+activities, resolver loop).
+
+Allan's call: "quick fix, on export swap ç for c, ã for a, and so on. keep as an open task for
+later on."
+- [x] `CsvExport.fileBytes`: NFD fold, combining marks dropped, anything non-ASCII left → "?",
+  no BOM. `CsvFileBytesTest` rewritten (3). Unit suite 202/202. versionCode 14 / 0.8.6.
+- [x] `tools/release_check.py` ALL PASS on 0.8.6 (AVD). Installed on the Redmi; the real export
+  reads `exercise,set,…` / "Abducao de Quadril Deitado de Lado", `file` says "CSV ASCII text".
+- [x] 0.8.3 export buttons device-checked on the Redmi (owed since Phase 39): sets CSV carries
+  `started_at` and `gap_before_secs`; all-cycles pivot = 303 rows back to 2026-07-24 vs 102 for
+  the active cycle.
+- [ ] **X1 proper, OPEN:** accents back in the CSV without breaking the phone viewer — options
+  are UTF-16LE without BOM (Sheets-perfect, Excel-hostile), xlsx export, or a per-viewer choice.
+  Decide when Allan wants the accents back.

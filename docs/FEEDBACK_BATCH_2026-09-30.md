@@ -52,8 +52,9 @@ max(5 min, 2× estimate), stopwatch as-is unless the "forgot?" box is ticked).
   spreadsheet apps decode that as the system code page.
 - Fix: `CsvExport.fileBytes` prefixes the UTF-8 BOM; only CSV, never JSON (our own import would choke).
   `CsvFileBytesTest`.
-- **Redmi 02/10: still wrong characters.** OPEN — see PROGRESS Phase 37 for the evidence-first
-  procedure (pull the file, hex-dump, which app, which export).
+- **Redmi 02/10: still wrong characters.** 18/10: evidence gathered (PROGRESS Phase 43) — the file was
+  right, Google Sheets on Android ignores the BOM. Quick fix shipped in 0.8.6: accents folded to ASCII
+  on export. Accents-in-CSV stays OPEN as a later task.
 
 ## N — Exercise names
 

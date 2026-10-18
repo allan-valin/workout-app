@@ -60,7 +60,7 @@ import kotlinx.coroutines.launch
  * MUST NEVER:
  *  - open the Spotify connection itself — flipping the switch is read by AppRoot, which owns
  *    the one connection (30/09 S2);
- *  - write a CSV without CsvExport.fileBytes (the BOM lives there, 30/09 X1);
+ *  - write a CSV without CsvExport.fileBytes (the ASCII fold lives there, 30/09 X1, 18/10);
  *  - restore a backup over existing data without the warning (Backup is a migration tool);
  *  - run the wger refresh without re-merging the generated pt aliases afterwards.
  * Shaped by: 24/07 (beep volume), 30/09 (Spotify lifetime, CSV BOM, per-set evolution).

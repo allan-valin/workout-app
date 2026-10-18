@@ -13,8 +13,8 @@ import java.time.format.DateTimeFormatter
  *
  * OWNS: the four CSV shapes (sets, sessions, body, weight evolution) and the bytes written.
  * MUST NEVER:
- *  - write a CSV without the UTF-8 BOM (30/09 X1: ç à á ã came out mangled in Excel);
- *  - put the BOM on anything but CSV (our own JSON import would choke on it);
+ *  - write a CSV with anything but plain ASCII (30/09 X1: ç à á ã came out mangled; a UTF-8
+ *    BOM did not help on the phone, 18/10 — accents are folded on export until X1 is solved);
  *  - change a column name without updating the generator doc — browser Claude reads these.
  * Shaped by: 30/09 X1 (BOM), 30/09 (weight evolution per SET, not per exercise:
  * bodyweight work progresses in reps and sets differ in weight).
@@ -22,15 +22,19 @@ import java.time.format.DateTimeFormatter
 object CsvExport {
 
     /** UTF-8 byte-order mark: tells Excel / phone spreadsheet apps the file is UTF-8. */
-    const val BOM = "\uFEFF"
 
     /**
-     * Bytes to write for a CSV file. Allan, 30/09: "Export does not recognize pt-br
-     * characters like ç àáã" — bare UTF-8 is read as the system code page by most spreadsheet
-     * apps; the BOM makes them decode it as UTF-8. Only CSV gets it (a BOM breaks JSON
-     * parsers, and our own backup/plan import is one).
+     * Bytes of a CSV file: plain ASCII, accents folded ("Abdução" → "Abducao"), no byte-order
+     * mark. History: bare UTF-8 showed mojibake on the phone (30/09); a UTF-8 BOM did not help
+     * because Google Sheets on Android ignores it and decodes Latin-1 (18/10, tested with four
+     * encodings — PROGRESS Phase 43). Allan's call: fold on export now, real fix later (X1 open).
+     * Anything outside Latin letters that has no base letter becomes "?" so columns never shift.
      */
-    fun fileBytes(csv: String): ByteArray = (BOM + csv).toByteArray(Charsets.UTF_8)
+    fun fileBytes(csv: String): ByteArray {
+        val folded = java.text.Normalizer.normalize(csv, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+        return folded.map { if (it.code < 128) it else '?' }.joinToString("").toByteArray(Charsets.US_ASCII)
+    }
 
     private val dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     private val dayFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
