@@ -16,7 +16,7 @@ logged in CORE · the saved session is deleted again at the end (sqlite3 on the 
 """
 import os, re, subprocess, sys, time, sqlite3, shutil, tempfile
 
-ADB = "/home/allan/Android/Sdk/platform-tools/adb"
+ADB = shutil.which("adb") or os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Android/Sdk")), "platform-tools", "adb")
 PKG = "dev.allan.workoutapp"
 HERE = os.path.dirname(os.path.abspath(__file__))
 UI = os.path.join(HERE, "emu_ui.py")

@@ -9,9 +9,8 @@ Notes learnt the hard way: the uiautomator dump lists only on-screen nodes; snac
 4 s, so tap their action by coordinates without a dump in between; a dialog moves when the
 keyboard opens, so locate OK after typing; `input text` needs a focused field.
 """
-import subprocess, sys, re, time
-ADB = "/home/allan/Android/Sdk/platform-tools/adb"
-import os
+import os, shutil, subprocess, sys, re, time
+ADB = shutil.which("adb") or os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Android/Sdk")), "platform-tools", "adb")
 S = os.environ.get("SHOT_DIR", "/tmp")
 def sh(*a): return subprocess.run([ADB, *a], capture_output=True, text=True).stdout
 def nodes():
